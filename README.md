@@ -2,13 +2,36 @@
   <img src="./docs/images/logo.png" alt="Hermnet Logo" width="500"/>
 </p>
 
-<h1 align="center">Hermnet</h1>
+<p align="center">
+  <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=spring&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" />
+</p> 
 
 <h3 align="center"><em>Privacidad por Diseño y Esteganografía Avanzada</em></h3>
 
 <p align="center">  
-  <a href="./docs/Anteproyecto.md"><strong>[Leer el Anteproyecto Completo]</strong></a>
+  <a href="./docs/anteproyecto.md"><strong>[Leer el Anteproyecto Completo]</strong></a>
 </p>
+
+<h3 align="center">Índice</h3>
+
+
+| Módulo | Descripción Técnica |
+| :--- | :--- |
+| **[Especificación Detallada](./docs/technical/descripcion_detallada.md)** | **Documento Maestro:** Especificación técnica completa del sistema. |
+| **[Generación de Identidad](./docs/technical/generacion_identidad.md)** | Generación de claves Ed25519 y protección del almacén local. |
+| **[Protocolo de Autenticación](./docs/technical/protocolo_autenticacion.md)** | Protocolo Challenge-Response Zero-Knowledge. |
+| **[Intercambio de Claves P2P](./docs/technical/intercambio_claves_p2p.md)** | Vinculación segura mediante códigos QR y Deep Links. |
+| **[Esquema de Base de Datos](./docs/technical/esquema_base_datos.md)** | Estructura relacional del servidor y persistencia efímera. |
+| **[Cifrado Híbrido (E2EE)](./docs/technical/cifrado_hibrido_e2ee.md)** | Motor criptográfico híbrido (AES-256 + ECC). |
+| **[Algoritmo de Esteganografía](./docs/technical/algoritmo_esteganografia.md)** | Algoritmo LSB para inyección invisible de datos en PNGs. |
+| **[Arquitectura Backend API](./docs/technical/arquitectura_backend_api.md)** | Especificación de la API REST y políticas de privacidad. |
 
 <div style="text-align: justify; text-indent: 20px;">
 
