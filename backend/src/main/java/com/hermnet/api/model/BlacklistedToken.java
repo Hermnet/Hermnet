@@ -16,10 +16,10 @@ public class BlacklistedToken {
      @Id
      private String tokenHash;
 
-     @Column(nullable = false)
+     @Column(name = "expires_at", nullable = false)
      private LocalDateTime expiresAt;
 
-     @Column(nullable = false)
+     @Column(name = "blacklisted_at", nullable = false)
      private LocalDateTime blacklistedAt;
 
      @PrePersist

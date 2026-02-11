@@ -28,7 +28,7 @@ public class Message {
      * The ID of the user who will receive this message.
      * This field is used for routing the message to the correct mailbox.
      */
-    @Column(length = 64, nullable = false)
+    @Column(name = "recipient_id", length = 64, nullable = false)
     private String recipientId;
 
     /**
@@ -38,7 +38,7 @@ public class Message {
      * communication patterns (who is talking to whom) while still allowing
      * basic rate limiting or blocking if needed.
      */
-    @Column(length = 64, nullable = false)
+    @Column(name = "sender_id_hash", length = 64, nullable = false)
     private String senderIdHash;
 
     /**
@@ -48,13 +48,13 @@ public class Message {
      * with the recipient's public key. The server cannot decrypt this.
      */
     @Lob
-    @Column(nullable = false)
+    @Column(name = "stego_packet", nullable = false)
     private byte[] encryptedImage;
 
     /**
      * Timestamp when the message was received by the server.
      */
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     /**

@@ -39,7 +39,7 @@ public class AuthChallenge {
     /**
      * The timestamp when this challenge expires.
      */
-    @Column(nullable = false)
+    @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
     /**
