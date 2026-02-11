@@ -1,14 +1,17 @@
 import * as SQLite from 'expo-sqlite';
 
 export class DatabaseService {
-    private db: SQLite.SQLiteDatabase | null = null;
+  private db: SQLite.SQLiteDatabase | null = null;
 
-    async initDB() {
-        // Abrimos la base de datos (se crea si no existe)
-        this.db = await SQLite.openDatabaseAsync('hermnet.db');
+  /**
+   * Initializes the database connection and creates necessary tables if they don't exist.
+   */
+  async initDB() {
+    // Open the database (creates it if it doesn't exist)
+    this.db = await SQLite.openDatabaseAsync('hermnet.db');
 
-        // Ejecutamos las queries de creación de tablas
-        await this.db.execAsync(`
+    // Execute table creation queries
+    await this.db.execAsync(`
       PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS key_store (
         id INTEGER PRIMARY KEY NOT NULL,
@@ -21,11 +24,15 @@ export class DatabaseService {
         public_key TEXT UNIQUE
       );
     `);
-    }
+  }
 
-    getDatabase() {
-        return this.db;
-    }
+  /**
+   * Retrieves the database instance.
+   * @returns {SQLite.SQLiteDatabase | null} The database instance.
+   */
+  getDatabase() {
+    return this.db;
+  }
 }
 
 export const databaseService = new DatabaseService();
