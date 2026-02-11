@@ -3,7 +3,7 @@ package com.hermnet.api.config;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestIpIsAnonymized {
+public class IpHasherTest {
 
     @Test
     public void testIpHashingIsConsistent() {
