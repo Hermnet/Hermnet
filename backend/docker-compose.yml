@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  hermnet-db:
+    image: postgres:15-alpine
+    container_name: hermnet_postgres
+    environment:
+      POSTGRES_DB: hermnet_blind_db
+      POSTGRES_USER: alvaro_admin
+      POSTGRES_PASSWORD: alvaro_admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/ver/lib/postgresql/data
+    
+volumes:
+  postgres_data:
