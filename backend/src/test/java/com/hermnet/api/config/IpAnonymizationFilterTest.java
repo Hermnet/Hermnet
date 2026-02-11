@@ -43,6 +43,8 @@ public class IpAnonymizationFilterTest {
 
         // Assert
         // Verify that the IpHasher was called (implicitly by checking the result)
+        // Note: Since IpHasher uses LocalDate.now(), both calls (inside filter and here) 
+        // will produce the same hash as long as they run on the same day.
         String expectedHash = IpHasher.hash(realIp);
 
         // Verify that the attribute CLIENT_ID was set with the hashed IP
