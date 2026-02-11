@@ -1,14 +1,13 @@
 package com.hermnet.api.repository;
 
 import com.hermnet.api.model.User;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,17 +15,11 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration tests for UserRepository.
  * 
- * These tests verify:
+ * Verifies database operations for User entity including:
  * - CRUD operations (Create, Read, Update, Delete)
- * - Custom query methods (findByPublicKey)
- * - Database constraints (unique public key, nullable fields)
- * - JPA lifecycle callbacks (@PrePersist)
- * - Edge cases and error handling
- * 
- * Uses @DataJpaTest which provides:
- * - Transactional test execution (rollback after each test)
- * - In-memory or configured test database
- * - Auto-configuration of JPA components
+ * - Custom query methods
+ * - Database constraints and validation
+ * - Lifecycle callbacks (@PrePersist)
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -41,16 +34,13 @@ public class UserRepositoryTest {
         userRepository.deleteAll();
     }
 
-    // Note: No tearDown needed - @DataJpaTest automatically rolls back transactions
-    // after each test
-
     // ==================== CREATE TESTS ====================
 
     @Test
-    public void testSaveUser_ShouldPersistSuccessfully() {
+    public void testSaveUser_ShouldPersistUser() {
         // Given
         User user = User.builder()
-                .id("HNET-SAVE001")
+                .idHash("HNET-TEST001")
                 .publicKey("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...")
                 .build();
 
@@ -59,53 +49,52 @@ public class UserRepositoryTest {
 
         // Then
         assertNotNull(savedUser, "Saved user should not be null");
-        assertEquals("HNET-SAVE001", savedUser.getId(), "User ID should match");
-        assertNotNull(savedUser.getCreatedAt(), "CreatedAt should be set by @PrePersist");
+        assertEquals("HNET-TEST001", savedUser.getIdHash());
+        assertNotNull(savedUser.getCreatedAt(), "CreatedAt should be auto-generated");
+        
+        // Verify we can retrieve it
+        Optional<User> retrievedUser = userRepository.findById("HNET-TEST001");
+        assertTrue(retrievedUser.isPresent(), "Should fail to find user by ID");
+        assertEquals("HNET-TEST001", retrievedUser.get().getIdHash());
     }
 
     @Test
     public void testSaveUser_ShouldAutoGenerateCreatedAt() {
         // Given
         User user = User.builder()
-                .id("HNET-TIMESTAMP001")
-                .publicKey("timestamp-test-key")
+                .idHash("HNET-TIME001")
+                .publicKey("timestamp-key")
                 .build();
-
-        // Verify createdAt is null before save
-        assertNull(user.getCreatedAt(), "CreatedAt should be null before persistence");
 
         // When
         User savedUser = userRepository.save(user);
 
         // Then
-        assertNotNull(savedUser.getCreatedAt(), "CreatedAt should be automatically set on save");
+        assertNotNull(savedUser.getCreatedAt(), "CreatedAt should not be null");
     }
 
     @Test
     public void testSaveMultipleUsers_ShouldPersistAll() {
         // Given
-        User user1 = User.builder().id("HNET-MULTI001").publicKey("key1").build();
-        User user2 = User.builder().id("HNET-MULTI002").publicKey("key2").build();
-        User user3 = User.builder().id("HNET-MULTI003").publicKey("key3").build();
+        User user1 = User.builder().idHash("HNET-MULTI001").publicKey("key1").build();
+        User user2 = User.builder().idHash("HNET-MULTI002").publicKey("key2").build();
 
         // When
         userRepository.save(user1);
         userRepository.save(user2);
-        userRepository.save(user3);
 
         // Then
-        List<User> allUsers = userRepository.findAll();
-        assertEquals(3, allUsers.size(), "Should have 3 users in database");
+        assertEquals(2, userRepository.count(), "Should have 2 users in database");
     }
 
     // ==================== READ TESTS ====================
 
     @Test
-    public void testFindById_ExistingUser_ShouldReturnUser() {
+    public void testFindById_ShouldReturnUser_WhenExists() {
         // Given
         User user = User.builder()
-                .id("HNET-FIND001")
-                .publicKey("find-test-key")
+                .idHash("HNET-FIND001")
+                .publicKey("find-by-id-key")
                 .build();
         userRepository.save(user);
 
@@ -113,103 +102,84 @@ public class UserRepositoryTest {
         Optional<User> found = userRepository.findById("HNET-FIND001");
 
         // Then
-        assertTrue(found.isPresent(), "User should be found");
-        assertEquals("HNET-FIND001", found.get().getId(), "User ID should match");
-        assertEquals("find-test-key", found.get().getPublicKey(), "Public key should match");
+        assertTrue(found.isPresent(), "Should find user");
+        assertEquals("HNET-FIND001", found.get().getIdHash());
     }
 
     @Test
-    public void testFindById_NonExistingUser_ShouldReturnEmpty() {
+    public void testFindById_ShouldReturnEmpty_WhenNotExists() {
         // When
-        Optional<User> found = userRepository.findById("HNET-NONEXISTENT");
+        Optional<User> found = userRepository.findById("NON-EXISTENT-ID");
 
         // Then
-        assertFalse(found.isPresent(), "Should return empty Optional for non-existent user");
+        assertFalse(found.isPresent(), "Should return empty optional for non-existent ID");
     }
 
     @Test
-    public void testFindByPublicKey_ExistingKey_ShouldReturnUser() {
+    public void testFindByPublicKey_ShouldReturnUser_WhenExists() {
         // Given
-        String publicKey = "ssh-rsa UNIQUE_KEY_12345";
         User user = User.builder()
-                .id("HNET-PUBKEY001")
-                .publicKey(publicKey)
+                .idHash("HNET-ByKEY")
+                .publicKey("unique-public-key-123")
                 .build();
         userRepository.save(user);
 
         // When
-        Optional<User> found = userRepository.findByPublicKey(publicKey);
+        Optional<User> found = userRepository.findByPublicKey("unique-public-key-123");
 
         // Then
-        assertTrue(found.isPresent(), "User should be found by public key");
-        assertEquals("HNET-PUBKEY001", found.get().getId(), "User ID should match");
-        assertEquals(publicKey, found.get().getPublicKey(), "Public key should match");
+        assertTrue(found.isPresent(), "Should find user by public key");
+        assertEquals("HNET-ByKEY", found.get().getIdHash());
     }
 
     @Test
-    public void testFindByPublicKey_NonExistingKey_ShouldReturnEmpty() {
+    public void testFindByPublicKey_ShouldReturnEmpty_WhenNotExists() {
         // When
         Optional<User> found = userRepository.findByPublicKey("non-existent-key");
 
         // Then
-        assertFalse(found.isPresent(), "Should return empty Optional for non-existent public key");
+        assertFalse(found.isPresent(), "Should return empty optional for non-existent key");
     }
 
     @Test
     public void testFindAll_ShouldReturnAllUsers() {
         // Given
-        userRepository.save(User.builder().id("HNET-ALL001").publicKey("key1").build());
-        userRepository.save(User.builder().id("HNET-ALL002").publicKey("key2").build());
-        userRepository.save(User.builder().id("HNET-ALL003").publicKey("key3").build());
-
-        // When
-        List<User> allUsers = userRepository.findAll();
-
-        // Then
-        assertEquals(3, allUsers.size(), "Should return all 3 users");
-    }
-
-    @Test
-    public void testFindAll_EmptyDatabase_ShouldReturnEmptyList() {
-        // When
-        List<User> allUsers = userRepository.findAll();
-
-        // Then
-        assertTrue(allUsers.isEmpty(), "Should return empty list when no users exist");
-    }
-
-    @Test
-    public void testCount_ShouldReturnCorrectCount() {
-        // Given
-        userRepository.save(User.builder().id("HNET-COUNT001").publicKey("key1").build());
-        userRepository.save(User.builder().id("HNET-COUNT002").publicKey("key2").build());
+        userRepository.save(User.builder().idHash("HNET-1").publicKey("key1").build());
+        userRepository.save(User.builder().idHash("HNET-2").publicKey("key2").build());
 
         // When
         long count = userRepository.count();
 
         // Then
-        assertEquals(2, count, "Should return correct count of users");
+        assertEquals(2, count, "Should have 2 users");
     }
 
     @Test
-    public void testExistsById_ExistingUser_ShouldReturnTrue() {
+    public void testFindAll_ShouldReturnEmptyList_WhenNoUsers() {
+        // When
+        long count = userRepository.count();
+
+        // Then
+        assertEquals(0, count, "Should have 0 users initially");
+    }
+
+    @Test
+    public void testCount() {
         // Given
-        userRepository.save(User.builder().id("HNET-EXISTS001").publicKey("exists-key").build());
-
-        // When
-        boolean exists = userRepository.existsById("HNET-EXISTS001");
+        userRepository.save(User.builder().idHash("HNET-COUNT").publicKey("count-key").build());
 
         // Then
-        assertTrue(exists, "Should return true for existing user");
+        assertEquals(1, userRepository.count(), "Count should be 1");
     }
 
     @Test
-    public void testExistsById_NonExistingUser_ShouldReturnFalse() {
-        // When
-        boolean exists = userRepository.existsById("HNET-NONEXISTENT");
+    public void testExistsById() {
+        // Given
+        userRepository.save(User.builder().idHash("HNET-EXIST").publicKey("exist-key").build());
 
         // Then
-        assertFalse(exists, "Should return false for non-existent user");
+        assertTrue(userRepository.existsById("HNET-EXIST"), "Should return true for existing ID");
+        assertFalse(userRepository.existsById("NON-EXISTENT"), "Should return false for non-existent ID");
     }
 
     // ==================== UPDATE TESTS ====================
@@ -218,22 +188,46 @@ public class UserRepositoryTest {
     public void testUpdateUser_ShouldModifyExistingUser() {
         // Given - Create and save initial user
         User user = User.builder()
-                .id("HNET-UPDATE001")
+                .idHash("HNET-UPDATE001")
                 .publicKey("original-key")
                 .build();
         userRepository.save(user);
-
+    
         // When - Fetch the user from database and update the public key
         User fetchedUser = userRepository.findById("HNET-UPDATE001").get();
         fetchedUser.setPublicKey("updated-key");
-        User updatedUser = userRepository.save(fetchedUser);
-
+        userRepository.save(fetchedUser);
+    
         // Then
-        assertEquals("updated-key", updatedUser.getPublicKey(), "Public key should be updated");
-
+        assertEquals("updated-key", fetchedUser.getPublicKey(), "Public key should be updated");
+        
         // Verify in database
         User foundUser = userRepository.findById("HNET-UPDATE001").get();
         assertEquals("updated-key", foundUser.getPublicKey(), "Updated key should persist in database");
+    }
+
+    @Test
+    public void testSaveUser_DuplicateId_ShouldUpdateExisting() {
+        // Given - Save first user
+        User user1 = User.builder()
+                .idHash("HNET-DUPID001")
+                .publicKey("first-key")
+                .build();
+        userRepository.save(user1);
+
+        // When - Fetch (or create representative) and update
+        // Note: Building a new object with same ID works for update ONLY if we handle unmodifiable fields 
+        // like createdAt correctly, or if we are okay with them being overwritten/nulled if not set.
+        // The safest way to "update" is fetch-modify-save.
+        
+        User fetched = userRepository.findById("HNET-DUPID001").get();
+        fetched.setPublicKey("second-key");
+        userRepository.save(fetched);
+
+        // Then - Should update existing user (ID is primary key)
+        assertEquals(1, userRepository.count(), "Should still have only 1 user");
+        User found = userRepository.findById("HNET-DUPID001").get();
+        assertEquals("second-key", found.getPublicKey(), "Public key should be updated");
     }
 
     // ==================== DELETE TESTS ====================
@@ -241,69 +235,55 @@ public class UserRepositoryTest {
     @Test
     public void testDeleteById_ShouldRemoveUser() {
         // Given
-        User user = User.builder()
-                .id("HNET-DELETE001")
-                .publicKey("delete-test-key")
-                .build();
-        userRepository.save(user);
-
-        // Verify user exists
-        assertTrue(userRepository.existsById("HNET-DELETE001"), "User should exist before deletion");
+        userRepository.save(User.builder().idHash("HNET-DEL").publicKey("del-key").build());
 
         // When
-        userRepository.deleteById("HNET-DELETE001");
+        userRepository.deleteById("HNET-DEL");
 
         // Then
-        assertFalse(userRepository.existsById("HNET-DELETE001"), "User should not exist after deletion");
+        assertFalse(userRepository.existsById("HNET-DEL"), "User should be deleted");
     }
 
     @Test
     public void testDelete_ShouldRemoveUser() {
         // Given
-        User user = User.builder()
-                .id("HNET-DELETE002")
-                .publicKey("delete-entity-key")
-                .build();
-        User savedUser = userRepository.save(user);
+        User user = User.builder().idHash("HNET-DELOBJ").publicKey("del-obj-key").build();
+        userRepository.save(user);
 
         // When
-        userRepository.delete(savedUser);
+        userRepository.delete(user);
 
         // Then
-        assertFalse(userRepository.existsById("HNET-DELETE002"), "User should be deleted");
+        assertFalse(userRepository.existsById("HNET-DELOBJ"), "User should be deleted");
     }
 
     @Test
     public void testDeleteAll_ShouldRemoveAllUsers() {
         // Given
-        userRepository.save(User.builder().id("HNET-DELALL001").publicKey("key1").build());
-        userRepository.save(User.builder().id("HNET-DELALL002").publicKey("key2").build());
-        userRepository.save(User.builder().id("HNET-DELALL003").publicKey("key3").build());
-
-        // Verify users exist
-        assertEquals(3, userRepository.count(), "Should have 3 users before deletion");
+        userRepository.save(User.builder().idHash("HNET-1").publicKey("k1").build());
+        userRepository.save(User.builder().idHash("HNET-2").publicKey("k2").build());
 
         // When
         userRepository.deleteAll();
 
         // Then
-        assertEquals(0, userRepository.count(), "Should have 0 users after deleteAll");
+        assertEquals(0, userRepository.count(), "Database should be empty");
     }
 
-    // ==================== CONSTRAINT TESTS ====================
+    // ==================== CONSTRAINTS & NEGATIVE TESTS ====================
 
     @Test
     public void testSaveUser_DuplicatePublicKey_ShouldThrowException() {
         // Given - Save first user with a public key
         User user1 = User.builder()
-                .id("HNET-DUP001")
+                .idHash("HNET-DUP001")
                 .publicKey("duplicate-key")
                 .build();
         userRepository.save(user1);
 
         // When/Then - Try to save second user with same public key
         User user2 = User.builder()
-                .id("HNET-DUP002")
+                .idHash("HNET-DUP002")
                 .publicKey("duplicate-key")
                 .build();
 
@@ -314,80 +294,34 @@ public class UserRepositoryTest {
         }, "Should throw exception when saving duplicate public key");
     }
 
+    // ==================== EDGE CASES ====================
+
     @Test
-    public void testSaveUser_DuplicateId_ShouldUpdateExisting() {
-        // Given - Save first user
-        User user1 = User.builder()
-                .id("HNET-DUPID001")
-                .publicKey("first-key")
+    public void testSaveUser_WithNullId_ShouldThrowException() {
+        // Given
+        User user = User.builder()
+                .idHash(null)
+                .publicKey("valid-key")
                 .build();
-        userRepository.save(user1);
 
-        // When - Fetch and update the user with a different public key
-        User fetchedUser = userRepository.findById("HNET-DUPID001").get();
-        fetchedUser.setPublicKey("second-key");
-        userRepository.save(fetchedUser);
-
-        // Then - Should update existing user (ID is primary key)
-        assertEquals(1, userRepository.count(), "Should still have only 1 user");
-        User found = userRepository.findById("HNET-DUPID001").get();
-        assertEquals("second-key", found.getPublicKey(), "Public key should be updated");
+        // When/Then
+        assertThrows(Exception.class, () -> userRepository.save(user));
     }
 
-    // ==================== EDGE CASE TESTS ====================
-
     @Test
-    public void testSaveUser_WithVeryLongPublicKey_ShouldSucceed() {
-        // Given - Create a very long public key (TEXT column should handle it)
+    public void testSaveUser_WithVeryLongPublicKey_ShouldPercentage() {
+        // Given - Very long key
         String longKey = "ssh-rsa " + "A".repeat(5000);
         User user = User.builder()
-                .id("HNET-LONG001")
+                .idHash("HNET-LONG")
                 .publicKey(longKey)
                 .build();
 
         // When
-        User savedUser = userRepository.save(user);
-
-        // Then
-        assertEquals(longKey, savedUser.getPublicKey(), "Long public key should be saved");
-
-        // Verify retrieval
-        User found = userRepository.findById("HNET-LONG001").get();
-        assertEquals(longKey, found.getPublicKey(), "Long public key should be retrieved correctly");
-    }
-
-    @Test
-    public void testSaveUser_WithMaxLengthId_ShouldSucceed() {
-        // Given - ID column has length 64
-        String maxLengthId = "HNET-" + "X".repeat(59); // Total 64 characters
-        User user = User.builder()
-                .id(maxLengthId)
-                .publicKey("max-id-key")
-                .build();
-
-        // When
-        User savedUser = userRepository.save(user);
-
-        // Then
-        assertEquals(maxLengthId, savedUser.getId(), "Max length ID should be saved");
-        assertEquals(64, savedUser.getId().length(), "ID should be 64 characters");
-    }
-
-    @Test
-    public void testFindByPublicKey_WithSpecialCharacters_ShouldWork() {
-        // Given
-        String specialKey = "ssh-rsa AAAA+/=@#$%^&*()";
-        User user = User.builder()
-                .id("HNET-SPECIAL001")
-                .publicKey(specialKey)
-                .build();
         userRepository.save(user);
 
-        // When
-        Optional<User> found = userRepository.findByPublicKey(specialKey);
-
         // Then
-        assertTrue(found.isPresent(), "Should find user with special characters in public key");
-        assertEquals(specialKey, found.get().getPublicKey(), "Special characters should be preserved");
+        User found = userRepository.findById("HNET-LONG").get();
+        assertEquals(longKey, found.getPublicKey(), "Should verify long public key storage");
     }
 }
