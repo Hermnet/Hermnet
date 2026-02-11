@@ -14,3 +14,13 @@ jest.mock('react-native-quick-crypto', () => {
 if (typeof window !== 'undefined' && !window.dispatchEvent) {
   window.dispatchEvent = () => {};
 }
+
+// Mock para expo-sqlite
+jest.mock('expo-sqlite', () => ({
+  openDatabaseAsync: jest.fn(() => ({
+    execAsync: jest.fn(),
+    getFirstAsync: jest.fn(),
+    getAllAsync: jest.fn(),
+    runAsync: jest.fn(),
+  })),
+}));
