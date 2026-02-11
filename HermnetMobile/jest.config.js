@@ -1,3 +1,7 @@
+/**
+ * Jest configuration file.
+ * Configures the test runner to work with Expo and React Native components.
+ */
 module.exports = {
   preset: 'jest-expo',
   transform: {
