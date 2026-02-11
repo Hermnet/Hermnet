@@ -24,3 +24,19 @@ jest.mock('expo-sqlite', () => ({
     runAsync: jest.fn(),
   })),
 }));
+
+// jest-setup.js
+
+// ... mantén el mock de NitroModules arriba ...
+
+jest.mock('react-native-quick-crypto', () => {
+  const crypto = require('crypto');
+  return {
+    createHash: (algo) => crypto.createHash(algo),
+    // AÑADE ESTO:
+    generateKeyPairSync: jest.fn(() => ({
+      publicKey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890', // 64 chars hex
+      privateKey: 'privatekey_simulated_for_testing',
+    })),
+  };
+});
