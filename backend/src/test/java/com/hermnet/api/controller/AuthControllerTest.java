@@ -1,0 +1,123 @@
+package com.hermnet.api.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hermnet.api.dto.RegisterRequest;
+import com.hermnet.api.dto.UserResponse;
+import com.hermnet.api.service.UserService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.LocalDateTime;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false) // Disable security filters for this unit test
+public class AuthControllerTest {
+
+        @Autowired
+        private MockMvc mockMvc;
+
+        @MockBean
+        private UserService userService;
+
+        @Autowired
+        private ObjectMapper objectMapper;
+
+        @Test
+        public void register_ShouldReturn201_WhenRequestIsValid() throws Exception {
+                // Given
+                RegisterRequest request = new RegisterRequest(
+                                "HNET-VALID1",
+                                "valid-public-key",
+                                "push-token");
+
+                UserResponse mockResponse = new UserResponse(
+                                "HNET-VALID1",
+                                "valid-public-key",
+                                LocalDateTime.now());
+
+                when(userService.register(any(RegisterRequest.class))).thenReturn(mockResponse);
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.id").value("HNET-VALID1"))
+                                .andExpect(jsonPath("$.publicKey").value("valid-public-key"));
+        }
+
+        @Test
+        public void register_ShouldReturn400_WhenIdFormatIsInvalid() throws Exception {
+                // Given - ID missing HNET- prefix
+                RegisterRequest request = new RegisterRequest(
+                                "INVALID-ID",
+                                "valid-public-key",
+                                null);
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        public void register_ShouldReturn400_WhenIdIsTooShort() throws Exception {
+                // Given - ID has prefix but suffix is too short (needs 5 chars)
+                RegisterRequest request = new RegisterRequest(
+                                "HNET-1234",
+                                "valid-public-key",
+                                null);
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        public void register_ShouldReturn400_WhenPublicKeyIsMissing() throws Exception {
+                // Given - Missing public key
+                RegisterRequest request = new RegisterRequest(
+                                "HNET-VALID2",
+                                "", // Blank key
+                                null);
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        public void register_ShouldReturn400_WhenServiceThrowsException() throws Exception {
+                // Given - Simulate duplicate user error from service
+                RegisterRequest request = new RegisterRequest(
+                                "HNET-DUPLICATE",
+                                "key",
+                                null);
+
+                when(userService.register(any(RegisterRequest.class)))
+                                .thenThrow(new IllegalArgumentException("El ID ya está en uso."));
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$").value("El ID ya está en uso."));
+        }
+}

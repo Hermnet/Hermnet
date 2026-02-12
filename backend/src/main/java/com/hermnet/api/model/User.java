@@ -38,6 +38,10 @@ public class User {
     @Column(name = "public_key", nullable = false, columnDefinition = "TEXT", unique = true)
     private String publicKey;
 
+    /**
+     * Optional push notification token (e.g., FCM token).
+     * Used to notify the user of new messages without polling.
+     */
     @Column(name = "push_token", columnDefinition = "TEXT")
     private String pushToken;
 
