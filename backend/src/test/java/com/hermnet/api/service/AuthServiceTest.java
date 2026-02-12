@@ -29,6 +29,9 @@ class AuthServiceTest {
     @Mock
     private AuthChallengeRepository authChallengeRepository;
 
+    @Mock
+    private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
     @InjectMocks
     private AuthService authService;
 
@@ -74,13 +77,14 @@ class AuthServiceTest {
         LoginRequest request = new LoginRequest(nonce, signedNonce);
 
         when(authChallengeRepository.findByNonce(nonce)).thenReturn(Optional.of(challenge));
+        when(jwtTokenProvider.generateToken(anyString())).thenReturn("mock-jwt-token");
 
         // Execute
         LoginResponse response = authService.login(request);
 
         // Verify
         assertNotNull(response);
-        assertNotNull(response.token());
+        assertEquals("mock-jwt-token", response.token());
         verify(authChallengeRepository).delete(challenge); // Should delete used challenge
     }
 
