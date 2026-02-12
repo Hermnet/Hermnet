@@ -7,7 +7,10 @@ import com.hermnet.api.security.JwtAuthenticationFilter;
 import com.hermnet.api.security.JwtTokenProvider;
 import com.hermnet.api.repository.MessageRepository;
 import com.hermnet.api.model.Message;
+import com.hermnet.api.model.Message;
 import com.hermnet.api.config.IpAnonymizationFilter;
+import com.hermnet.api.repository.UserRepository;
+import com.hermnet.api.service.NotificationService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,7 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MessageController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
 public class MessageControllerSecurityTest {
 
     @Autowired
@@ -36,6 +39,12 @@ public class MessageControllerSecurityTest {
 
     @MockBean
     private MessageRepository messageRepository;
+
+    @MockBean
+    private UserRepository userRepository;
+
+    @MockBean
+    private NotificationService notificationService;
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;

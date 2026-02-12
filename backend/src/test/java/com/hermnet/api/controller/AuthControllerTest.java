@@ -36,6 +36,9 @@ public class AuthControllerTest {
         @MockBean
         private AuthService authService;
 
+        @MockBean
+        private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
         @Autowired
         private ObjectMapper objectMapper;
 

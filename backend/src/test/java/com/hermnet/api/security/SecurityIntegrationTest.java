@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.google.firebase.FirebaseApp; // Add import
+
 @SpringBootTest
 @AutoConfigureMockMvc
 public class SecurityIntegrationTest {
@@ -25,6 +27,9 @@ public class SecurityIntegrationTest {
     // Mock repository to avoid database interaction issues
     @MockBean
     private MessageRepository messageRepository;
+
+    @MockBean(name = "firebaseApp") // Name is important if multiple beans or exact match
+    private FirebaseApp firebaseApp; // Mock FirebaseApp to prevent initialization errors
 
     @Test
     public void publicEndpoints_ShouldBeAccessibleWithoutToken() throws Exception {
