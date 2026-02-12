@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/images/logo.png" alt="Hermnet Logo" width="500"/>
+  <img src="./docs/images/logo.png" alt="Hermnet Logo" width="500" style="filter: drop-shadow(0 0 0.5px white);"/>
 </p>
 
 <p align="center">
