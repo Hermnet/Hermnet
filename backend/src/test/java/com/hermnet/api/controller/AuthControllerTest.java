@@ -1,6 +1,8 @@
 package com.hermnet.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hermnet.api.dto.LoginRequest;
+import com.hermnet.api.dto.LoginResponse;
 import com.hermnet.api.dto.RegisterRequest;
 import com.hermnet.api.dto.UserResponse;
 import com.hermnet.api.service.AuthService;
@@ -31,8 +33,8 @@ public class AuthControllerTest {
         @MockBean
         private UserService userService;
 
-    @MockBean
-    private AuthService authService;
+        @MockBean
+        private AuthService authService;
 
         @Autowired
         private ObjectMapper objectMapper;
@@ -123,5 +125,37 @@ public class AuthControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$").value("El ID ya está en uso."));
+        }
+
+        @Test
+        public void login_ShouldReturnToken_WhenCredentialsAreValid() throws Exception {
+                // Given
+                LoginRequest request = new LoginRequest("valid-nonce", "valid-signature");
+                LoginResponse response = new LoginResponse("valid.jwt.token");
+
+                when(authService.login(any(LoginRequest.class))).thenReturn(response);
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.token").value("valid.jwt.token"));
+        }
+
+        @Test
+        public void login_ShouldReturn400_WhenCredentialsAreInvalid() throws Exception {
+                // Given
+                LoginRequest request = new LoginRequest("invalid-nonce", "invalid-signature");
+
+                when(authService.login(any(LoginRequest.class)))
+                                .thenThrow(new IllegalArgumentException("Invalid credentials"));
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$").value("Invalid credentials"));
         }
 }
