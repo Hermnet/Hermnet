@@ -33,8 +33,13 @@ public class AuthControllerTest {
         @MockBean
         private UserService userService;
 
+<<<<<<< HEAD
         @MockBean
         private AuthService authService;
+=======
+    @MockBean
+    private AuthService authService;
+>>>>>>> dc477c751fa40f93564f84812c5e9f8664a5937f
 
         @Autowired
         private ObjectMapper objectMapper;
