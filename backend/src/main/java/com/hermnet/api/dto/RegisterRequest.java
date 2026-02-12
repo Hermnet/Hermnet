@@ -20,6 +20,6 @@ public record RegisterRequest(
 
         @NotBlank(message = "La clave pública es obligatoria") String publicKey,
 
-        String pushToken // Opcional
+        String pushToken 
 ) {
 }
