@@ -2,7 +2,9 @@ package com.hermnet.api.controller;
 
 import com.hermnet.api.dto.SendMessageRequest;
 import com.hermnet.api.model.Message;
+import com.hermnet.api.model.User;
 import com.hermnet.api.repository.MessageRepository;
+import com.hermnet.api.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,12 +25,16 @@ import java.util.stream.Collectors;
 public class MessageController {
 
     private final MessageRepository messageRepository;
+    private final UserRepository userRepository;
+    private final com.hermnet.api.service.NotificationService notificationService;
 
     /**
      * Sends a secure message to a recipient.
      * 
      * Stores the encrypted steganographic image in the recipient's mailbox.
      * The server does not know the sender or the content.
+     * Triggers a silent "Data-Only" push notification (FCM) to the recipient
+     * to initiate background synchronization.
      * 
      * @param request The message request containing recipient ID and stego image.
      * @return 202 Accepted if the message is successfully queued/stored.
@@ -41,6 +47,11 @@ public class MessageController {
                 .build();
 
         messageRepository.save(message);
+
+        // Trigger silent push notification
+        userRepository.findById(request.recipientId())
+                .map(User::getPushToken)
+                .ifPresent(notificationService::sendSyncNotification);
 
         return ResponseEntity.accepted().build();
     }

@@ -45,13 +45,14 @@ public class UserServiceTest {
         // Given
         when(userRepository.existsById(validRequest.id())).thenReturn(false);
 
-        User savedUser = User.builder()
+        User expectedUser = User.builder()
                 .idHash(validRequest.id())
                 .publicKey(validRequest.publicKey())
                 .pushToken(validRequest.pushToken())
+                .createdAt(java.time.LocalDateTime.now()) // Mock creation time
                 .build();
 
-        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(userRepository.save(any(User.class))).thenReturn(expectedUser);
 
         // When
         UserResponse response = userService.register(validRequest);
