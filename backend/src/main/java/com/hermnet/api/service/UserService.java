@@ -4,6 +4,7 @@ import com.hermnet.api.dto.RegisterRequest;
 import com.hermnet.api.dto.UserResponse;
 import com.hermnet.api.model.User;
 import com.hermnet.api.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -13,13 +14,10 @@ import org.springframework.stereotype.Service;
  * Format validation (HNET prefix) is handled by the Controller layer via DTO annotations.
  */
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     /**
      * Registers a new user.
