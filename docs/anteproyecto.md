@@ -181,6 +181,36 @@ Hemos diseñado una arquitectura de Persistencia Dual basada en el principio de 
 
 ## 4. Boceto Conceptual de la Interfaz
 
-<p align="center"><img src="./images/mock.png" /></p>
+A continuación se presenta el flujo visual de la aplicación, diseñado para ser minimalista y centrado en la privacidad desde el primer momento.
 
-</div>
+<p align="center"><img src="./images/mock.png" width="500"/></p>
+
+### Descripción de Pantallas y Flujo de Usuario
+
+El diseño de **Hermnet** sigue una filosofía de "Privacidad por Defecto", guiando al usuario a través de un proceso seguro y transparente:
+
+1.  **Inicio (Bienvenida)**:
+    *   Pantalla minimalista con el logotipo de Hermnet.
+    *   Botón único: **"Generar Clave Privada"**. Deja claro que no hay registro en servidor, sino generación local de credenciales.
+
+2.  **Generación de Identidad ("Identidad Matemática")**:
+    *   Pantalla educativa que explica el cambio de paradigma: "Olvida los correos y contraseñas".
+    *   Barra de progreso indicando "Generando Clave Privada...", mostrando que el dispositivo está calculando las llaves criptográficas en ese instante.
+
+3.  **Lista de Chats (Home)**:
+    *   Barra de búsqueda superior para filtrar contactos y acceso rápido a **Ajustes** (engranaje).
+    *   Lista limpia de contactos recientes.
+    *   Botón flotante con el escudo de Hermnet para acciones principales (nuevo chat).
+
+4.  **Chat Individual**:
+    *   Interfaz oscura para reducir fatiga visual (*Dark Mode* nativo).
+    *   Burbujas de mensaje diferenciadas por color.
+    *   Cabecera con el nombre/alias del contacto y botón de retorno.
+
+5.  **Ajustes**:
+    *   Menú organizado en secciones: Cuenta, Soporte y Datos.
+    *   Opciones críticas visibles: **Transferir Archivos**, **Cerrar Sesión** y zona de peligro con **Eliminar Cuenta** (botón rojo), garantizando el derecho al olvido.
+
+6.  **Seguridad al Compartir (QR)**:
+    *   Modal de alerta antes de mostrar el código QR personal.
+    *   Mensaje: **"¿Estás seguro de compartir tu QR?"**. Añade una capa de fricción intencional para evitar compartir la identidad por error o bajo coacción.
