@@ -481,3 +481,224 @@ This generated password is for development use only. Your security configuration
 2026-02-12 12:02:09 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<java.lang.Void> com.hermnet.api.controller.MessageController.sendMessage(com.hermnet.api.dto.SendMessageRequest): [Field error in object 'sendMessageRequest' on field 'stegoImage': rejected value [null]; codes [NotNull.sendMessageRequest.stegoImage,NotNull.stegoImage,NotNull.[B,NotNull]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [sendMessageRequest.stegoImage,stegoImage]; arguments []; default message [stegoImage]]; default message [Stego image is required]] ]
 2026-02-12 12:02:09 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<java.lang.Void> com.hermnet.api.controller.MessageController.sendMessage(com.hermnet.api.dto.SendMessageRequest): [Field error in object 'sendMessageRequest' on field 'recipientId': rejected value []; codes [NotBlank.sendMessageRequest.recipientId,NotBlank.recipientId,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [sendMessageRequest.recipientId,recipientId]; arguments []; default message [recipientId]]; default message [Recipient ID is required]] ]
 2026-02-12 12:02:09 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<java.lang.Void> com.hermnet.api.controller.MessageController.sendMessage(com.hermnet.api.dto.SendMessageRequest): [Field error in object 'sendMessageRequest' on field 'stegoImage': rejected value [{}]; codes [Size.sendMessageRequest.stegoImage,Size.stegoImage,Size.[B,Size]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [sendMessageRequest.stegoImage,stegoImage]; arguments []; default message [stegoImage],2147483647,1]; default message [Stego image cannot be empty]] ]
+2026-02-12 16:39:32 [main] INFO  c.h.a.controller.AuthControllerTest - Starting AuthControllerTest using Java 21.0.6 with PID 4864 (started by alvar in C:\Users\alvar\Desktop\Hermnet\backend)
+2026-02-12 16:39:32 [main] INFO  c.h.a.controller.AuthControllerTest - No active profile set, falling back to 1 default profile: "default"
+2026-02-12 16:39:35 [main] WARN  o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
+
+Using generated security password: 497fb336-ec33-4713-b0f8-ab700b2f1e91
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-02-12 16:39:35 [main] INFO  c.h.a.controller.AuthControllerTest - Started AuthControllerTest in 4.377 seconds (process running for 9.124)
+2026-02-12 16:39:36 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<com.hermnet.api.dto.UserResponse> com.hermnet.api.controller.AuthController.register(com.hermnet.api.dto.RegisterRequest): [Field error in object 'registerRequest' on field 'publicKey': rejected value []; codes [NotBlank.registerRequest.publicKey,NotBlank.publicKey,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [registerRequest.publicKey,publicKey]; arguments []; default message [publicKey]]; default message [La clave pública es obligatoria]] ]
+2026-02-12 16:39:36 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<com.hermnet.api.dto.UserResponse> com.hermnet.api.controller.AuthController.register(com.hermnet.api.dto.RegisterRequest): [Field error in object 'registerRequest' on field 'id': rejected value [HNET-1234]; codes [Pattern.registerRequest.id,Pattern.id,Pattern.java.lang.String,Pattern]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [registerRequest.id,id]; arguments []; default message [id],[Ljakarta.validation.constraints.Pattern$Flag;@54530644,^HNET-[A-Za-z0-9]{5,}$]; default message [El ID debe empezar por HNET- y tener caracteres alfanuméricos]] ]
+2026-02-12 16:39:36 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<com.hermnet.api.dto.UserResponse> com.hermnet.api.controller.AuthController.register(com.hermnet.api.dto.RegisterRequest): [Field error in object 'registerRequest' on field 'id': rejected value [INVALID-ID]; codes [Pattern.registerRequest.id,Pattern.id,Pattern.java.lang.String,Pattern]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [registerRequest.id,id]; arguments []; default message [id],[Ljakarta.validation.constraints.Pattern$Flag;@54530644,^HNET-[A-Za-z0-9]{5,}$]; default message [El ID debe empezar por HNET- y tener caracteres alfanuméricos]] ]
+2026-02-12 16:39:36 [main] INFO  c.h.a.c.MessageControllerTest - Starting MessageControllerTest using Java 21.0.6 with PID 4864 (started by alvar in C:\Users\alvar\Desktop\Hermnet\backend)
+2026-02-12 16:39:36 [main] INFO  c.h.a.c.MessageControllerTest - No active profile set, falling back to 1 default profile: "default"
+2026-02-12 16:39:37 [main] WARN  o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
+
+Using generated security password: 3bc4b89d-2451-4b92-af5e-d326deee71d2
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-02-12 16:39:37 [main] INFO  c.h.a.c.MessageControllerTest - Started MessageControllerTest in 0.739 seconds (process running for 10.509)
+2026-02-12 16:39:37 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<java.lang.Void> com.hermnet.api.controller.MessageController.sendMessage(com.hermnet.api.dto.SendMessageRequest): [Field error in object 'sendMessageRequest' on field 'stegoImage': rejected value [null]; codes [NotNull.sendMessageRequest.stegoImage,NotNull.stegoImage,NotNull.[B,NotNull]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [sendMessageRequest.stegoImage,stegoImage]; arguments []; default message [stegoImage]]; default message [Stego image is required]] ]
+2026-02-12 16:39:37 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<java.lang.Void> com.hermnet.api.controller.MessageController.sendMessage(com.hermnet.api.dto.SendMessageRequest): [Field error in object 'sendMessageRequest' on field 'recipientId': rejected value []; codes [NotBlank.sendMessageRequest.recipientId,NotBlank.recipientId,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [sendMessageRequest.recipientId,recipientId]; arguments []; default message [recipientId]]; default message [Recipient ID is required]] ]
+2026-02-12 16:39:37 [main] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.bind.MethodArgumentNotValidException: Validation failed for argument [0] in public org.springframework.http.ResponseEntity<java.lang.Void> com.hermnet.api.controller.MessageController.sendMessage(com.hermnet.api.dto.SendMessageRequest): [Field error in object 'sendMessageRequest' on field 'stegoImage': rejected value [{}]; codes [Size.sendMessageRequest.stegoImage,Size.stegoImage,Size.[B,Size]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [sendMessageRequest.stegoImage,stegoImage]; arguments []; default message [stegoImage],2147483647,1]; default message [Stego image cannot be empty]] ]
+2026-02-12 16:39:37 [main] INFO  c.h.api.HermnetApiApplicationTests - Starting HermnetApiApplicationTests using Java 21.0.6 with PID 4864 (started by alvar in C:\Users\alvar\Desktop\Hermnet\backend)
+2026-02-12 16:39:37 [main] INFO  c.h.api.HermnetApiApplicationTests - No active profile set, falling back to 1 default profile: "default"
+2026-02-12 16:39:38 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-02-12 16:39:39 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@56ece9c
+2026-02-12 16:39:39 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-02-12 16:39:40 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - set client_min_messages = WARNING
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - alter table if exists auth_challenges drop constraint if exists FKl5m80koyne9ork274crpw6jv
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - drop table if exists auth_challenges cascade
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - drop table if exists mailbox cascade
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - drop table if exists rate_limit_buckets cascade
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - drop table if exists token_blacklist cascade
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - drop table if exists users cascade
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - create table auth_challenges (challenge_id bigint generated by default as identity, expires_at timestamp(6) not null, nonce varchar(64) not null, user_hash varchar(64) not null, primary key (challenge_id))
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - create table mailbox (created_at timestamp(6) not null, message_id bigint generated by default as identity, recipient_hash varchar(64) not null, stego_packet oid not null, primary key (message_id))
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - create table rate_limit_buckets (request_count integer not null, reset_time timestamp(6) not null, ip_hash varchar(64) not null, primary key (ip_hash))
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - create table token_blacklist (expires_at timestamp(6) not null, revoked_reason varchar(20), jti varchar(36) not null, primary key (jti))
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - create table users (created_at timestamp(6) not null, id_hash varchar(64) not null, public_key TEXT not null unique, push_token TEXT, primary key (id_hash))
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - create index idx_mailbox_recipient on mailbox (recipient_hash)
+2026-02-12 16:39:41 [main] DEBUG org.hibernate.SQL - alter table if exists auth_challenges add constraint FKl5m80koyne9ork274crpw6jv foreign key (user_hash) references users
+2026-02-12 16:39:41 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-02-12 16:39:41 [main] WARN  o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
+
+Using generated security password: 9cd546a6-4526-4c1d-aeaf-062a0f0a021a
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-02-12 16:39:42 [main] INFO  c.h.api.HermnetApiApplicationTests - Started HermnetApiApplicationTests in 5.015 seconds (process running for 15.677)
+2026-02-12 16:39:42 [main] INFO  c.h.a.r.AuthChallengeRepositoryTest - Starting AuthChallengeRepositoryTest using Java 21.0.6 with PID 4864 (started by alvar in C:\Users\alvar\Desktop\Hermnet\backend)
+2026-02-12 16:39:42 [main] INFO  c.h.a.r.AuthChallengeRepositoryTest - No active profile set, falling back to 1 default profile: "default"
+2026-02-12 16:39:42 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2026-02-12 16:39:42 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@49bc9588
+2026-02-12 16:39:42 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2026-02-12 16:39:42 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - set client_min_messages = WARNING
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - alter table if exists auth_challenges drop constraint if exists FKl5m80koyne9ork274crpw6jv
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - drop table if exists auth_challenges cascade
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - drop table if exists mailbox cascade
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - drop table if exists rate_limit_buckets cascade
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - drop table if exists token_blacklist cascade
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - drop table if exists users cascade
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - create table auth_challenges (challenge_id bigint generated by default as identity, expires_at timestamp(6) not null, nonce varchar(64) not null, user_hash varchar(64) not null, primary key (challenge_id))
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - create table mailbox (created_at timestamp(6) not null, message_id bigint generated by default as identity, recipient_hash varchar(64) not null, stego_packet oid not null, primary key (message_id))
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - create table rate_limit_buckets (request_count integer not null, reset_time timestamp(6) not null, ip_hash varchar(64) not null, primary key (ip_hash))
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - create table token_blacklist (expires_at timestamp(6) not null, revoked_reason varchar(20), jti varchar(36) not null, primary key (jti))
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - create table users (created_at timestamp(6) not null, id_hash varchar(64) not null, public_key TEXT not null unique, push_token TEXT, primary key (id_hash))
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - create index idx_mailbox_recipient on mailbox (recipient_hash)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - alter table if exists auth_challenges add constraint FKl5m80koyne9ork274crpw6jv foreign key (user_hash) references users
+2026-02-12 16:39:43 [main] INFO  c.h.a.r.AuthChallengeRepositoryTest - Started AuthChallengeRepositoryTest in 0.727 seconds (process running for 16.558)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select null,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into auth_challenges (expires_at,nonce,user_hash) values (?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into auth_challenges (expires_at,nonce,user_hash) values (?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0 where ac1_0.expires_at<?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - delete from auth_challenges where challenge_id=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select null,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into auth_challenges (expires_at,nonce,user_hash) values (?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0 where ac1_0.nonce=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select null,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into auth_challenges (expires_at,nonce,user_hash) values (?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into auth_challenges (expires_at,nonce,user_hash) values (?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - select null,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:43 [main] DEBUG org.hibernate.SQL - insert into auth_challenges (expires_at,nonce,user_hash) values (?,?,?)
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select count(*) from auth_challenges ac1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0 where ac1_0.user_hash=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - delete from auth_challenges where challenge_id=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - delete from auth_challenges where challenge_id=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select count(*) from auth_challenges ac1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0 where ac1_0.nonce=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select ac1_0.challenge_id,ac1_0.expires_at,ac1_0.nonce,ac1_0.user_hash from auth_challenges ac1_0 where ac1_0.user_hash=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select bt1_0.jti,bt1_0.expires_at,bt1_0.revoked_reason from token_blacklist bt1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select bt1_0.jti,bt1_0.expires_at,bt1_0.revoked_reason from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select bt1_0.jti,bt1_0.expires_at,bt1_0.revoked_reason from token_blacklist bt1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select bt1_0.jti,bt1_0.expires_at,bt1_0.revoked_reason from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - insert into token_blacklist (expires_at,revoked_reason,jti) values (?,?,?)
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select count(*) from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select count(*) from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select bt1_0.jti,bt1_0.expires_at,bt1_0.revoked_reason from token_blacklist bt1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select bt1_0.jti,bt1_0.expires_at,bt1_0.revoked_reason from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - insert into token_blacklist (expires_at,revoked_reason,jti) values (?,?,?)
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select count(*) from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - delete from token_blacklist where jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select count(*) from token_blacklist bt1_0 where bt1_0.jti=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - insert into mailbox (created_at,recipient_hash,stego_packet) values (?,?,?)
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - insert into mailbox (created_at,recipient_hash,stego_packet) values (?,?,?)
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0 where m1_0.created_at<?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - delete from mailbox where message_id=?
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0
+2026-02-12 16:39:44 [main] DEBUG org.hibernate.SQL - insert into mailbox (created_at,recipient_hash,stego_packet) values (?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into mailbox (created_at,recipient_hash,stego_packet) values (?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into mailbox (created_at,recipient_hash,stego_packet) values (?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select m1_0.message_id,m1_0.created_at,m1_0.recipient_hash,m1_0.stego_packet from mailbox m1_0 where m1_0.recipient_hash=? order by m1_0.created_at desc
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select rlb1_0.ip_hash,rlb1_0.request_count,rlb1_0.reset_time from rate_limit_buckets rlb1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select rlb1_0.ip_hash,rlb1_0.request_count,rlb1_0.reset_time from rate_limit_buckets rlb1_0 where rlb1_0.ip_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select rlb1_0.ip_hash,rlb1_0.request_count,rlb1_0.reset_time from rate_limit_buckets rlb1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select rlb1_0.ip_hash,rlb1_0.request_count,rlb1_0.reset_time from rate_limit_buckets rlb1_0 where rlb1_0.ip_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select rlb1_0.ip_hash,rlb1_0.request_count,rlb1_0.reset_time from rate_limit_buckets rlb1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select rlb1_0.ip_hash,rlb1_0.request_count,rlb1_0.reset_time from rate_limit_buckets rlb1_0 where rlb1_0.ip_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.public_key=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.public_key=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - delete from users where id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] WARN  o.h.e.jdbc.spi.SqlExceptionHelper - SQL Error: 0, SQLState: 23505
+2026-02-12 16:39:45 [main] ERROR o.h.e.jdbc.spi.SqlExceptionHelper - ERROR: duplicate key value violates unique constraint "users_public_key_key"
+  Detail: Key (public_key)=(duplicate-key) already exists.
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - delete from users where id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - delete from users where id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - delete from users where id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select u1_0.id_hash,u1_0.created_at,u1_0.public_key,u1_0.push_token from users u1_0 where u1_0.id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - insert into users (created_at,public_key,push_token,id_hash) values (?,?,?,?)
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - update users set public_key=?,push_token=? where id_hash=?
+2026-02-12 16:39:45 [main] DEBUG org.hibernate.SQL - select count(*) from users u1_0
+2026-02-12 16:39:45 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-02-12 16:39:45 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-02-12 16:39:45 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2026-02-12 16:39:45 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.

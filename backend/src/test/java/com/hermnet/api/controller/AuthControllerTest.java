@@ -3,6 +3,7 @@ package com.hermnet.api.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hermnet.api.dto.RegisterRequest;
 import com.hermnet.api.dto.UserResponse;
+import com.hermnet.api.service.AuthService;
 import com.hermnet.api.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,9 @@ public class AuthControllerTest {
 
         @MockBean
         private UserService userService;
+
+    @MockBean
+    private AuthService authService;
 
         @Autowired
         private ObjectMapper objectMapper;
