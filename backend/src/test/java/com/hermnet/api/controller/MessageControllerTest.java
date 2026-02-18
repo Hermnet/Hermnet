@@ -1,6 +1,7 @@
 package com.hermnet.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hermnet.api.config.RateLimitFilter;
 import com.hermnet.api.dto.SendMessageRequest;
 import com.hermnet.api.model.Message;
 import com.hermnet.api.repository.MessageRepository;
@@ -43,6 +44,9 @@ public class MessageControllerTest {
 
     @MockBean
     private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private RateLimitFilter rateLimitFilter;
 
     @Autowired
     private ObjectMapper objectMapper;
