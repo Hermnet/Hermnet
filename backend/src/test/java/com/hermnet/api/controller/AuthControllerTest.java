@@ -5,6 +5,7 @@ import com.hermnet.api.dto.LoginRequest;
 import com.hermnet.api.dto.LoginResponse;
 import com.hermnet.api.dto.RegisterRequest;
 import com.hermnet.api.dto.UserResponse;
+import com.hermnet.api.config.RateLimitFilter;
 import com.hermnet.api.service.AuthService;
 import com.hermnet.api.service.UserService;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,9 @@ public class AuthControllerTest {
 
         @MockBean
         private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
+        @MockBean
+        private RateLimitFilter rateLimitFilter;
 
         @Autowired
         private ObjectMapper objectMapper;
