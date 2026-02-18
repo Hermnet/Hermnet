@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final IpAnonymizationFilter ipAnonymizationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
@@ -37,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/messages/**").authenticated()
                         .anyRequest().authenticated()) // Secure all other endpoints
                 .addFilterBefore(ipAnonymizationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, IpAnonymizationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

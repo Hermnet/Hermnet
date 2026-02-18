@@ -2,6 +2,7 @@ package com.hermnet.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hermnet.api.config.SecurityConfig;
+import com.hermnet.api.config.RateLimitFilter;
 import com.hermnet.api.dto.SendMessageRequest;
 import com.hermnet.api.security.JwtAuthenticationFilter;
 import com.hermnet.api.security.JwtTokenProvider;
@@ -52,6 +53,9 @@ public class MessageControllerSecurityTest {
     @MockBean
     private IpAnonymizationFilter ipAnonymizationFilter;
 
+    @MockBean
+    private RateLimitFilter rateLimitFilter;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -64,6 +68,14 @@ public class MessageControllerSecurityTest {
             chain.doFilter(req, res);
             return null;
         }).when(ipAnonymizationFilter).doFilter(any(), any(), any());
+
+        doAnswer(invocation -> {
+            HttpServletRequest req = invocation.getArgument(0);
+            HttpServletResponse res = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(req, res);
+            return null;
+        }).when(rateLimitFilter).doFilter(any(), any(), any());
     }
 
     @Test
