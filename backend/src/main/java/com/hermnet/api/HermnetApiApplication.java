@@ -2,6 +2,7 @@ package com.hermnet.api;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Main entry point for the Hermnet API application.
@@ -15,6 +16,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @since 2025
  */
 @SpringBootApplication
+@EnableScheduling
 public class HermnetApiApplication {
 
 	/**

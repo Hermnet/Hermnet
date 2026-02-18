@@ -80,4 +80,31 @@ public class BlacklistedTokenRepositoryTest {
         // Then
         assertFalse(tokenRepository.existsById(JTI), "Token should be removed from blacklist");
     }
+
+    @Test
+    public void testDeleteByExpiresAtBefore_ShouldRemoveOnlyExpiredTokens() {
+        // Given
+        LocalDateTime now = LocalDateTime.now();
+        BlacklistedToken expired = BlacklistedToken.builder()
+                .jti("expired-token")
+                .revokedReason("TEST")
+                .expiresAt(now.minusMinutes(10))
+                .build();
+
+        BlacklistedToken active = BlacklistedToken.builder()
+                .jti("active-token")
+                .revokedReason("TEST")
+                .expiresAt(now.plusMinutes(10))
+                .build();
+
+        tokenRepository.save(expired);
+        tokenRepository.save(active);
+
+        // When
+        tokenRepository.deleteByExpiresAtBefore(now);
+
+        // Then
+        assertFalse(tokenRepository.existsById("expired-token"), "Expired token should be removed");
+        assertTrue(tokenRepository.existsById("active-token"), "Active token should remain");
+    }
 }
