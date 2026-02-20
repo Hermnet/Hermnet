@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.google.firebase.FirebaseApp; // Add import
+import com.google.firebase.FirebaseApp;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -24,17 +24,17 @@ public class SecurityIntegrationTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    // Mock repository to avoid database interaction issues
+
     @MockBean
     private MessageRepository messageRepository;
 
-    @MockBean(name = "firebaseApp") // Name is important if multiple beans or exact match
-    private FirebaseApp firebaseApp; // Mock FirebaseApp to prevent initialization errors
+    @MockBean(name = "firebaseApp")
+    private FirebaseApp firebaseApp;
 
     @Test
     public void publicEndpoints_ShouldBeAccessibleWithoutToken() throws Exception {
-        // /api/auth/register is public
-        // Sending invalid JSON to trigger 400 instead of 403/401
+
+
         mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content("{}"))
@@ -43,18 +43,18 @@ public class SecurityIntegrationTest {
 
     @Test
     public void protectedEndpoints_ShouldReturn401_WhenNoTokenProvided() throws Exception {
-        // /api/messages requires auth
+
         mockMvc.perform(get("/api/messages?myId=test"))
-                .andExpect(status().isForbidden()); // Spring default is often 403 for missing auth in stateless chain,
-                                                    // or 401. Let's check.
-        // Actually, without an entry point, it often returns 403 Forbidden by default
-        // for authenticated resources.
-        // But let's assume standard behavior. If it fails I'll adjust.
+                .andExpect(status().isForbidden());
+
+
+
+
     }
 
     @Test
     public void protectedEndpoints_ShouldReturn200_WhenValidTokenProvided() throws Exception {
-        // Generate a valid token
+
         String token = jwtTokenProvider.generateToken("user-123");
 
         mockMvc.perform(get("/api/messages?myId=user-123")

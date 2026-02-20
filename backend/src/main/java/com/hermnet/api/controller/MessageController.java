@@ -48,7 +48,6 @@ public class MessageController {
 
         messageRepository.save(message);
 
-        // Trigger silent push notification
         userRepository.findById(request.recipientId())
                 .map(User::getPushToken)
                 .ifPresent(notificationService::sendSyncNotification);

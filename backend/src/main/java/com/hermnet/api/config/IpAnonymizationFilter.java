@@ -22,7 +22,7 @@ import java.io.IOException;
  * other processing or logging.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE) // Ensures this filter runs first
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class IpAnonymizationFilter implements Filter {
 
     /**
@@ -37,22 +37,16 @@ public class IpAnonymizationFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        // Cast to HttpServletRequest to access HTTP-specific methods
         HttpServletRequest httpRequest = (HttpServletRequest) request;
 
-        // Extract the real IP address from the request
         String realIp = httpRequest.getRemoteAddr();
 
-        // Generate an anonymous hash of the IP address
         String anonymousId = IpHasher.hash(realIp);
 
-        // Store the anonymous ID as a request attribute for use in controllers/services
         request.setAttribute("CLIENT_ID", anonymousId);
 
-        // Log the anonymized request (consider replacing with proper logging framework)
         System.out.println("Request received from anonymous client: " + anonymousId);
 
-        // Continue the filter chain with the modified request
         chain.doFilter(request, response);
     }
 }

@@ -30,13 +30,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // Disable CSRF as we use stateless JWT
+                .csrf(csrf -> csrf.disable()) 
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // Allow public access to auth endpoints (register,
-                                                                     // login)
+                        .requestMatchers("/api/auth/**").permitAll() 
                         .requestMatchers("/api/messages/**").authenticated()
-                        .anyRequest().authenticated()) // Secure all other endpoints
+                        .anyRequest().authenticated()) 
                 .addFilterBefore(ipAnonymizationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(rateLimitFilter, IpAnonymizationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

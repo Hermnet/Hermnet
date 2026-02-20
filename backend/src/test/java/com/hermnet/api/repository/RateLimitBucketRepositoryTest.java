@@ -33,7 +33,7 @@ public class RateLimitBucketRepositoryTest {
 
     @Test
     public void testSaveAndRetrieveBucket() {
-        // Given
+
         int count = 5;
         RateLimitBucket bucket = RateLimitBucket.builder()
                 .ipHash(IP_HASH)
@@ -41,10 +41,10 @@ public class RateLimitBucketRepositoryTest {
                 .resetTime(LocalDateTime.now().plusMinutes(1))
                 .build();
 
-        // When
+
         bucketRepository.save(bucket);
 
-        // Then
+
         Optional<RateLimitBucket> found = bucketRepository.findById(IP_HASH);
         assertTrue(found.isPresent(), "Should find rate limit bucket");
         assertEquals(count, found.get().getRequestCount());
@@ -53,43 +53,43 @@ public class RateLimitBucketRepositoryTest {
 
     @Test
     public void testIncrementRequestCount() {
-        // Given - Create initial bucket
+
         RateLimitBucket bucket = new RateLimitBucket(IP_HASH, 0, LocalDateTime.now().plusSeconds(30));
         bucket = bucketRepository.save(bucket);
         assertEquals(0, bucket.getRequestCount());
 
-        // When - Fetch, update count in memory, save back
+
         RateLimitBucket fetched = bucketRepository.findById(IP_HASH).get();
         fetched.setRequestCount(fetched.getRequestCount() + 1);
         bucketRepository.save(fetched);
 
-        // Then
+
         RateLimitBucket updated = bucketRepository.findById(IP_HASH).get();
         assertEquals(1, updated.getRequestCount(), "Count should be incremented");
     }
 
     @Test
     public void testUpdateResetTime() {
-        // Given
+
         LocalDateTime oldReset = LocalDateTime.now().minusMinutes(5);
         bucketRepository.save(new RateLimitBucket(IP_HASH, 100, oldReset));
 
-        // When - Reset due to expiration
+
         RateLimitBucket expiredBucket = bucketRepository.findById(IP_HASH).get();
         assertTrue(expiredBucket.isExpired(), "Should be expired");
 
         LocalDateTime newReset = LocalDateTime.now().plusMinutes(1);
         expiredBucket.setResetTime(newReset);
-        expiredBucket.setRequestCount(0); // Reset count
+        expiredBucket.setRequestCount(0);
         bucketRepository.save(expiredBucket);
 
-        // Then
+
         RateLimitBucket refreshed = bucketRepository.findById(IP_HASH).get();
         assertEquals(0, refreshed.getRequestCount());
-        // Compare epoch millis or use tolerance for time equality if needed,
-        // but here checking presence and basic update is enough.
+
+
         assertNotNull(refreshed.getResetTime());
-        // Simple check that it's in the future
+
         assertTrue(LocalDateTime.now().isBefore(refreshed.getResetTime()));
     }
 }

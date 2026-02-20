@@ -64,13 +64,6 @@ public class MessageControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isAccepted());
-
-        // Verify notification service was called
-        // We use reflection or verify because the exact method name might vary if I
-        // didn't memorize it perfectly,
-        // but based on Step 279 it is sendSyncNotification
-        // Let's create a more robust verification in a separate block if needed, but
-        // here simple verification works.
     }
 
     @Test

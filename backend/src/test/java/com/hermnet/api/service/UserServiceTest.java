@@ -42,22 +42,22 @@ public class UserServiceTest {
 
     @Test
     public void testRegister_WithValidData_ShouldSucceed() {
-        // Given
+
         when(userRepository.existsById(validRequest.id())).thenReturn(false);
 
         User expectedUser = User.builder()
                 .idHash(validRequest.id())
                 .publicKey(validRequest.publicKey())
                 .pushToken(validRequest.pushToken())
-                .createdAt(java.time.LocalDateTime.now()) // Mock creation time
+                .createdAt(java.time.LocalDateTime.now())
                 .build();
 
         when(userRepository.save(any(User.class))).thenReturn(expectedUser);
 
-        // When
+
         UserResponse response = userService.register(validRequest);
 
-        // Then
+
         assertNotNull(response, "Response should not be null");
         assertEquals(validRequest.id(), response.id(), "ID should match");
         assertEquals(validRequest.publicKey(), response.publicKey(), "Public key should match");
@@ -68,16 +68,16 @@ public class UserServiceTest {
 
     @Test
     public void testRegister_WithDuplicateId_ShouldThrowException() {
-        // Given
+
         when(userRepository.existsById(validRequest.id())).thenReturn(true);
 
-        // When/Then
+
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> userService.register(validRequest),
                 "Should throw IllegalArgumentException for duplicate ID");
 
-        assertEquals("El ID ya está en uso.", exception.getMessage());
+        assertEquals("El ID ya estÃ¡ en uso.", exception.getMessage());
         verify(userRepository, times(1)).existsById(validRequest.id());
         verify(userRepository, never()).save(any(User.class));
     }

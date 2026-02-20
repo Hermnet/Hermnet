@@ -84,7 +84,6 @@ public class AuthService {
             throw new IllegalArgumentException("Firma no válida");
         }
 
-        // One-time use: remove challenge to prevent replay attacks
         authChallengeRepository.delete(challenge);
 
         String token = jwtTokenProvider.generateToken(user.getIdHash());
