@@ -32,7 +32,8 @@ export class IdentityService {
         const keyFingerprint = QuickCrypto
             .createHash('sha256')
             .update(publicKey)
-            .digest('hex')
+            .digest('hex' as any)
+            .toString()
             .substring(0, 16)
             .toUpperCase();
 
