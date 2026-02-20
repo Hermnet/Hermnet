@@ -44,4 +44,32 @@ describe('DatabaseService', () => {
     expect(executedSql).toContain('local_uri TEXT NOT NULL UNIQUE');
     expect(executedSql).toContain('checksum TEXT');
   });
+
+  it('should return contact public key when it exists', async () => {
+    await databaseService.initDB();
+    const db = databaseService.getDatabase();
+
+    (db?.getFirstAsync as jest.Mock).mockResolvedValue({ public_key: 'recipient-public-key' });
+
+    const result = await databaseService.getContactPublicKey('HNET-RECIPIENT');
+
+    expect(db?.getFirstAsync).toHaveBeenCalledWith(
+      'SELECT public_key FROM contacts_vault WHERE contact_hash = ? LIMIT 1;',
+      ['HNET-RECIPIENT']
+    );
+    expect(result).toBe('recipient-public-key');
+  });
+
+  it('should insert message history entries', async () => {
+    await databaseService.initDB();
+    const db = databaseService.getDatabase();
+    const payload = new Uint8Array([1, 2, 3]);
+
+    await databaseService.saveMessageHistory(payload, 'SENT');
+
+    expect(db?.runAsync).toHaveBeenCalledWith(
+      'INSERT INTO messages_history (content_encrypted, status) VALUES (?, ?);',
+      [payload, 'SENT']
+    );
+  });
 });

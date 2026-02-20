@@ -22,6 +22,9 @@ jest.mock('react-native-quick-crypto', () => {
   return {
     createHash: (algo) => crypto.createHash(algo),
     createSign: (algo) => crypto.createSign(algo),
+    publicEncrypt: (options, data) => crypto.publicEncrypt(options, data),
+    privateDecrypt: (options, data) => crypto.privateDecrypt(options, data),
+    constants: crypto.constants,
     generateKeyPairSync: jest.fn(() => ({ publicKey, privateKey })),
   };
 });

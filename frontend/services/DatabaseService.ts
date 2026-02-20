@@ -1,5 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
+export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED';
+
 export class DatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
 
@@ -51,6 +53,45 @@ export class DatabaseService {
    * @returns {SQLite.SQLiteDatabase | null} The database instance.
    */
   getDatabase() {
+    return this.db;
+  }
+
+  /**
+   * Returns the public key for a contact hash from the local vault.
+   * @param contactHash Recipient/user hash.
+   */
+  async getContactPublicKey(contactHash: string): Promise<string | null> {
+    const database = this.requireDatabase();
+    const row = await (database as any).getFirstAsync(
+      'SELECT public_key FROM contacts_vault WHERE contact_hash = ? LIMIT 1;',
+      [contactHash]
+    );
+
+    if (!row || typeof row.public_key !== 'string') {
+      return null;
+    }
+
+    return row.public_key;
+  }
+
+  /**
+   * Stores a message record in local history.
+   * @param content Message payload bytes.
+   * @param status Delivery status.
+   */
+  async saveMessageHistory(content: Uint8Array, status: MessageStatus): Promise<void> {
+    const database = this.requireDatabase();
+    await (database as any).runAsync(
+      'INSERT INTO messages_history (content_encrypted, status) VALUES (?, ?);',
+      [content, status]
+    );
+  }
+
+  private requireDatabase(): SQLite.SQLiteDatabase {
+    if (!this.db) {
+      throw new Error('Database is not initialized. Call initDB() first.');
+    }
+
     return this.db;
   }
 }
