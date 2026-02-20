@@ -142,11 +142,13 @@ public class AuthControllerTest {
 
         @Test
         public void challenge_ShouldReturnNonce_WhenRequestIsValid() throws Exception {
+                // Given
                 ChallengeRequest request = new ChallengeRequest("HNET-VALID1");
                 ChallengeResponse response = new ChallengeResponse("nonce-value");
 
                 when(authService.challenge(any(ChallengeRequest.class))).thenReturn(response);
 
+                // When/Then
                 mockMvc.perform(post("/api/auth/challenge")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
