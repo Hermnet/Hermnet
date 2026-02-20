@@ -13,12 +13,16 @@ jest.mock('react-native-nitro-modules', () => ({
 // Mock for react-native-quick-crypto, delegating to node's crypto where possible
 jest.mock('react-native-quick-crypto', () => {
   const crypto = require('crypto');
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+
   return {
     createHash: (algo) => crypto.createHash(algo),
-    generateKeyPairSync: jest.fn(() => ({
-      publicKey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890', // 64 chars hex
-      privateKey: 'privatekey_simulated_for_testing',
-    })),
+    createSign: (algo) => crypto.createSign(algo),
+    generateKeyPairSync: jest.fn(() => ({ publicKey, privateKey })),
   };
 });
 
@@ -36,3 +40,18 @@ jest.mock('expo-sqlite', () => ({
     runAsync: jest.fn(),
   })),
 }));
+
+// Mock for expo-secure-store to support auth session tests
+jest.mock('expo-secure-store', () => {
+  const storage = new Map();
+
+  return {
+    getItemAsync: jest.fn(async (key) => storage.get(key) ?? null),
+    setItemAsync: jest.fn(async (key, value) => {
+      storage.set(key, value);
+    }),
+    deleteItemAsync: jest.fn(async (key) => {
+      storage.delete(key);
+    }),
+  };
+});
