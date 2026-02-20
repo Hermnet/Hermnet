@@ -1,6 +1,8 @@
 package com.hermnet.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hermnet.api.dto.ChallengeRequest;
+import com.hermnet.api.dto.ChallengeResponse;
 import com.hermnet.api.dto.LoginRequest;
 import com.hermnet.api.dto.LoginResponse;
 import com.hermnet.api.dto.RegisterRequest;
@@ -148,6 +150,22 @@ public class AuthControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.token").value("valid.jwt.token"));
+        }
+
+        @Test
+        public void challenge_ShouldReturnNonce_WhenRequestIsValid() throws Exception {
+                // Given
+                ChallengeRequest request = new ChallengeRequest("HNET-VALID1");
+                ChallengeResponse response = new ChallengeResponse("nonce-value");
+
+                when(authService.challenge(any(ChallengeRequest.class))).thenReturn(response);
+
+                // When/Then
+                mockMvc.perform(post("/api/auth/challenge")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.nonce").value("nonce-value"));
         }
 
         @Test
