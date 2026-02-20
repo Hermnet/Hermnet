@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class NotificationService {
 
-    // Action key for data-only messages
     private static final String ACTION_KEY = "action";
     private static final String ACTION_SYNC = "SYNC_REQUIRED";
 
@@ -29,21 +28,16 @@ public class NotificationService {
         }
 
         try {
-            // Build a Message with only data payload (no .setNotification())
             Message message = Message.builder()
                     .setToken(recipientToken)
                     .putData(ACTION_KEY, ACTION_SYNC)
                     .build();
 
-            // Send via FCM
             String response = FirebaseMessaging.getInstance().send(message);
             log.info("Sent silent sync notification to token {}: {}",
                     recipientToken.substring(0, Math.min(10, recipientToken.length())) + "...", response);
         } catch (Exception e) {
             log.error("Failed to send FCM notification to token {}", recipientToken, e);
-            // We don't throw exception to avoid rolling back the transaction or failing the
-            // request
-            // Message is stored regardless of notification failure.
         }
     }
 }

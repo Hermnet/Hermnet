@@ -43,14 +43,11 @@ public class FirebaseConfig {
             GoogleCredentials credentials;
 
             if (serviceAccountJson != null && !serviceAccountJson.isEmpty()) {
-                // Load from JSON string (e.g. environment variable)
                 credentials = GoogleCredentials.fromStream(
                         new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8)));
             } else if (serviceAccountPath != null && !serviceAccountPath.isEmpty()) {
-                // Load from file path
                 credentials = GoogleCredentials.fromStream(new FileInputStream(serviceAccountPath));
             } else {
-                // Fallback to Application Default Credentials (ADC)
                 credentials = GoogleCredentials.getApplicationDefault();
             }
 

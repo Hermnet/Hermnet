@@ -33,24 +33,24 @@ public class BlacklistedTokenRepositoryTest {
 
     @Test
     public void testSaveAndCheckExists() {
-        // Given
+
         BlacklistedToken token = BlacklistedToken.builder()
                 .jti(JTI)
                 .revokedReason("LOGOUT")
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
                 .build();
 
-        // When
+
         tokenRepository.save(token);
 
-        // Then
+
         assertTrue(tokenRepository.existsById(JTI), "Token should exist in blacklist");
         assertFalse(tokenRepository.existsById("NON-EXISTENT"), "Random token should not exist");
     }
 
     @Test
     public void testFindById_ShouldRetrieveReason() {
-        // Given
+
         String reason = "SECURITY";
         BlacklistedToken token = BlacklistedToken.builder()
                 .jti(JTI)
@@ -59,31 +59,31 @@ public class BlacklistedTokenRepositoryTest {
                 .build();
         tokenRepository.save(token);
 
-        // When
+
         Optional<BlacklistedToken> found = tokenRepository.findById(JTI);
 
-        // Then
+
         assertTrue(found.isPresent());
         assertEquals(reason, found.get().getRevokedReason());
     }
 
     @Test
     public void testDeleteById() {
-        // Given
+
         BlacklistedToken token = new BlacklistedToken(JTI, "TEST", LocalDateTime.now());
         tokenRepository.save(token);
         assertTrue(tokenRepository.existsById(JTI));
 
-        // When
+
         tokenRepository.deleteById(JTI);
 
-        // Then
+
         assertFalse(tokenRepository.existsById(JTI), "Token should be removed from blacklist");
     }
 
     @Test
     public void testDeleteByExpiresAtBefore_ShouldRemoveOnlyExpiredTokens() {
-        // Given
+
         LocalDateTime now = LocalDateTime.now();
         BlacklistedToken expired = BlacklistedToken.builder()
                 .jti("expired-token")
@@ -100,10 +100,10 @@ public class BlacklistedTokenRepositoryTest {
         tokenRepository.save(expired);
         tokenRepository.save(active);
 
-        // When
+
         tokenRepository.deleteByExpiresAtBefore(now);
 
-        // Then
+
         assertFalse(tokenRepository.existsById("expired-token"), "Expired token should be removed");
         assertTrue(tokenRepository.existsById("active-token"), "Active token should remain");
     }
