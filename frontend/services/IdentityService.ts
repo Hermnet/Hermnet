@@ -14,27 +14,49 @@ export interface Identity {
  */
 export class IdentityService {
     /**
-     * Generates a new Ed25519 key pair and assigns a unique HNET ID.
+     * Generates a key pair and assigns a deterministic HNET ID.
      * @returns {Identity} The generated identity object.
      */
     generateIdentity(): Identity {
-        const { publicKey, privateKey } = QuickCrypto.generateKeyPairSync('ed25519', {
+        const { publicKey, privateKey } = QuickCrypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
             publicKeyEncoding: {
                 type: 'spki',
-                format: 'hex' as any
+                format: 'pem' as any
             },
             privateKeyEncoding: {
                 type: 'pkcs8',
-                format: 'hex' as any
+                format: 'pem' as any
             },
         }) as { publicKey: string; privateKey: string };
-        const id = `HNET-${publicKey.substring(0, 16).toUpperCase()}`;
+        const keyFingerprint = QuickCrypto
+            .createHash('sha256')
+            .update(publicKey)
+            .digest('hex' as any)
+            .toString()
+            .substring(0, 16)
+            .toUpperCase();
+
+        const id = `HNET-${keyFingerprint}`;
 
         return {
             id,
             publicKey,
             privateKey,
         }
+    }
+
+    /**
+     * Signs a challenge nonce using the private key and returns Base64 output.
+     * @param privateKey PEM encoded private key.
+     * @param nonce Raw nonce string.
+     * @returns Base64 encoded signature.
+     */
+    signNonce(privateKey: string, nonce: string): string {
+        const signer = (QuickCrypto as any).createSign('RSA-SHA256');
+        signer.update(nonce);
+        signer.end();
+        return signer.sign(privateKey, 'base64');
     }
 }
 
