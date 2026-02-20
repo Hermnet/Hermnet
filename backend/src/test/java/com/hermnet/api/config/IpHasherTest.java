@@ -11,10 +11,8 @@ public class IpHasherTest {
         String hash1 = IpHasher.hash(ip);
         String hash2 = IpHasher.hash(ip);
 
-        // The same IP must produce the same hash (as long as the date is the same)
         assertEquals(hash1, hash2, "The same IP must generate the same hash today");
 
-        // The hash must not be equal to the original IP (must be anonymized)
         assertNotEquals(ip, hash1, "The hash must be different from the original IP");
     }
 
@@ -23,7 +21,6 @@ public class IpHasherTest {
         String ip = "192.168.1.1";
         String hash = IpHasher.hash(ip);
         
-        // SHA-256 produces a 64-character hexadecimal string
         assertEquals(64, hash.length(), "The hash must be a SHA-256 string (64 chars)");
     }
 
@@ -35,7 +32,6 @@ public class IpHasherTest {
         String hash1 = IpHasher.hash(ip1);
         String hash2 = IpHasher.hash(ip2);
 
-        // Different IPs must produce different hashes
         assertNotEquals(hash1, hash2, "Different IPs must generate different hashes");
     }
 
@@ -43,7 +39,6 @@ public class IpHasherTest {
     public void testNullIpHandling() {
         String hash = IpHasher.hash(null);
 
-        // A null IP must return "unknown"
         assertEquals("unknown", hash, "A null IP must return 'unknown'");
     }
 }

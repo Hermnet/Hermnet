@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@AutoConfigureMockMvc(addFilters = false) // Disable security filters for this unit test
+@AutoConfigureMockMvc(addFilters = false)
 public class AuthControllerTest {
 
         @Autowired
@@ -50,7 +50,6 @@ public class AuthControllerTest {
 
         @Test
         public void register_ShouldReturn201_WhenRequestIsValid() throws Exception {
-                // Given
                 RegisterRequest request = new RegisterRequest(
                                 "HNET-VALID1",
                                 "valid-public-key",
@@ -63,7 +62,6 @@ public class AuthControllerTest {
 
                 when(userService.register(any(RegisterRequest.class))).thenReturn(mockResponse);
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -74,13 +72,11 @@ public class AuthControllerTest {
 
         @Test
         public void register_ShouldReturn400_WhenIdFormatIsInvalid() throws Exception {
-                // Given - ID missing HNET- prefix
                 RegisterRequest request = new RegisterRequest(
                                 "INVALID-ID",
                                 "valid-public-key",
                                 null);
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -89,13 +85,11 @@ public class AuthControllerTest {
 
         @Test
         public void register_ShouldReturn400_WhenIdIsTooShort() throws Exception {
-                // Given - ID has prefix but suffix is too short (needs 5 chars)
                 RegisterRequest request = new RegisterRequest(
                                 "HNET-1234",
                                 "valid-public-key",
                                 null);
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -104,13 +98,11 @@ public class AuthControllerTest {
 
         @Test
         public void register_ShouldReturn400_WhenPublicKeyIsMissing() throws Exception {
-                // Given - Missing public key
                 RegisterRequest request = new RegisterRequest(
                                 "HNET-VALID2",
-                                "", // Blank key
+                                "", 
                                 null);
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -119,7 +111,6 @@ public class AuthControllerTest {
 
         @Test
         public void register_ShouldReturn400_WhenServiceThrowsException() throws Exception {
-                // Given - Simulate duplicate user error from service
                 RegisterRequest request = new RegisterRequest(
                                 "HNET-DUPLICATE",
                                 "key",
@@ -128,7 +119,6 @@ public class AuthControllerTest {
                 when(userService.register(any(RegisterRequest.class)))
                                 .thenThrow(new IllegalArgumentException("El ID ya está en uso."));
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -138,13 +128,11 @@ public class AuthControllerTest {
 
         @Test
         public void login_ShouldReturnToken_WhenCredentialsAreValid() throws Exception {
-                // Given
                 LoginRequest request = new LoginRequest("valid-nonce", "valid-signature");
                 LoginResponse response = new LoginResponse("valid.jwt.token");
 
                 when(authService.login(any(LoginRequest.class))).thenReturn(response);
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -154,13 +142,11 @@ public class AuthControllerTest {
 
         @Test
         public void challenge_ShouldReturnNonce_WhenRequestIsValid() throws Exception {
-                // Given
                 ChallengeRequest request = new ChallengeRequest("HNET-VALID1");
                 ChallengeResponse response = new ChallengeResponse("nonce-value");
 
                 when(authService.challenge(any(ChallengeRequest.class))).thenReturn(response);
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/challenge")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -170,13 +156,11 @@ public class AuthControllerTest {
 
         @Test
         public void login_ShouldReturn400_WhenCredentialsAreInvalid() throws Exception {
-                // Given
                 LoginRequest request = new LoginRequest("invalid-nonce", "invalid-signature");
 
                 when(authService.login(any(LoginRequest.class)))
                                 .thenThrow(new IllegalArgumentException("Invalid credentials"));
 
-                // When/Then
                 mockMvc.perform(post("/api/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))

@@ -19,7 +19,6 @@ import java.util.HexFormat;
  */
 public class IpHasher {
 
-    // Base secret combined with the date to form the daily salt
     private static final String BASE_SECRET = "HERMNET_SECRET_SALT_2025";
 
     /**
@@ -34,19 +33,14 @@ public class IpHasher {
             return "unknown";
 
         try {
-            // Create a salt that changes every day to prevent long-term tracking
             String dailySalt = BASE_SECRET + LocalDate.now().toString();
             String input = ip + dailySalt;
 
-            // Use SHA-256 for better security
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] encodedHash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
 
-            // Return the hash as a hex string
             return HexFormat.of().formatHex(encodedHash);
         } catch (Exception e) {
-            // Runtime exception is preferred here as this should fundamentally not fail in
-            // a healthy JVM
             throw new RuntimeException("Error hashing IP address", e);
         }
     }
