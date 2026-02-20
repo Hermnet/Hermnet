@@ -1,5 +1,7 @@
 package com.hermnet.api.controller;
 
+import com.hermnet.api.dto.ChallengeRequest;
+import com.hermnet.api.dto.ChallengeResponse;
 import com.hermnet.api.dto.LoginRequest;
 import com.hermnet.api.dto.LoginResponse;
 import com.hermnet.api.dto.RegisterRequest;
@@ -39,6 +41,18 @@ public class AuthController {
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         UserResponse response = userService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Creates a one-time nonce challenge for a user.
+     *
+     * @param request The challenge request containing the user ID.
+     * @return ResponseEntity with nonce challenge payload.
+     */
+    @PostMapping("/challenge")
+    public ResponseEntity<ChallengeResponse> challenge(@Valid @RequestBody ChallengeRequest request) {
+        ChallengeResponse response = authService.challenge(request);
+        return ResponseEntity.ok(response);
     }
 
     /**
