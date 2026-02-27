@@ -1,0 +1,17 @@
+## Logs y builds
+logs/
+*/target/
+*.log
+
+## Archivos de entorno
+.env
+.env.*
+
+## Claves y credenciales
+backend/src/main/resources/*firebase-adminsdk-*.json
+
+## Archivos del sistema/IDE
+.DS_Store
+.idea/
+.vscode/
+

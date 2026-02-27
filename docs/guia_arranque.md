@@ -34,21 +34,25 @@ Con esta configuración:
 - Usuario: `alvaro_admin`
 - Password: `alvaro_admin`
 
-### 3.2 Configurar variables obligatorias
+### 3.2 Configurar variables obligatorias (JWT + Firebase)
 
 El backend necesita:
 
 1. **JWT secret** válido (recomendado mínimo 32 caracteres).
 2. **Credenciales Firebase** (para inicializar `FirebaseApp`).
 
-En macOS/Linux, en la misma terminal donde arrancas backend:
+En macOS/Linux, en la **misma terminal** donde arrancas el backend:
 
 ```bash
 export JWT_SECRET='cambia-esto-por-una-clave-larga-y-segura-de-32-o-mas-caracteres'
-export GOOGLE_APPLICATION_CREDENTIALS='/ruta/absoluta/a/service-account.json'
+export FIREBASE_SERVICE_ACCOUNT_PATH='/ruta/absoluta/a/tu/hermnet-*-firebase-adminsdk-*.json'
 ```
 
-> Alternativa Firebase: en vez de `GOOGLE_APPLICATION_CREDENTIALS`, puedes usar la propiedad `firebase.service.account.path` al arrancar la app.
+Notas importantes sobre Firebase:
+
+- El fichero JSON **no debe subirse al repositorio**. Ya existe una entrada en `.gitignore` (`backend/src/main/resources/*firebase-adminsdk-*.json`) que lo protege.
+- Guarda ese JSON solo en tu máquina (por ejemplo en `backend/src/main/resources/` o en otra ruta segura) y apunta `FIREBASE_SERVICE_ACCOUNT_PATH` a su ruta absoluta.
+- Spring Boot mapea `FIREBASE_SERVICE_ACCOUNT_PATH` → `firebase.service.account.path`, que es lo que lee `FirebaseConfig`.
 
 ### 3.3 Ejecutar API Spring Boot
 
@@ -58,10 +62,10 @@ Desde `backend`:
 mvn spring-boot:run
 ```
 
-Si prefieres pasar propiedades por línea de comando:
+Si prefieres pasar las propiedades explícitamente por línea de comando:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments="--jwt.secret=$JWT_SECRET --firebase.service.account.path=$GOOGLE_APPLICATION_CREDENTIALS"
+mvn spring-boot:run -Dspring-boot.run.arguments="--jwt.secret=$JWT_SECRET --firebase.service.account.path=$FIREBASE_SERVICE_ACCOUNT_PATH"
 ```
 
 Cuando arranque bien, la API quedará disponible en `http://localhost:8080`.
