@@ -1,0 +1,185 @@
+import { StyleSheet, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+
+export const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#0d111b',
+        paddingTop: 70,
+        paddingHorizontal: 25,
+        alignItems: 'center',
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#ffffff',
+        letterSpacing: 1.5,
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    subtitle: {
+        fontSize: 15,
+        color: '#cbd5e1',
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 20,
+    },
+    warningBox: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)', // Subtle red transparent
+        borderColor: 'rgba(239, 68, 68, 0.3)',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 30,
+        width: '100%',
+    },
+    warningIcon: {
+        marginRight: 12,
+    },
+    warningText: {
+        color: '#fca5a5',
+        fontSize: 14,
+        flex: 1,
+        lineHeight: 20,
+        fontWeight: '500',
+    },
+    seedGrid: {
+        width: '100%',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    wordBox: {
+        width: '48%',
+        backgroundColor: '#131926',
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#1e293b',
+    },
+    wordIndex: {
+        color: '#475569',
+        fontSize: 14,
+        fontWeight: 'bold',
+        width: 24,
+    },
+    wordText: {
+        color: '#e2e8f0',
+        fontSize: 16,
+        fontWeight: '600',
+        letterSpacing: 0.5,
+    },
+    actionRow: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 'auto',
+        marginBottom: 40,
+        gap: 10,
+    },
+    copyBtn: {
+        backgroundColor: '#1e293b',
+        width: 60,
+        height: 60,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mainBtn: {
+        flex: 1,
+        height: 60,
+        backgroundColor: '#3b82f6',
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mainBtnDisabled: {
+        backgroundColor: '#131926',
+        borderWidth: 1,
+        borderColor: '#1e293b',
+    },
+    mainBtnText: {
+        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    mainBtnTextDisabled: {
+        color: '#64748b',
+    },
+    // VERIFY STEP STYLES
+    verifySlotsContainer: {
+        width: '100%',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: 30,
+    },
+    verifySlot: {
+        width: '31%',
+        height: 50,
+        backgroundColor: '#131926',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#334155',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    verifySlotFilled: {
+        borderStyle: 'solid',
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    },
+    verifySlotError: {
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    verifySlotNumber: {
+        color: '#475569',
+        fontSize: 12,
+        position: 'absolute',
+        top: 4,
+        left: 6,
+    },
+    verifySlotText: {
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    verifyOptionsGrid: {
+        width: '100%',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start',
+        gap: 10,
+    },
+    optionBtn: {
+        backgroundColor: '#1e293b',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        marginBottom: 10,
+    },
+    optionBtnHidden: {
+        opacity: 0,
+    },
+    optionBtnText: {
+        color: '#cbd5e1',
+        fontSize: 16,
+        fontWeight: '500',
+    }
+});
