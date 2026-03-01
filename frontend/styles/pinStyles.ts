@@ -7,7 +7,7 @@ export const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#0d111b',
         alignItems: 'center',
-        justifyContent: 'center', // Centrado nativo bajando todo el teclado
+        justifyContent: 'center', // Native centering naturally pushing down the keypad
         paddingBottom: 20,
     },
     header: {
@@ -17,13 +17,13 @@ export const styles = StyleSheet.create({
     title: {
         fontSize: 26,
         fontWeight: 'bold',
-        color: '#ffffff', // Más brillante
+        color: '#ffffff', // Brighter
         letterSpacing: 1.5,
         marginBottom: 12,
     },
     subtitle: {
         fontSize: 16,
-        color: '#cbd5e1', // Gris más claro
+        color: '#cbd5e1', // Lighter gray
         textAlign: 'center',
         paddingHorizontal: 30,
         lineHeight: 24,
@@ -75,12 +75,12 @@ export const styles = StyleSheet.create({
         width: '100%',
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-evenly', // Espaciado natural equitativo
+        justifyContent: 'space-evenly', // Natural even spacing
         alignContent: 'center',
     },
     key: {
         width: 76,
-        height: 76, // Fuerza un círculo perfecto sin depender del aspecto
+        height: 76, // Forces a perfect circle independent of aspect ratio
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,

@@ -25,14 +25,14 @@ const SLIDES = [
     }
 ];
 
-// -------- ANIMACIÓN: DIAPOSITIVA 1 (CAJA FUERTE Y CARPETA) --------
+// -------- ANIMATION: SLIDE 1 (SAFE AND FOLDER) --------
 const SafeVaultAnimation = () => {
     const animValue = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         const loop = Animated.loop(
             Animated.timing(animValue, {
-                toValue: 2, // Fases: 0 a 1 (entra), 1 a 2 (resetea y espera)
+                toValue: 2, // Phases: 0 to 1 (enters), 1 to 2 (resets and waits)
                 duration: 3500,
                 easing: Easing.linear,
                 useNativeDriver: true,
@@ -42,17 +42,17 @@ const SafeVaultAnimation = () => {
         return () => loop.stop();
     }, [animValue]);
 
-    // La carpeta viene desde la derecha y entra a la caja (centro)
+    // Folder comes from the right and enters the safe (center)
     const folderTranslateX = animValue.interpolate({
         inputRange: [0, 0.4, 0.6, 1, 2],
-        outputRange: [100, 20, 0, 0, 0] // Empieza en 100px, frena al entrar a la caja (0)
+        outputRange: [100, 20, 0, 0, 0] // Starts at 100px, stops when entering the safe (0)
     });
-    // Se achica al entrar para simular que es "guardado" adentro
+    // Shrinks when entering to simulate being "saved" inside
     const folderScale = animValue.interpolate({
         inputRange: [0, 0.4, 0.7, 1, 2],
         outputRange: [1, 1, 0, 0, 0]
     });
-    // La caja vibra o "pestañea" cuando recibe la carpeta
+    // The safe blinks when receiving the folder
     const vaultScale = animValue.interpolate({
         inputRange: [0, 0.6, 0.7, 0.8, 1, 2],
         outputRange: [1, 1, 1.1, 1, 1, 1]
@@ -64,7 +64,7 @@ const SafeVaultAnimation = () => {
                 <Feather name="folder" size={40} color="#3182ce" />
             </Animated.View>
             <Animated.View style={[localAnimStyles.vaultCube, { transform: [{ scale: vaultScale }] }]}>
-                {/* Puerta de la caja fuerte */}
+                {/* Safe door */}
                 <View style={localAnimStyles.vaultDoor}>
                     <MaterialCommunityIcons name="shield-lock-outline" size={30} color="#1a202c" />
                 </View>
@@ -73,12 +73,12 @@ const SafeVaultAnimation = () => {
     );
 };
 
-// -------- ANIMACIÓN: DIAPOSITIVA 2 (MÓVILES ENVIANDO DATOS/CARTAS) --------
+// -------- ANIMATION: SLIDE 2 (PHONES SENDING DATA/LETTERS) --------
 const PhonesCommunicationAnimation = () => {
     const animValue = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // La carta atraviesa de un móvil a otro
+        // The letter goes from one phone to another
         const loop = Animated.loop(
             Animated.timing(animValue, {
                 toValue: 1,
@@ -91,46 +91,46 @@ const PhonesCommunicationAnimation = () => {
         return () => loop.stop();
     }, [animValue]);
 
-    // Interpolación para el sobre volador
+    // Interpolation for the flying envelope
     const envelopeTranslateX = animValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [-60, 60] // Desde el de la izquierda al de la derecha
+        outputRange: [-60, 60] // From left to right
     });
-    // Efecto esteganografía: El sobre desaparece y reaparece (se camufla) en medio de la transmisión
+    //  The envelope disappears and reappears (camouflages) mid-transmission
     const envelopeOpacity = animValue.interpolate({
         inputRange: [0, 0.1, 0.4, 0.6, 0.9, 1],
-        outputRange: [0, 1, 0, 0, 1, 0] // Desaparece total al medio (camuflaje fantasma)
+        outputRange: [0, 1, 0, 0, 1, 0] // Disappears completely in the middle (ghost camouflage)
     });
 
-    // Pequeño icono flotando en el medio mientras la carta está transparente, simbolizando "Imagen"
+    // Small icon floating in the middle while the letter is transparent, symbolizing "Image"
     const imageOpacity = animValue.interpolate({
         inputRange: [0, 0.3, 0.5, 0.7, 1],
-        outputRange: [0, 0, 1, 0, 0] // Aparece solo justo al medio
+        outputRange: [0, 0, 1, 0, 0] // Appears only exactly in the middle
     });
 
     return (
         <View style={[localAnimStyles.sceneContainer, { flexDirection: 'row' }]}>
-            {/* Móvil Emisor */}
+            {/* Sender Phone */}
             <Feather name="smartphone" size={60} color="#1a202c" style={{ marginRight: 60 }} />
 
-            {/* Datos en tránsito (Sobre) */}
+            {/* Data in transit (Envelope) */}
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', transform: [{ translateX: envelopeTranslateX }], opacity: envelopeOpacity }]}>
                 <Feather name="mail" size={24} color="#3182ce" />
             </Animated.View>
 
-            {/* Vehículo en medio (Imagen camuflada) */}
+            {/* Vehicle in middle (Camouflaged image) */}
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: imageOpacity }]}>
                 <Feather name="image" size={34} color="#a0aec0" />
             </Animated.View>
 
-            {/* Móvil Receptor */}
+            {/* Receiver Phone */}
             <Feather name="smartphone" size={60} color="#1a202c" style={{ marginLeft: 60 }} />
         </View>
     );
 };
 
 
-// -------- ANIMACIÓN: DIAPOSITIVA 3 (ESCUDO REPUDIANDO ATAQUES/DATOS) --------
+// -------- ANIMATION: SLIDE 3 (SHIELD REPELLING ATTACKS/DATA) --------
 const ShieldDefenseAnimation = () => {
     const animValue = useRef(new Animated.Value(0)).current;
 
@@ -147,14 +147,14 @@ const ShieldDefenseAnimation = () => {
         return () => loop.stop();
     }, [animValue]);
 
-    // Los datos "peligrosos" caen desde arriba hacia el centro (donde está el escudo)
+    // "Dangerous" data falls from above towards the center (where the shield is)
     const dataTranslateY = animValue.interpolate({
         inputRange: [0, 0.5],
-        outputRange: [-80, 0], // Caen hacia el escudo (y=0)
+        outputRange: [-80, 0], // Falls towards the shield (y=0)
         extrapolate: 'clamp',
     });
 
-    // Al chocar (0.5), el rayo rojo rebota y se desvía a la izquierda / derecha y cae
+    // Upon collision (0.5), the red laser bounces, deflects left/right, and falls
     const dataLeftTranslateX = animValue.interpolate({
         inputRange: [0, 0.5, 1],
         outputRange: [0, 0, -60]
@@ -165,10 +165,10 @@ const ShieldDefenseAnimation = () => {
     });
     const dataBounceY = animValue.interpolate({
         inputRange: [0, 0.5, 0.7, 1],
-        outputRange: [-80, -20, -40, 40] // Desvío parabólico abajo
+        outputRange: [-80, -20, -40, 40] // Downward parabolic deflection
     });
 
-    // El rayo solo es visible antes de chocar, y pedazos rotos después 
+    // The laser is only visible before hitting, and broken pieces afterwards 
     const incomingOpacity = animValue.interpolate({
         inputRange: [0, 0.1, 0.49, 0.5], outputRange: [0, 1, 1, 0]
     });
@@ -176,14 +176,14 @@ const ShieldDefenseAnimation = () => {
         inputRange: [0, 0.49, 0.5, 0.8, 1], outputRange: [0, 0, 1, 1, 0]
     });
 
-    // El escudo vibra sutilmente al recibir el impacto en 0.5
+    // The shield vibrates subtly upon receiving the impact at 0.5
     const shieldScale = animValue.interpolate({
         inputRange: [0, 0.4, 0.5, 0.6, 1], outputRange: [1, 1, 1.15, 1, 1]
     });
 
     return (
         <View style={localAnimStyles.sceneContainer}>
-            {/* Impacto / Troyano o datos intrusos bajando */}
+            {/* Impact / Trojan or intruder data falling */}
             <Animated.View style={{ position: 'absolute', opacity: incomingOpacity, transform: [{ translateY: dataTranslateY }] }}>
                 <Feather name="zap" size={28} color="#e53e3e" />
             </Animated.View>
@@ -195,7 +195,7 @@ const ShieldDefenseAnimation = () => {
                 <View style={{ width: 10, height: 4, backgroundColor: '#e53e3e', borderRadius: 2 }} />
             </Animated.View>
 
-            {/* Escudo Protector Gigante Constante */}
+            {/* Constant Giant Protective Shield */}
             <Animated.View style={{ transform: [{ scale: shieldScale }] }}>
                 <Feather name="shield" size={100} color="#1a202c" />
             </Animated.View>
@@ -203,7 +203,7 @@ const ShieldDefenseAnimation = () => {
     );
 }
 
-// -------- ESTILOS INTERNOS AUXILIARES --------
+// -------- AUXILIARY INTERNAL STYLES --------
 const localAnimStyles = StyleSheet.create({
     sceneContainer: {
         width: '100%',
@@ -245,7 +245,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
     const enterAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // Barra de carga base progresando fluidamente en 12 segundos
+        // Base progress bar filling smoothly over 12 seconds
         Animated.timing(progressAnimation, {
             toValue: 100,
             duration: 12000,
@@ -261,7 +261,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
             }).start();
         });
 
-        // Hacemos que la pantalla avance sola si el usuario no arrastra manualmente.
+        // Auto-advances screen if the user does not drag manually.
         let interval = setInterval(() => {
             if (userInteracted.current) {
                 clearInterval(interval);
@@ -301,7 +301,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
 
     return (
         <View style={[styles.container, { paddingTop: 90 }]}>
-            {/* Indicadores de página (Puntos blancos), ahora fijos fuera de la animación de subida */}
+            {/* Page indicators (white dots), now fixed outside the slide-up animation */}
             <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
                 {SLIDES.map((_, index) => (
                     <Animated.View
@@ -316,7 +316,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
             </View>
 
             <Animated.View style={{ flex: 1, width: '100%', alignItems: 'center', transform: [{ translateY: contentTranslateY }] }}>
-                {/* Carrusel Deslizable */}
+                {/* Swipeable Carousel */}
                 <View style={{ flex: 1, alignSelf: 'stretch' }}>
                     <FlatList
                         ref={flatListRef}
@@ -327,11 +327,11 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                         showsHorizontalScrollIndicator={false}
                         onScrollBeginDrag={() => { userInteracted.current = true; }}
                         onMomentumScrollEnd={(event) => {
-                            // Resuelve en qué punto exacto nos dejó el deslizamiento del usuario
+                            // Resolves exactly where the user's scroll left us
                             const newInd = Math.round(event.nativeEvent.contentOffset.x / width);
                             setCurrentIndex(newInd);
                         }}
-                        scrollEnabled={true} // ¡Permite que el usuario deslice naturalmente!
+                        scrollEnabled={true} // Allows user to swipe naturally!
                         renderItem={({ item, index }) => (
                             <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
                                 <View style={styles.card}>
@@ -340,7 +340,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                                         <Text style={styles.description}>{item.description}</Text>
                                     </View>
 
-                                    {/* Contenedor para cargar la escena 2D/Animación compleja */}
+                                    {/* Container to load the 2D scene/complex animation */}
                                     <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                         <DynamicGraphicsRenderer index={index} />
                                     </View>
@@ -350,7 +350,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                     />
                 </View>
 
-                {/* Bottom Section - Progress Bar Mejorada */}
+                {/* Bottom Section - Improved Progress Bar */}
                 <View style={[styles.bottomSection, { marginBottom: 20 }]}>
                     <Text style={styles.loadingText}>
                         {showButton ? "Clave Creada Exitosamente" : "Generando Clave Privada..."}
@@ -369,7 +369,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                 </View>
             </Animated.View>
 
-            {/* Nuevo botón Continuar */}
+            {/* New Continue button */}
             {showButton && (
                 <Animated.View style={{
                     position: 'absolute',

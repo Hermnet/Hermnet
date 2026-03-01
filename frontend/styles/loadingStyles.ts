@@ -5,7 +5,7 @@ const { width, height } = Dimensions.get('window');
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'transparent', // HomeScreen wrap it now in #0d111b
+        backgroundColor: 'transparent', // HomeScreen wraps it now in #0d111b
         alignItems: 'center',
         paddingVertical: 60,
     },
@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        // Pequeño resplandor en el punto activo
+        // Small glow on the active dot
         shadowColor: '#fff',
         shadowOpacity: 0.8,
         shadowRadius: 5,
@@ -36,12 +36,12 @@ export const styles = StyleSheet.create({
     card: {
         width: width * 0.85,
         height: height * 0.65,
-        backgroundColor: '#e2e8f0', // Un gris platinado más puro
+        backgroundColor: '#e2e8f0', // A purer platinum gray
         borderRadius: 24,
         padding: 30,
         alignItems: 'center',
         justifyContent: 'space-between',
-        // Sombra llamativa
+        // Eye-catching shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 15 },
         shadowOpacity: 0.5,
@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        // Sombra azul difusa alrededor del icono para dar toque sofisticado
+        // Diffuse blue shadow around the icon for a sophisticated touch
         shadowColor: '#3182ce',
         shadowOpacity: 0.2,
         shadowRadius: 20,

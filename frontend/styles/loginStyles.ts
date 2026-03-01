@@ -5,7 +5,7 @@ const { width } = Dimensions.get('window');
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0d111b', // Color de fondo oscuro similar a la imagen
+        backgroundColor: '#0d111b', // Dark background color similar to the image
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -15,10 +15,10 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     logo: {
-        width: width * 0.7, // 80% del ancho de la pantalla para el escudo puramente
+        width: width * 0.7, // 70% of screen width purely for the shield
         height: undefined,
-        aspectRatio: 1.05, // La relación encontrada del escudo real
-        marginBottom: 4,  // Muy poco espacio para que el texto esté justo debajo
+        aspectRatio: 1.05, // The exact ratio found for the shield
+        marginBottom: 4,  // Very little space so the text sits right below
         marginTop: 80,
     },
     title: {
@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
         color: '#a0aabf',
     },
     button: {
-        backgroundColor: '#8d929f', // Botón gris píldora
+        backgroundColor: '#8d929f', // Gray pill button
         paddingVertical: 22,
         paddingHorizontal: 40,
         borderRadius: 40,
@@ -40,5 +40,16 @@ export const styles = StyleSheet.create({
         color: '#000000',
         fontSize: 20,
         fontWeight: '600',
+    },
+    secondaryButton: {
+        marginBottom: 15,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+    },
+    secondaryButtonText: {
+        color: '#64748b',
+        fontSize: 15,
+        fontWeight: '500',
+        textDecorationLine: 'underline',
     }
 });

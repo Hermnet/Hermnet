@@ -181,5 +181,42 @@ export const styles = StyleSheet.create({
         color: '#cbd5e1',
         fontSize: 16,
         fontWeight: '500',
+    },
+    // RESTORE STEP STYLES
+    restoreGrid: {
+        width: '100%',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        paddingBottom: 20,
+    },
+    restoreInputContainer: {
+        width: '48%',
+        backgroundColor: '#131926',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#1e293b',
+        height: 50,
+    },
+    restoreInputError: {
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    restoreWordIndex: {
+        color: '#475569',
+        fontSize: 14,
+        fontWeight: 'bold',
+        width: 24,
+    },
+    restoreInput: {
+        flex: 1,
+        color: '#e2e8f0',
+        fontSize: 16,
+        fontWeight: '600',
+        height: '100%',
     }
 });
