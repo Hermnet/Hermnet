@@ -1,31 +1,64 @@
 import React, { useState, useRef } from 'react';
-import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing } from 'react-native';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
+import PinScreen from './PinScreen';
 import { styles as loginStyles } from '../../styles/loginStyles';
 
 const { height } = Dimensions.get('window');
 
 export default function HomeScreen() {
+    const [showPin, setShowPin] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     // Animaciones para la transición
     const fadeHomeAnim = useRef(new Animated.Value(1)).current;
-    // Iniciamos la pantalla de carga completamente debajo de la pantalla
+    const translateYHomeAnim = useRef(new Animated.Value(0)).current;
+
+    // Nueva transición de entrada de PIN (Fade in + Slide Up ligero)
+    const fadePinAnim = useRef(new Animated.Value(0)).current;
+    const translateYPinAnim = useRef(new Animated.Value(40)).current;
     const slideLoadingAnim = useRef(new Animated.Value(height)).current;
 
     const handleGenerateClick = () => {
-        if (isLoading) return;
+        if (showPin) return;
+        setShowPin(true);
+
+        // Push Up: Sube el contenido viejo al 0% y trae el teclado desde abajo
+        Animated.parallel([
+            Animated.timing(fadeHomeAnim, {
+                toValue: 0,
+                duration: 350,
+                useNativeDriver: true,
+            }),
+            Animated.timing(translateYHomeAnim, {
+                toValue: -50,
+                duration: 400,
+                easing: Easing.out(Easing.quad),
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadePinAnim, {
+                toValue: 1,
+                duration: 400,
+                delay: 50, // Entra ligeramente después de que el Home empiece a irse
+                useNativeDriver: true,
+            }),
+            Animated.timing(translateYPinAnim, {
+                toValue: 0,
+                duration: 400,
+                delay: 50,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            })
+        ]).start();
+    };
+
+    const handlePinComplete = (pinCode: string) => {
+        console.log("PIN Registrado exitosamente: ", pinCode);
+        // Aquí pasaremos el PIN al motor criptográfico después. Por ahora avanzamos a la carga.
         setIsLoading(true);
 
-        // Desvanece sutilmente la pantalla de inicio hacia atrás
-        Animated.timing(fadeHomeAnim, {
-            toValue: 0.4,
-            duration: 400,
-            useNativeDriver: true,
-        }).start();
-
-        // Desliza imponentemente la pantalla de carga desde abajo hacia arriba (Y = 0)
+        // Desliza imponentemente la pantalla de carga tapeando el PIN
         Animated.spring(slideLoadingAnim, {
             toValue: 0,
             tension: 40,
@@ -37,7 +70,7 @@ export default function HomeScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: '#0d111b' }}>
             {/* Pantalla principal base */}
-            <Animated.View style={[loginStyles.container, StyleSheet.absoluteFill, { opacity: fadeHomeAnim }]}>
+            <Animated.View style={[loginStyles.container, StyleSheet.absoluteFill, { opacity: fadeHomeAnim, transform: [{ translateY: translateYHomeAnim }] }]}>
                 <View style={loginStyles.content}>
                     <Image
                         source={require('../../assets/logo_tight.png')}
@@ -59,6 +92,18 @@ export default function HomeScreen() {
                     <Text style={loginStyles.buttonText}>Generar Clave Privada</Text>
                 </TouchableOpacity>
             </Animated.View>
+
+            {/* Pantalla de Entrada de PIN superpuesta */}
+            {showPin && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        { opacity: fadePinAnim, transform: [{ translateY: translateYPinAnim }], zIndex: 5, elevation: 5, backgroundColor: '#0d111b' }
+                    ]}
+                >
+                    <PinScreen onComplete={handlePinComplete} />
+                </Animated.View>
+            )}
 
             {/* Pantalla de carga superpuesta, oculta abajo esperando para deslizar */}
             {isLoading && (
