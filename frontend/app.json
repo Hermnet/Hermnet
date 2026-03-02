@@ -27,7 +27,8 @@
     "plugins": [
       "expo-asset",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ]
   }
 }
