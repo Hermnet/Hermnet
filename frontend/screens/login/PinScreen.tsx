@@ -6,14 +6,14 @@ import { styles } from '../../styles/pinStyles';
 const PIN_LENGTH = 6;
 
 interface PinScreenProps {
-    mode?: 'setup' | 'login';
+    mode?: 'setup' | 'login' | 'restore';
     onComplete: (pin: string) => void;
 }
 
 export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps) {
     const [pin, setPin] = useState<string>('');
     const [confirmPin, setConfirmPin] = useState<string>('');
-    const [step, setStep] = useState<'create' | 'confirm' | 'login'>(mode === 'setup' ? 'create' : 'login');
+    const [step, setStep] = useState<'create' | 'confirm' | 'login' | 'restore'>(mode === 'setup' ? 'create' : (mode === 'restore' ? 'restore' : 'login'));
     const [error, setError] = useState(false);
 
     const shakeAnimation = useRef(new Animated.Value(0)).current;
@@ -27,8 +27,8 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
             }, 300);
         } else if (step === 'confirm' && confirmPin.length === PIN_LENGTH) {
             handleConfirm();
-        } else if (step === 'login' && pin.length === PIN_LENGTH) {
-            // If login, resolve immediately (vault validation will be done by HomeScreen)
+        } else if ((step === 'login' || step === 'restore') && pin.length === PIN_LENGTH) {
+            // If login or restore, resolve immediately (vault validation will be done by HomeScreen)
             setTimeout(() => {
                 onComplete(pin);
                 // Clear the pin in case validation fails and it returns here
@@ -67,7 +67,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
     const handlePress = (num: string) => {
         if (error) return; // Block input during shake
 
-        if ((step === 'create' || step === 'login') && pin.length < PIN_LENGTH) {
+        if ((step === 'create' || step === 'login' || step === 'restore') && pin.length < PIN_LENGTH) {
             setPin(prev => prev + num);
         } else if (step === 'confirm' && confirmPin.length < PIN_LENGTH) {
             setConfirmPin(prev => prev + num);
@@ -77,7 +77,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
     const handleDelete = () => {
         if (error) return;
 
-        if (step === 'create' || step === 'login') {
+        if (step === 'create' || step === 'login' || step === 'restore') {
             setPin(prev => prev.slice(0, -1));
         } else {
             setConfirmPin(prev => prev.slice(0, -1));
@@ -92,7 +92,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
         ['', '0', 'delete']
     ];
 
-    const currentLength = (step === 'create' || step === 'login') ? pin.length : confirmPin.length;
+    const currentLength = (step === 'create' || step === 'login' || step === 'restore') ? pin.length : confirmPin.length;
 
     // Generate dots layout
     const renderDots = () => {
@@ -119,14 +119,16 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.title}>
-                    {step === 'create' ? 'CREA TU PIN DE SEGURIDAD' : step === 'confirm' ? 'CONFIRMA TU PIN' : 'DESBLOQUEA TU BÓVEDA'}
+                    {step === 'create' ? 'CREA TU PIN DE SEGURIDAD' : step === 'confirm' ? 'CONFIRMA TU PIN' : step === 'restore' ? 'CONTRASEÑA DE RESPALDO' : 'DESBLOQUEA TU BÓVEDA'}
                 </Text>
                 <Text style={styles.subtitle}>
                     {step === 'create'
                         ? 'Este PIN blindará tu clave local. Si lo olvidas, perderás tu identidad.'
                         : step === 'confirm'
                             ? 'Introduce el PIN nuevamente para confirmar tu bóveda.'
-                            : 'Introduce tu PIN de seguridad para acceder a tu identidad local.'}
+                            : step === 'restore'
+                                ? 'Introduce la contraseña con la que cifraste tu archivo de respaldo (.hnet).'
+                                : 'Introduce tu PIN de seguridad para acceder a tu identidad local.'}
                 </Text>
             </View>
 

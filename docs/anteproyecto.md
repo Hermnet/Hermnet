@@ -37,7 +37,7 @@ Cuando te llega un mensaje, recibes una notificación que no dice nada ("Tienes 
 
 ### Paso 5: La Caja Fuerte (Cierre y Respaldo)
 
-Tus mensajes se guardan solo en tu móvil, en una Bóveda Local protegida. Si pierdes el móvil, puedes recuperar todo usando un archivo de respaldo protegido o una frase secreta de 12 palabras que solo tú conoces.
+Tus mensajes se guardan solo en tu móvil, en una Bóveda Local protegida. Si pierdes el móvil, puedes recuperar tu cuenta importando un archivo de respaldo seguro (.hnet) cifrado con tu contraseña, el cual puedes exportar previamente desde los Ajustes.
 
 
 ## 2. Resumen de Tecnologías

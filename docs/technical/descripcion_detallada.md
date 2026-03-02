@@ -217,12 +217,12 @@ Caché de imágenes base para esteganografía.
 
 ---
 
-## 15. Archivo de Respaldo (.hnet)
-Como no hay nube ni contraseñas:
-1.  **Empaquetado:** Volcado de la BD SQLite.
-2.  **KDF:** Derivación de clave desde una Contraseña de Respaldo.
+## 15. Archivo de Respaldo (.hnet) (Único Método de Recuperación)
+Como no hay nube ni contraseñas, ni usamos frases de 12 palabras, la exportación local es vital:
+1.  **Empaquetado:** Volcado de la BD SQLite completa en un fichero.
+2.  **KDF:** Derivación de clave desde una Contraseña de Respaldo definida por el usuario.
 3.  **Cifrado:** AES-256-GCM.
-4.  **Resultado:** Archivo `respaldo_2024.hnet`.
+4.  **Resultado:** Archivo `generado.hnet` listo para ser guardado (Drive, local, pendrive). Solo con este archivo y la contraseña de respaldo se puede restaurar la cuenta en caso de pérdida de dispositivo.
 
 ---
 
@@ -230,9 +230,3 @@ Como no hay nube ni contraseñas:
 *   Túnel P2P local (vía QR).
 *   Transferencia de Clave Privada cifrada.
 *   El PC actúa como un espejo independiente.
-
----
-
-## 17. Recuperación con Semilla (BIP-39)
-*   Generación de 12 palabras mnemónicas al registro.
-*   Permite reconstruir la clave privada matemáticamente en otro dispositivo.

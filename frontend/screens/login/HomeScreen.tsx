@@ -1,20 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing } from 'react-native';
+import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, Alert } from 'react-native';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
-import SeedScreen from './SeedScreen';
 import PinScreen from './PinScreen';
-import RestoreScreen from './RestoreScreen';
 import { styles as loginStyles } from '../../styles/loginStyles';
 
 const { height } = Dimensions.get('window');
 
 export default function HomeScreen() {
     const [hasAccount, setHasAccount] = useState<boolean | null>(null);
-    const [showSeed, setShowSeed] = useState(false);
-    const [showRestore, setShowRestore] = useState(false);
     const [showPin, setShowPin] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false); // Para saber si el PinScreen se abre para restaurar
 
     useEffect(() => {
         // Cold Start: Detect Local Vault
@@ -34,14 +31,6 @@ export default function HomeScreen() {
     const fadeHomeAnim = useRef(new Animated.Value(1)).current;
     const translateYHomeAnim = useRef(new Animated.Value(0)).current;
 
-    // Seed entry transition
-    const fadeSeedAnim = useRef(new Animated.Value(0)).current;
-    const translateYSeedAnim = useRef(new Animated.Value(40)).current;
-
-    // Restore entry transition
-    const fadeRestoreAnim = useRef(new Animated.Value(0)).current;
-    const translateYRestoreAnim = useRef(new Animated.Value(40)).current;
-
     // PIN entry transition 
     const fadePinAnim = useRef(new Animated.Value(0)).current;
     const translateYPinAnim = useRef(new Animated.Value(40)).current;
@@ -49,8 +38,8 @@ export default function HomeScreen() {
     const slideLoadingAnim = useRef(new Animated.Value(height)).current;
 
     const handleGenerateClick = () => {
-        if (showSeed) return;
-        setShowSeed(true);
+        setIsRestoring(false);
+        setShowPin(true);
 
         Animated.parallel([
             Animated.timing(fadeHomeAnim, {
@@ -64,13 +53,13 @@ export default function HomeScreen() {
                 easing: Easing.out(Easing.quad),
                 useNativeDriver: true,
             }),
-            Animated.timing(fadeSeedAnim, {
+            Animated.timing(fadePinAnim, {
                 toValue: 1,
                 duration: 400,
                 delay: 50,
                 useNativeDriver: true,
             }),
-            Animated.timing(translateYSeedAnim, {
+            Animated.timing(translateYPinAnim, {
                 toValue: 0,
                 duration: 400,
                 delay: 50,
@@ -81,130 +70,49 @@ export default function HomeScreen() {
     };
 
     const handleRestoreClick = () => {
-        if (showRestore) return;
-        setShowRestore(true);
+        // Lógica futura: Abrir DocumentPicker nativo para seleccionar el archivo .hnet
+        Alert.alert(
+            "Restaurar Identidad",
+            "Aquí se abrirá el explorador de archivos para seleccionar tu Bóveda de Respaldo (.hnet). Tras seleccionarlo, te pediremos tu contraseña de cifrado.",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Simular Selección",
+                    onPress: () => {
+                        // Simulamos que ha seleccionado el fichero y necesitamos su PIN/Contraseña para descifrarlo
+                        setIsRestoring(true);
+                        setShowPin(true);
 
-        Animated.parallel([
-            Animated.timing(fadeHomeAnim, {
-                toValue: 0,
-                duration: 350,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYHomeAnim, {
-                toValue: -50,
-                duration: 400,
-                easing: Easing.out(Easing.quad),
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadeRestoreAnim, {
-                toValue: 1,
-                duration: 400,
-                delay: 50,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYRestoreAnim, {
-                toValue: 0,
-                duration: 400,
-                delay: 50,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            })
-        ]).start();
-    };
-
-    const handleRestoreCancel = () => {
-        Animated.parallel([
-            Animated.timing(fadeRestoreAnim, {
-                toValue: 0,
-                duration: 350,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYRestoreAnim, {
-                toValue: 50,
-                duration: 400,
-                easing: Easing.out(Easing.quad),
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadeHomeAnim, {
-                toValue: 1,
-                duration: 400,
-                delay: 50,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYHomeAnim, {
-                toValue: 0,
-                duration: 400,
-                delay: 50,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            })
-        ]).start(() => {
-            setShowRestore(false);
-        });
-    };
-
-    const handleRestoreComplete = (seedPhrase: string[]) => {
-        console.log("Palabras a recuperar: ", seedPhrase.join(" "));
-        // Avanza directamente al PIN setup para reasignar su Bóveda restaurada
-        setShowPin(true);
-
-        Animated.parallel([
-            Animated.timing(fadeRestoreAnim, {
-                toValue: 0,
-                duration: 350,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYRestoreAnim, {
-                toValue: -50,
-                duration: 400,
-                easing: Easing.out(Easing.quad),
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadePinAnim, {
-                toValue: 1,
-                duration: 400,
-                delay: 50,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYPinAnim, {
-                toValue: 0,
-                duration: 400,
-                delay: 50,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            })
-        ]).start();
-    };
-
-    const handleSeedComplete = (seedPhrase: string[]) => {
-        setShowPin(true);
-
-        Animated.parallel([
-            Animated.timing(fadeSeedAnim, {
-                toValue: 0,
-                duration: 350,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYSeedAnim, {
-                toValue: -50,
-                duration: 400,
-                easing: Easing.out(Easing.quad),
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadePinAnim, {
-                toValue: 1,
-                duration: 400,
-                delay: 50,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateYPinAnim, {
-                toValue: 0,
-                duration: 400,
-                delay: 50,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            })
-        ]).start();
+                        Animated.parallel([
+                            Animated.timing(fadeHomeAnim, {
+                                toValue: 0,
+                                duration: 350,
+                                useNativeDriver: true,
+                            }),
+                            Animated.timing(translateYHomeAnim, {
+                                toValue: -50,
+                                duration: 400,
+                                easing: Easing.out(Easing.quad),
+                                useNativeDriver: true,
+                            }),
+                            Animated.timing(fadePinAnim, {
+                                toValue: 1,
+                                duration: 400,
+                                delay: 50,
+                                useNativeDriver: true,
+                            }),
+                            Animated.timing(translateYPinAnim, {
+                                toValue: 0,
+                                duration: 400,
+                                delay: 50,
+                                easing: Easing.out(Easing.cubic),
+                                useNativeDriver: true,
+                            })
+                        ]).start();
+                    }
+                }
+            ]
+        );
     };
 
     const handlePinComplete = (pinCode: string) => {
@@ -252,7 +160,7 @@ export default function HomeScreen() {
                         onPress={handleRestoreClick}
                         activeOpacity={0.6}
                     >
-                        <Text style={loginStyles.secondaryButtonText}>Ya tengo una cuenta / Restaurar </Text>
+                        <Text style={loginStyles.secondaryButtonText}>¿Ya tienes cuenta? / Restaurar</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -265,31 +173,7 @@ export default function HomeScreen() {
                 </Animated.View>
             )}
 
-            {/* 12 Seed Words Screen */}
-            {showSeed && (
-                <Animated.View
-                    style={[
-                        StyleSheet.absoluteFill,
-                        { opacity: fadeSeedAnim, transform: [{ translateY: translateYSeedAnim }], zIndex: 4, elevation: 4, backgroundColor: '#0d111b' }
-                    ]}
-                >
-                    <SeedScreen onComplete={handleSeedComplete} />
-                </Animated.View>
-            )}
-
-            {/* 12 Seed Words Restore Form Screen */}
-            {showRestore && (
-                <Animated.View
-                    style={[
-                        StyleSheet.absoluteFill,
-                        { opacity: fadeRestoreAnim, transform: [{ translateY: translateYRestoreAnim }], zIndex: 4, elevation: 4, backgroundColor: '#0d111b' }
-                    ]}
-                >
-                    <RestoreScreen onComplete={handleRestoreComplete} onCancel={handleRestoreCancel} />
-                </Animated.View>
-            )}
-
-            {/* PIN Entry Screen (Active on setup and direct Login) */}
+            {/* PIN Entry Screen (Active on setup, direct Login or restoring) */}
             {(showPin || hasAccount) && (
                 <Animated.View
                     style={[
@@ -304,7 +188,7 @@ export default function HomeScreen() {
                     ]}
                 >
                     <PinScreen
-                        mode={hasAccount ? 'login' : 'setup'}
+                        mode={hasAccount ? 'login' : (isRestoring ? 'restore' : 'setup')}
                         onComplete={hasAccount ? handleLoginComplete : handlePinComplete}
                     />
 
@@ -312,10 +196,10 @@ export default function HomeScreen() {
                     {hasAccount && (
                         <TouchableOpacity
                             style={[loginStyles.secondaryButton, { position: 'absolute', bottom: 40, alignSelf: 'center' }]}
-                            onPress={() => { }}
+                            onPress={handleRestoreClick}
                             activeOpacity={0.6}
                         >
-                            <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Identidad</Text>
+                            <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
                         </TouchableOpacity>
                     )}
                 </Animated.View>

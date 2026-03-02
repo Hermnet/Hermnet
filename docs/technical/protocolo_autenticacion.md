@@ -94,7 +94,7 @@ Para proteger la identidad si roban el móvil e intentan adivinar el PIN:
 *   **Contador de Fallos:** La app registra internamente los intentos fallidos consecutivos de PIN.
 *   **Límite (10 intentos):** Si se alcanza el intento nº 10 fallido:
     *   **Acción:** La app ejecuta un `DROP TABLE key_store` o sobrescribe la clave privada con ceros.
-    *   **Resultado:** La identidad se pierde permanentemente en ese dispositivo. El usuario tendrá que usar su frase de recuperación (12 palabras) para restaurar su cuenta.
+    *   **Resultado:** La identidad se pierde permanentemente en ese dispositivo. El usuario podrá restaurar su cuenta únicamente importando su archivo de respaldo (.hnet) si lo exportó previamente.
 
 ### C. Fallo de Red / Reloj Desincronizado
 *   Si el reloj del móvil no coincide con el tiempo UTC del servidor, la firma será rechazada. La app avisará: "Ajuste su hora a automática".
