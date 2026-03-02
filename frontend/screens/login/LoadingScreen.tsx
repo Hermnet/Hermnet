@@ -138,7 +138,7 @@ const ShieldDefenseAnimation = () => {
         const loop = Animated.loop(
             Animated.timing(animValue, {
                 toValue: 1,
-                duration: 1800,
+                duration: 2200,
                 easing: Easing.linear,
                 useNativeDriver: true,
             })
@@ -147,56 +147,83 @@ const ShieldDefenseAnimation = () => {
         return () => loop.stop();
     }, [animValue]);
 
-    // "Dangerous" data falls from above towards the center (where the shield is)
-    const dataTranslateY = animValue.interpolate({
-        inputRange: [0, 0.5],
-        outputRange: [-80, 0], // Falls towards the shield (y=0)
+    // "Dangerous" laser speeds in from the left side
+    const dataTranslateX = animValue.interpolate({
+        inputRange: [0, 0.4],
+        outputRange: [-140, -42], // Shoots from left towards center shield
         extrapolate: 'clamp',
     });
 
-    // Upon collision (0.5), the red laser bounces, deflects left/right, and falls
-    const dataLeftTranslateX = animValue.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0, 0, -60]
+    // Upon collision (0.4), it breaks into pieces and deflects backward-up and backward-down
+    const piece1TranslateX = animValue.interpolate({
+        inputRange: [0, 0.4, 1], outputRange: [0, -42, -120]
     });
-    const dataRightTranslateX = animValue.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0, 0, 60]
-    });
-    const dataBounceY = animValue.interpolate({
-        inputRange: [0, 0.5, 0.7, 1],
-        outputRange: [-80, -20, -40, 40] // Downward parabolic deflection
+    const piece1TranslateY = animValue.interpolate({
+        inputRange: [0, 0.4, 1], outputRange: [0, 0, -80]
     });
 
-    // The laser is only visible before hitting, and broken pieces afterwards 
+    const piece2TranslateX = animValue.interpolate({
+        inputRange: [0, 0.4, 1], outputRange: [0, -42, -100]
+    });
+    const piece2TranslateY = animValue.interpolate({
+        inputRange: [0, 0.4, 1], outputRange: [0, 0, 90]
+    });
+
+    // The incoming attack is visible until it hits the shield
     const incomingOpacity = animValue.interpolate({
-        inputRange: [0, 0.1, 0.49, 0.5], outputRange: [0, 1, 1, 0]
-    });
-    const brokenOpacity = animValue.interpolate({
-        inputRange: [0, 0.49, 0.5, 0.8, 1], outputRange: [0, 0, 1, 1, 0]
+        inputRange: [0, 0.1, 0.39, 0.4], outputRange: [0, 1, 1, 0]
     });
 
-    // The shield vibrates subtly upon receiving the impact at 0.5
+    // The broken pieces appear at impact and fade out as they fly away
+    const brokenOpacity = animValue.interpolate({
+        inputRange: [0, 0.39, 0.4, 0.7, 1], outputRange: [0, 0, 1, 0, 0]
+    });
+
+    // The shield braces for impact: scales up and tilts slightly backward to absorb the blow
     const shieldScale = animValue.interpolate({
-        inputRange: [0, 0.4, 0.5, 0.6, 1], outputRange: [1, 1, 1.15, 1, 1]
+        inputRange: [0, 0.35, 0.4, 0.5, 1], outputRange: [1, 1, 1.15, 1, 1]
+    });
+    const shieldRotate = animValue.interpolate({
+        inputRange: [0, 0.35, 0.4, 0.6, 1], outputRange: ['0deg', '0deg', '15deg', '0deg', '0deg']
+    });
+
+    // Energy ripple effect when the laser hits the shield
+    const rippleScale = animValue.interpolate({
+        inputRange: [0, 0.4, 0.7, 1], outputRange: [0.8, 0.8, 1.4, 1.4]
+    });
+    const rippleOpacity = animValue.interpolate({
+        inputRange: [0, 0.39, 0.4, 0.6, 1], outputRange: [0, 0, 0.6, 0, 0]
     });
 
     return (
         <View style={localAnimStyles.sceneContainer}>
-            {/* Impact / Trojan or intruder data falling */}
-            <Animated.View style={{ position: 'absolute', opacity: incomingOpacity, transform: [{ translateY: dataTranslateY }] }}>
-                <Feather name="zap" size={28} color="#e53e3e" />
+            {/* Energy Force Field Ripple */}
+            <Animated.View style={{
+                position: 'absolute',
+                width: 120,
+                height: 120,
+                borderRadius: 60,
+                borderWidth: 3,
+                borderColor: '#3182ce',
+                opacity: rippleOpacity,
+                transform: [{ scale: rippleScale }]
+            }} />
+
+            {/* Incoming intruder laser from left */}
+            <Animated.View style={{ position: 'absolute', opacity: incomingOpacity, transform: [{ translateX: dataTranslateX }, { rotate: '90deg' }] }}>
+                <Feather name="zap" size={36} color="#e53e3e" />
             </Animated.View>
 
-            <Animated.View style={{ position: 'absolute', opacity: brokenOpacity, transform: [{ translateX: dataLeftTranslateX }, { translateY: dataBounceY }, { rotate: '-45deg' }] }}>
-                <View style={{ width: 10, height: 4, backgroundColor: '#e53e3e', borderRadius: 2 }} />
+            {/* Broken deflected pieces flying backwards */}
+            <Animated.View style={{ position: 'absolute', opacity: brokenOpacity, transform: [{ translateX: piece1TranslateX }, { translateY: piece1TranslateY }, { rotate: '-45deg' }] }}>
+                <View style={{ width: 14, height: 5, backgroundColor: '#e53e3e', borderRadius: 3 }} />
             </Animated.View>
-            <Animated.View style={{ position: 'absolute', opacity: brokenOpacity, transform: [{ translateX: dataRightTranslateX }, { translateY: dataBounceY }, { rotate: '45deg' }] }}>
-                <View style={{ width: 10, height: 4, backgroundColor: '#e53e3e', borderRadius: 2 }} />
+            <Animated.View style={{ position: 'absolute', opacity: brokenOpacity, transform: [{ translateX: piece2TranslateX }, { translateY: piece2TranslateY }, { rotate: '45deg' }] }}>
+                <View style={{ width: 14, height: 5, backgroundColor: '#e53e3e', borderRadius: 3 }} />
             </Animated.View>
 
-            {/* Constant Giant Protective Shield */}
-            <Animated.View style={{ transform: [{ scale: shieldScale }] }}>
+            {/* Giant Protective Shield */}
+            <Animated.View style={{ transform: [{ scale: shieldScale }, { rotate: shieldRotate }] }}>
                 <Feather name="shield" size={100} color="#1a202c" />
             </Animated.View>
         </View>
