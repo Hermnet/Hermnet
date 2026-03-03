@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
     KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder, StatusBar
@@ -11,35 +11,20 @@ const { height: SCREEN_H } = Dimensions.get('window');
 
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
 const INPUT_H = Platform.OS === 'ios' ? 110 : 95;
+const AVAIL_H = SCREEN_H - HEADER_H - INPUT_H;  // espacio real para mensajes
 
-// Espacio disponible para mensajes (entre header e input)
-const AVAIL_H = SCREEN_H - HEADER_H - INPUT_H;
-
-// Px de desplazamiento que equivale a "un slot" para el gesto de swipe
+// px de desplazamiento que equivalen a un slot en el gesto de swipe
 const SLOT_PX = 80;
 
-// ─── Slots del carrusel ───────────────────────────────────────────────────────
-// 7 slots visibles que cubren todo AVAIL_H, más 1 de entrada desde abajo (-1)
-const NUM_SLOTS = 7;
-const buildSlots = () => {
-    const tys: number[] = [];
-    const scales: number[] = [];
-    const opacs: number[] = [];
-    for (let i = 0; i < NUM_SLOTS; i++) {
-        const t = i / (NUM_SLOTS - 1);           // 0 → 1
-        tys.push(-(t * AVAIL_H * 0.9));       // de 0 (abajo) a -90% del espacio
-        scales.push(1 - t * 0.52);               // 1.00 → 0.48
-        opacs.push(i === 0 ? 1 : Math.max(0.02, 1 - t * 1.15));
-    }
-    return { tys, scales, opacs };
-};
-const { tys: SLOT_TY, scales: SLOT_SCALE, opacs: SLOT_OPAC } = buildSlots();
-const SLOT_INPUT = [-1, 0, 1, 2, 3, 4, 5, 6];  // incluye slot -1 (entrada desde abajo)
-const TY_OUT = [80, ...SLOT_TY];
-const SCALE_OUT = [0.84, ...SLOT_SCALE];
-const OPAC_OUT = [0, ...SLOT_OPAC];
+// ─── Configuración de slots ────────────────────────────────────────────────────
+// 5 slots visibles (0-4) + slot 5 invisible + slot 6 guardia de clamp.
+// translateY con gaps de ~18% de AVAIL_H: cubre ~76% de la pantalla con 5 mensajes.
+const SLOT_INPUT = [-1, 0, 1, 2, 3, 4, 5, 6];
+const TY_OUT = [90, 0, -AVAIL_H * 0.18, -AVAIL_H * 0.36, -AVAIL_H * 0.52, -AVAIL_H * 0.65, -AVAIL_H * 0.76, -AVAIL_H * 0.76];
+const SCALE_OUT = [0.84, 1.00, 0.90, 0.79, 0.68, 0.57, 0.47, 0.47];
+const OPAC_OUT = [0, 1.00, 0.94, 0.78, 0.52, 0.22, 0, 0];
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// ─── Tipos ─────────────────────────────────────────────────────────────────────
 type MsgData = {
     id: string;
     text: string;
@@ -56,36 +41,52 @@ const INITIAL_MSGS: MsgData[] = [
     { id: 'm6', text: '¡Increíble!', isMine: false },
 ].reverse(); // índice 0 = más reciente
 
-// ─── CarouselBubble ───────────────────────────────────────────────────────────
+// ─── CarouselBubble ────────────────────────────────────────────────────────────
+const SWIPE_THRESHOLD = 45; // px de swipe derecho para activar respuesta
+
 const CarouselBubble = ({
-    msg, index, viewOffsetAnim, onLongPress,
+    msg, index, viewOffsetAnim, onReply,
 }: {
     msg: MsgData;
     index: number;
     viewOffsetAnim: Animated.Value;
-    onLongPress: (msg: MsgData) => void;
+    onReply: (msg: MsgData) => void;
 }) => {
-    // indexAnim representa la posición absoluta de esta burbuja en el array.
-    // Se anima suavemente cuando index cambia (al añadir/quitar mensajes).
+    // indexAnim se actualiza con spring cuando el índice cambia (al añadir mensajes)
     const indexAnim = useRef(new Animated.Value(index)).current;
-
     useEffect(() => {
-        Animated.spring(indexAnim, {
-            toValue: index,
-            friction: 9,
-            tension: 55,
-            useNativeDriver: true,
-        }).start();
+        Animated.spring(indexAnim, { toValue: index, friction: 9, tension: 55, useNativeDriver: true }).start();
     }, [index]);
 
     // slot = posición visual = índice - offset actual
-    const slotAnim = useRef(
-        Animated.subtract(indexAnim, viewOffsetAnim)
-    ).current;
+    const slotAnim = useRef(Animated.subtract(indexAnim, viewOffsetAnim)).current;
 
     const translateY = slotAnim.interpolate({ inputRange: SLOT_INPUT, outputRange: TY_OUT, extrapolate: 'clamp' });
     const scale = slotAnim.interpolate({ inputRange: SLOT_INPUT, outputRange: SCALE_OUT, extrapolate: 'clamp' });
     const opacity = slotAnim.interpolate({ inputRange: SLOT_INPUT, outputRange: OPAC_OUT, extrapolate: 'clamp' });
+
+    // Animación de swipe horizontal (para responder)
+    const swipeX = useRef(new Animated.Value(0)).current;
+    const replyIconOpacity = swipeX.interpolate({ inputRange: [0, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: 'clamp' });
+    const replyIconScale = swipeX.interpolate({ inputRange: [0, SWIPE_THRESHOLD], outputRange: [0.5, 1], extrapolate: 'clamp' });
+
+    const swipePan = useRef(PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, g) => g.dx > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderMove: (_, g) => {
+            if (g.dx > 0) {
+                const capped = Math.min(g.dx * 0.6, SWIPE_THRESHOLD + 10);
+                swipeX.setValue(capped);
+            }
+        },
+        onPanResponderRelease: (_, g) => {
+            if (g.dx > SWIPE_THRESHOLD) onReply(msg);
+            Animated.spring(swipeX, { toValue: 0, friction: 7, useNativeDriver: true }).start();
+        },
+        onPanResponderTerminate: () => {
+            Animated.spring(swipeX, { toValue: 0, friction: 7, useNativeDriver: true }).start();
+        },
+    })).current;
 
     return (
         <Animated.View
@@ -99,7 +100,19 @@ const CarouselBubble = ({
                 transform: [{ translateY }, { scale }],
             }}
         >
-            <TouchableWithoutFeedback onLongPress={() => onLongPress(msg)} delayLongPress={350}>
+            {/* Icono de respuesta que aparece al deslizar */}
+            <Animated.View style={{
+                position: 'absolute',
+                left: msg.isMine ? undefined : 0,
+                right: msg.isMine ? undefined : undefined,
+                bottom: 8,
+                opacity: replyIconOpacity,
+                transform: [{ scale: replyIconScale }, { translateX: swipeX }],
+            }}>
+                <Feather name="corner-up-left" size={18} color="#60a5fa" />
+            </Animated.View>
+
+            <Animated.View {...swipePan.panHandlers} style={{ transform: [{ translateX: swipeX }] }}>
                 <View style={[
                     styles.messageBubble,
                     msg.isMine ? styles.messageBubbleRight : styles.messageBubbleLeft,
@@ -109,14 +122,13 @@ const CarouselBubble = ({
                     {msg.replyTo && (
                         <View style={{
                             borderLeftWidth: 3,
-                            borderLeftColor: msg.isMine ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.5)',
-                            paddingLeft: 8,
-                            paddingVertical: 4,
+                            borderLeftColor: 'rgba(255,255,255,0.55)',
+                            paddingLeft: 8, paddingVertical: 4,
                             marginBottom: 6,
-                            backgroundColor: 'rgba(0,0,0,0.15)',
+                            backgroundColor: 'rgba(0,0,0,0.18)',
                             borderRadius: 6,
                         }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '700', marginBottom: 2 }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '700', marginBottom: 1 }}>
                                 {msg.replyTo.isMine ? 'Tú' : 'Marta'}
                             </Text>
                             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }} numberOfLines={1}>
@@ -126,14 +138,12 @@ const CarouselBubble = ({
                     )}
                     <Text style={styles.messageText}>{msg.text}</Text>
                 </View>
-            </TouchableWithoutFeedback>
+            </Animated.View>
         </Animated.View>
     );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ChatRoomScreen
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── ChatRoomScreen ────────────────────────────────────────────────────────────
 export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
     const [allMessages, setAllMessages] = useState<MsgData[]>(INITIAL_MSGS);
     const [newMessage, setNewMessage] = useState('');
@@ -146,35 +156,43 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
 
     useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
 
+    // ── Navegar al mensaje concreto por índice ────────────────────────────────
+    const jumpToIndex = useCallback((idx: number) => {
+        currentOffset.current = idx;
+        setScrolledBack(idx > 0);
+        Animated.spring(viewOffsetAnim, { toValue: idx, friction: 9, tension: 55, useNativeDriver: true }).start();
+    }, [viewOffsetAnim]);
+
+    // ── Tap en "Respondiendo a:" → salta al mensaje original ─────────────────
+    const jumpToReply = useCallback(() => {
+        if (!replyingTo) return;
+        const idx = allMessagesRef.current.findIndex(m => m.id === replyingTo.id);
+        if (idx !== -1) jumpToIndex(idx);
+    }, [replyingTo, jumpToIndex]);
+
     // ── PanResponder vertical (carrusel) ──────────────────────────────────────
     const msgPan = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, g) =>
-            Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
-
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
         onPanResponderMove: (_, g) => {
             const raw = currentOffset.current + (-g.dy / SLOT_PX);
             const maxOff = Math.max(0, allMessagesRef.current.length - 1);
             viewOffsetAnim.setValue(Math.max(0, Math.min(maxOff, raw)));
         },
-
         onPanResponderRelease: (_, g) => {
             const raw = currentOffset.current + (-g.dy / SLOT_PX);
             const maxOff = Math.max(0, allMessagesRef.current.length - 1);
             const snapped = Math.round(Math.max(0, Math.min(maxOff, raw)));
             currentOffset.current = snapped;
             setScrolledBack(snapped > 0);
-            Animated.spring(viewOffsetAnim, {
-                toValue: snapped, friction: 9, tension: 55, useNativeDriver: true,
-            }).start();
+            Animated.spring(viewOffsetAnim, { toValue: snapped, friction: 9, tension: 55, useNativeDriver: true }).start();
         },
     })).current;
 
-    // ── Global swipe horizontal ───────────────────────────────────────────────
+    // ── Global swipe horizontal para volver atrás ─────────────────────────────
     const globalSwipe = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, g) =>
-            g.dx > 30 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onMoveShouldSetPanResponder: (_, g) => g.dx > 30 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
         onPanResponderRelease: (_, g) => { if (g.dx > 80) onBack(); },
     })).current;
 
@@ -201,19 +219,10 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
     };
 
     // ── Volver al último mensaje ──────────────────────────────────────────────
-    const goToLatest = () => {
-        currentOffset.current = 0;
-        setScrolledBack(false);
-        Animated.spring(viewOffsetAnim, {
-            toValue: 0, friction: 9, tension: 55, useNativeDriver: true,
-        }).start();
-    };
+    const goToLatest = () => jumpToIndex(0);
 
     return (
-        <KeyboardAvoidingView
-            style={styles.safeArea}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={[styles.container, { overflow: 'hidden' }]} {...globalSwipe.panHandlers}>
 
                 {/* ── Área de mensajes ── */}
@@ -224,51 +233,34 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                             msg={msg}
                             index={i}
                             viewOffsetAnim={viewOffsetAnim}
-                            onLongPress={(m) => setReplyingTo(m)}
+                            onReply={setReplyingTo}
                         />
                     ))}
 
-                    {/* Gradiente superior: oculta los bocadillos apilados cerca del header */}
+                    {/* Gradiente superior: suaviza el borde entre header y mensajes */}
                     <LinearGradient
-                        colors={['#0d111b', '#0d111b', 'rgba(13,17,27,0.7)', 'transparent']}
-                        locations={[0, 0.45, 0.72, 1]}
-                        style={{
-                            position: 'absolute',
-                            top: HEADER_H,
-                            left: 0, right: 0,
-                            height: AVAIL_H * 0.38,
-                            zIndex: 10,
-                        }}
+                        colors={['#0d111b', 'rgba(13,17,27,0.15)', 'transparent']}
+                        locations={[0, 0.6, 1]}
+                        style={{ position: 'absolute', top: HEADER_H, left: 0, right: 0, height: AVAIL_H * 0.03, zIndex: 10 }}
                         pointerEvents="none"
                     />
 
-                    {/* Botón "ver último mensaje" — color ámbar para no confundir con burbujas */}
+                    {/* Botón ámbar para volver al último mensaje */}
                     {scrolledBack && (
                         <TouchableOpacity
                             onPress={goToLatest}
                             activeOpacity={0.85}
                             style={{
-                                position: 'absolute',
-                                bottom: INPUT_H + 14,
-                                alignSelf: 'center',
-                                backgroundColor: '#d97706',  // ámbar — distinto al azul de las burbujas
-                                borderRadius: 20,
-                                paddingHorizontal: 18,
-                                paddingVertical: 9,
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 7,
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 3 },
-                                shadowOpacity: 0.30,
-                                shadowRadius: 6,
-                                elevation: 6,
+                                position: 'absolute', bottom: INPUT_H + 14, alignSelf: 'center', zIndex: 20,
+                                backgroundColor: '#d97706',
+                                borderRadius: 20, paddingHorizontal: 18, paddingVertical: 9,
+                                flexDirection: 'row', alignItems: 'center', gap: 7,
+                                shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+                                shadowOpacity: 0.30, shadowRadius: 6, elevation: 6,
                             }}
                         >
                             <Feather name="chevrons-down" size={15} color="#fff" />
-                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
-                                Último mensaje
-                            </Text>
+                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Último mensaje</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -296,20 +288,20 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                 {/* ── Input ── */}
                 <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
 
-                    {/* Preview de respuesta al estilo WhatsApp */}
+                    {/* Banner de respuesta — pulsable para saltar al mensaje original */}
                     {replyingTo && (
-                        <View style={{
-                            backgroundColor: '#1a2234',
-                            paddingHorizontal: 14,
-                            paddingVertical: 10,
-                            borderTopLeftRadius: 16,
-                            borderTopRightRadius: 16,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            borderLeftWidth: 4,
-                            borderLeftColor: '#3b82f6',
-                            gap: 10,
-                        }}>
+                        <TouchableOpacity
+                            onPress={jumpToReply}
+                            activeOpacity={0.8}
+                            style={{
+                                backgroundColor: '#1a2234',
+                                paddingHorizontal: 14, paddingVertical: 10,
+                                borderTopLeftRadius: 16, borderTopRightRadius: 16,
+                                flexDirection: 'row', alignItems: 'center',
+                                borderLeftWidth: 4, borderLeftColor: '#3b82f6', gap: 10,
+                            }}
+                        >
+                            <Feather name="corner-up-left" size={14} color="#60a5fa" />
                             <View style={{ flex: 1 }}>
                                 <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
                                     {replyingTo.isMine ? 'Tú' : 'Marta'}
@@ -318,16 +310,15 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                                     {replyingTo.text}
                                 </Text>
                             </View>
+                            {/* Indicador "toca para ir al mensaje" */}
+                            <Text style={{ color: '#60a5fa', fontSize: 11 }}>↑ ver</Text>
                             <TouchableOpacity onPress={() => setReplyingTo(null)} style={{ padding: 4 }}>
                                 <Feather name="x" size={18} color="#a0aabf" />
                             </TouchableOpacity>
-                        </View>
+                        </TouchableOpacity>
                     )}
 
-                    <View style={[
-                        styles.inputBackground,
-                        replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
-                    ]}>
+                    <View style={[styles.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
                         <TextInput
                             style={styles.textInput}
                             value={newMessage}
