@@ -16,13 +16,11 @@ const AVAIL_H = SCREEN_H - HEADER_H - INPUT_H;  // espacio real para mensajes
 // px de desplazamiento que equivalen a un slot en el gesto de swipe
 const SLOT_PX = 80;
 
-// ─── Configuración de slots ────────────────────────────────────────────────────
-// 5 slots visibles (0-4) + slot 5 invisible + slot 6 guardia de clamp.
-// translateY con gaps de ~18% de AVAIL_H: cubre ~76% de la pantalla con 5 mensajes.
-const SLOT_INPUT = [-1, 0, 1, 2, 3, 4, 5, 6];
-const TY_OUT = [90, 0, -AVAIL_H * 0.18, -AVAIL_H * 0.36, -AVAIL_H * 0.52, -AVAIL_H * 0.65, -AVAIL_H * 0.76, -AVAIL_H * 0.76];
-const SCALE_OUT = [0.84, 1.00, 0.90, 0.79, 0.68, 0.57, 0.47, 0.47];
-const OPAC_OUT = [0, 1.00, 0.94, 0.78, 0.52, 0.22, 0, 0];
+// 9 mensajes visibles: slots 0-7 opacidad máxima, slot 8 se desvanece, 9 invisible, 10 guardia
+const SLOT_INPUT = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const TY_OUT = [90, 0, -AVAIL_H * 0.10, -AVAIL_H * 0.20, -AVAIL_H * 0.30, -AVAIL_H * 0.40, -AVAIL_H * 0.50, -AVAIL_H * 0.60, -AVAIL_H * 0.70, -AVAIL_H * 0.79, -AVAIL_H * 0.87, -AVAIL_H * 0.87];
+const SCALE_OUT = [0.95, 1.00, 0.97, 0.94, 0.91, 0.88, 0.84, 0.81, 0.77, 0.74, 0.70, 0.70];
+const OPAC_OUT = [0, 1.00, 1.00, 1.00, 0.98, 0.95, 0.90, 0.83, 0.72, 0.30, 0, 0];
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────────
 type MsgData = {
@@ -237,13 +235,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                         />
                     ))}
 
-                    {/* Gradiente superior: suaviza el borde entre header y mensajes */}
-                    <LinearGradient
-                        colors={['#0d111b', 'rgba(13,17,27,0.15)', 'transparent']}
-                        locations={[0, 0.6, 1]}
-                        style={{ position: 'absolute', top: HEADER_H, left: 0, right: 0, height: AVAIL_H * 0.03, zIndex: 10 }}
-                        pointerEvents="none"
-                    />
+
 
                     {/* Botón ámbar para volver al último mensaje */}
                     {scrolledBack && (
