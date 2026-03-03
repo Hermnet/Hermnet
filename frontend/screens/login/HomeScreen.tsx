@@ -7,7 +7,7 @@ import { styles as loginStyles } from '../../styles/loginStyles';
 
 const { height } = Dimensions.get('window');
 
-export default function HomeScreen() {
+export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
     const [hasAccount, setHasAccount] = useState<boolean | null>(null);
     const [showPin, setShowPin] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -130,6 +130,9 @@ export default function HomeScreen() {
 
     const handleLoginComplete = (pinCode: string) => {
         // On successful login, navigate to the main Chats screen
+        if (onAuthSuccess) {
+            onAuthSuccess();
+        }
     };
 
     if (hasAccount === null) {
@@ -213,7 +216,7 @@ export default function HomeScreen() {
                         { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' }
                     ]}
                 >
-                    <LoadingScreen onFinish={() => { }} />
+                    <LoadingScreen onFinish={() => { if (onAuthSuccess) onAuthSuccess(); }} />
                 </Animated.View>
             )}
         </View>
