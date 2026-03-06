@@ -275,7 +275,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
         // Base progress bar filling smoothly over 12 seconds
         Animated.timing(progressAnimation, {
             toValue: 100,
-            duration: 12000,
+            duration: 9000,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: false,
         }).start(() => {
