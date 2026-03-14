@@ -153,7 +153,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                                     onPress={handleDelete}
                                     activeOpacity={0.6}
                                 >
-                                    <Feather name="delete" size={28} color="#a0aec0" />
+                                    <Feather name="x" size={26} color="#a0aec0" />
                                 </TouchableOpacity>
                             );
                         }

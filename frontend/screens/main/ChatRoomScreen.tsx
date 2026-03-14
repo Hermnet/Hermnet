@@ -12,63 +12,40 @@ const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
 const INPUT_H = Platform.OS === 'ios' ? 110 : 95;
 const AVAIL_H = SCREEN_H - HEADER_H - INPUT_H;
-const SLOT_PX = 80;
+const SLOT_PX = 92;
 
-// Umbrales de texto: controlan el estilo de fuente y el botón "Leer más"
-const TRUNCATE_AT = 200; // "Leer más" solo para mensajes muy largos
-
-// Constantes aproximadas de altura (en px) para calcular el espacio disponible por burbuja
-const BUBBLE_PADDING_Y = 24;
-const REPLY_HEIGHT = 42;
-const READ_MORE_HEIGHT = 20;
+const TRUNCATE_AT = 200;
 
 const getDynamicTextProps = (text: string, hasReply: boolean) => {
-    const len = text.length;
-    let fontSize = 15;
-    let lineHeight = 22;
-
-    if (len <= 80) {
-        fontSize = 15; lineHeight = 22;
-    } else if (len <= 200) {
-        fontSize = 13; lineHeight = 18;
-    } else {
-        fontSize = 11; lineHeight = 15;
-    }
-
-    const newlines = (text.match(/\n/g) || []).length;
-    const approximateLines = newlines + Math.floor(len / 32) + 1; // +1 porque 0 newlines = 1 linea
-
-    // Espacio máximo seguro (gap estimado de ~98px)
-    let availableHeight = 98 - BUBBLE_PADDING_Y;
-    if (hasReply) availableHeight -= REPLY_HEIGHT;
-
-    let needsTruncation = len > TRUNCATE_AT;
-
-    // Calcular maxLines dinámicamente según el espacio restante
-    let possibleLines = Math.max(1, Math.floor(availableHeight / lineHeight));
-
-    if (approximateLines > possibleLines || needsTruncation) {
-        needsTruncation = true;
-        // Restar el espacio que ocupará el botón "Leer más..."
-        availableHeight -= READ_MORE_HEIGHT;
-        possibleLines = Math.max(1, Math.floor(availableHeight / lineHeight));
-    }
-
-    return { fontSize, lineHeight, maxLines: possibleLines, needsTruncation };
+    const fontSize = text.length <= 80 ? 15 : 13;
+    const lineHeight = text.length <= 80 ? 22 : 18;
+    const maxLines = hasReply ? 2 : 3;
+    const approximateLines = (text.match(/\n/g) || []).length + Math.floor(text.length / 32) + 1;
+    const needsTruncation = text.length > TRUNCATE_AT || approximateLines > maxLines;
+    return { fontSize, lineHeight, maxLines, needsTruncation };
 };
 
-// ─── Estilos y Constantes Animadas ──────────────────────────────────────────────
-const SLOT_INPUT = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const SCALE_OUT = [0.95, 1.00, 0.97, 0.94, 0.91, 0.88, 0.84, 0.81, 0.77, 0.74, 0.70, 0.70];
-const OPAC_OUT = [0, 1.00, 1.00, 1.00, 0.98, 0.95, 0.90, 0.83, 0.72, 0.30, 0, 0];
+// ─── Constantes de animación del carrusel ──────────────────────────────────────
+// bottomDist = (índice * SLOT_PX) - scrollPxAnim
+// 0 = foco (mensaje activo en la base), >0 = por encima, <0 = por debajo
+const _S = SLOT_PX;
+const Z_INPUT = [-_S * 2, -_S, 0, _S, _S * 2, _S * 3, _S * 4, _S * 5, _S * 6];
+const TY_OUT = [
+    _S * 2,              // 2 slots abajo: fuera de pantalla
+    _S,                  // 1 slot abajo: saliendo
+    0,                   // foco: posición base
+    -(AVAIL_H * 0.28),   // 1 arriba
+    -(AVAIL_H * 0.50),   // 2 arriba
+    -(AVAIL_H * 0.67),   // 3 arriba
+    -(AVAIL_H * 0.78),   // 4 arriba (desvaneciéndose)
+    -(AVAIL_H * 0.86),   // 5 arriba (casi invisible)
+    -(AVAIL_H * 0.86),   // clamped
+];
+const SCALE_OUT = [1.0, 1.0, 1.0, 0.88, 0.75, 0.62, 0.50, 0.42, 0.42];
+const OPAC_OUT  = [1.0, 1.0, 1.0, 0.82, 0.58, 0.32, 0.12, 0.0,  0.0];
 
-// Altura máxima de cada burbuja = 93% del gap entre slots → margen de 7%
-// NOTA: no usar maxHeight en Animated.View de Android (poco fiable). 
-// La altura se controla con numberOfLines={3} directamente en el Text.
-const SLOT_GAP_PX = Math.round(AVAIL_H * 0.15); // referencia visual, no aplicado como CSS
-
-const RENDER_WINDOW = 12;
-const RENDER_BUFFER = 2;
+const RENDER_WINDOW = 16;
+const RENDER_BUFFER = 6;
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────────
 type MsgData = {
@@ -159,30 +136,29 @@ const FullMessageModal = React.memo(({
 // ─── CarouselBubble ────────────────────────────────────────────────────────────
 type BubbleProps = {
     msg: MsgData;
-    index: number;
-    viewOffsetAnim: Animated.Value;
+    yIndex: number; // El Y físico donde se apila (0 = bottom)
+    scrollPxAnim: Animated.Value;
     onReply: (msg: MsgData) => void;
     onReadMore: (msg: MsgData) => void;
 };
 
-const CarouselBubble = React.memo(({ msg, index, viewOffsetAnim, onReply, onReadMore }: BubbleProps) => {
-    // Se obtiene el tamaño de fuente, altura de línea y número máximo de líneas dinámicamente
-    // calculando el espacio disponible para que no exceda el gap del carrusel y solape
+const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadMore }: BubbleProps) => {
     const { fontSize, lineHeight, maxLines, needsTruncation } = getDynamicTextProps(msg.text, !!msg.replyTo);
 
-    // Animación del slot (profundidad del carrusel)
-    const indexAnim = useRef(new Animated.Value(index)).current;
+    // Animación suave de apilamiento vertical (cuando llegan nuevos mensajes)
+    const yAnim = useRef(new Animated.Value(yIndex)).current;
     useEffect(() => {
-        Animated.spring(indexAnim, { toValue: index, friction: 9, tension: 55, useNativeDriver: true }).start();
-    }, [index]);
+        Animated.spring(yAnim, { toValue: yIndex, friction: 9, tension: 55, useNativeDriver: true }).start();
+    }, [yIndex]);
 
-    const slotAnim = useRef(Animated.subtract(indexAnim, viewOffsetAnim)).current;
+    // Distancia vertical desde la base focal
+    const bottomDist = Animated.subtract(yAnim, scrollPxAnim);
 
-    // Ya no usamos TY_OUT porque dependemos del layout dinámico, solo escalamos y oscurecemos
-    const scale = useRef(slotAnim.interpolate({ inputRange: SLOT_INPUT, outputRange: SCALE_OUT, extrapolate: 'clamp' })).current;
-    const opacity = useRef(slotAnim.interpolate({ inputRange: SLOT_INPUT, outputRange: OPAC_OUT, extrapolate: 'clamp' })).current;
+    // Efecto físico 3D en cascada acoplado a la cima
+    const translateY = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: TY_OUT, extrapolate: 'clamp' })).current;
+    const scale = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: SCALE_OUT, extrapolate: 'clamp' })).current;
+    const opacity = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: OPAC_OUT, extrapolate: 'clamp' })).current;
 
-    // Feedback de pulsación larga (leve encogido y rebote)
     const pressScale = useRef(new Animated.Value(1)).current;
     const handlePressIn = () => Animated.spring(pressScale, { toValue: 0.94, friction: 5, useNativeDriver: true }).start();
     const handlePressOut = () => Animated.spring(pressScale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
@@ -196,12 +172,13 @@ const CarouselBubble = React.memo(({ msg, index, viewOffsetAnim, onReply, onRead
 
     return (
         <Animated.View style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
             alignItems: msg.isMine ? 'flex-end' : 'flex-start',
             paddingHorizontal: 20,
-            marginBottom: 10, // Un margen fijo al estilo WhatsApp
             opacity,
-            transform: [{ scale }],
-            zIndex: 1000 - index,
+            transform: [{ translateY }, { scale }],
+            // Calculamos pseudo index de z para no complicar el pass
+            zIndex: 10000 - Math.round(yIndex),
         }}>
             <TouchableOpacity
                 activeOpacity={0.85}
@@ -257,7 +234,7 @@ const CarouselBubble = React.memo(({ msg, index, viewOffsetAnim, onReply, onRead
         </Animated.View>
     );
 }, (prev, next) =>
-    prev.index === next.index && prev.msg === next.msg &&
+    prev.yIndex === next.yIndex && prev.msg === next.msg &&
     prev.onReply === next.onReply && prev.onReadMore === next.onReadMore
 );
 
@@ -271,32 +248,37 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
     const [renderOffset, setRenderOffset] = useState(0);
 
     const allMessagesRef = useRef(allMessages);
-    const viewOffsetAnim = useRef(new Animated.Value(0)).current;
-    const currentOffset = useRef(0);
+    const scrollPxAnim = useRef(new Animated.Value(0)).current;
+    const currentPx = useRef(0);
 
     useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
 
-    // Windowing: solo montar mensajes cercanos al viewport
+    // Posiciones fijas por slot: índice * SLOT_PX (sin depender de altura de burbuja)
+    const messageLayouts = useMemo(() => {
+        return allMessages.map((msg, i) => ({ msg, y: i * SLOT_PX, idx: i }));
+    }, [allMessages]);
+
+    // Windowing: solo montar mensajes en el rango físico
     const visibleMessages = useMemo(() => {
         const start = Math.max(0, renderOffset - RENDER_BUFFER);
-        const end = Math.min(allMessages.length, renderOffset + RENDER_WINDOW);
-        return allMessages.slice(start, end).map((msg, i) => ({ msg, absoluteIndex: start + i }));
-    }, [allMessages, renderOffset]);
+        const end = Math.min(messageLayouts.length, renderOffset + RENDER_WINDOW);
+        return messageLayouts.slice(start, end);
+    }, [messageLayouts, renderOffset]);
 
-    const jumpToIndex = useCallback((idx: number) => {
-        currentOffset.current = idx;
-        setScrolledBack(idx > 0);
-        setRenderOffset(idx);
-        Animated.spring(viewOffsetAnim, { toValue: idx, friction: 9, tension: 55, useNativeDriver: true }).start();
-    }, [viewOffsetAnim]);
+    const jumpToY = useCallback((yPix: number, relativeIndex: number) => {
+        currentPx.current = yPix;
+        setScrolledBack(relativeIndex > 0);
+        setRenderOffset(relativeIndex);
+        Animated.spring(scrollPxAnim, { toValue: yPix, friction: 9, tension: 55, useNativeDriver: true }).start();
+    }, [scrollPxAnim]);
 
     const jumpToReply = useCallback(() => {
         if (!replyingTo) return;
-        const idx = allMessagesRef.current.findIndex(m => m.id === replyingTo.id);
-        if (idx !== -1) jumpToIndex(idx);
-    }, [replyingTo, jumpToIndex]);
+        const target = messageLayouts.find(m => m.msg.id === replyingTo.id);
+        if (target) jumpToY(target.y, target.idx);
+    }, [replyingTo, messageLayouts, jumpToY]);
 
-    const goToLatest = useCallback(() => jumpToIndex(0), [jumpToIndex]);
+    const goToLatest = useCallback(() => jumpToY(0, 0), [jumpToY]);
     const handleReply = useCallback((msg: MsgData) => setReplyingTo(msg), []);
     const handleReadMore = useCallback((msg: MsgData) => setFullTextMsg(msg), []);
     const closeModal = useCallback(() => setFullTextMsg(null), []);
@@ -308,40 +290,40 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
             id: `m${Date.now()}`,
             text,
             isMine: true,
-            replyTo: replyingTo
-                ? { id: replyingTo.id, text: replyingTo.text, isMine: replyingTo.isMine }
-                : null,
+            replyTo: replyingTo ? { id: replyingTo.id, text: replyingTo.text, isMine: replyingTo.isMine } : null,
         };
         setAllMessages(prev => {
             const updated = [newMsg, ...prev];
             allMessagesRef.current = updated;
-            if (currentOffset.current > 0) {
-                currentOffset.current += 1;
-                viewOffsetAnim.setValue(currentOffset.current);
-                setRenderOffset(currentOffset.current);
+            if (currentPx.current > 0) {
+                currentPx.current += SLOT_PX;
+                scrollPxAnim.setValue(currentPx.current);
+                setRenderOffset(prevOffset => prevOffset + 1);
             }
             return updated;
         });
         setNewMessage('');
         setReplyingTo(null);
-    }, [newMessage, replyingTo, viewOffsetAnim]);
+    }, [newMessage, replyingTo, scrollPxAnim]);
 
     const msgPan = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
         onPanResponderMove: (_, g) => {
-            const raw = currentOffset.current + (-g.dy / SLOT_PX);
-            const maxOff = Math.max(0, allMessagesRef.current.length - 1);
-            viewOffsetAnim.setValue(Math.max(0, Math.min(maxOff, raw)));
+            const raw = currentPx.current - g.dy;
+            const maxPx = (allMessagesRef.current.length - 1) * SLOT_PX;
+            scrollPxAnim.setValue(Math.max(-200, Math.min(maxPx + 200, raw)));
         },
         onPanResponderRelease: (_, g) => {
-            const raw = currentOffset.current + (-g.dy / SLOT_PX);
-            const maxOff = Math.max(0, allMessagesRef.current.length - 1);
-            const snapped = Math.round(Math.max(0, Math.min(maxOff, raw)));
-            currentOffset.current = snapped;
-            setScrolledBack(snapped > 0);
-            setRenderOffset(snapped);
-            Animated.spring(viewOffsetAnim, { toValue: snapped, friction: 9, tension: 55, useNativeDriver: true }).start();
+            const maxPx = (allMessagesRef.current.length - 1) * SLOT_PX;
+            const raw = currentPx.current - g.dy * 1.8;
+            const clamped = Math.max(0, Math.min(maxPx, raw));
+            const snappedIndex = Math.round(clamped / SLOT_PX);
+            const snappedY = snappedIndex * SLOT_PX;
+            currentPx.current = snappedY;
+            setScrolledBack(snappedIndex > 0);
+            setRenderOffset(snappedIndex);
+            Animated.spring(scrollPxAnim, { toValue: snappedY, friction: 9, tension: 55, useNativeDriver: true }).start();
         },
     })).current;
 
@@ -355,15 +337,14 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
         <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={[styles.container, { overflow: 'hidden' }]} {...globalSwipe.panHandlers}>
 
-                {/* ── Área de mensajes adaptada ── */}
-                {/* Cambiado a flex-direction column-reverse para layout natural como en WhatsApp */}
-                <View style={{ flex: 1, paddingBottom: INPUT_H + 20, flexDirection: 'column-reverse' }} {...msgPan.panHandlers}>
-                    {visibleMessages.map(({ msg, absoluteIndex }) => (
+                {/* ── Área de mensajes (clipeada entre header e input) ── */}
+                <View style={{ position: 'absolute', top: HEADER_H, bottom: INPUT_H, left: 0, right: 0, overflow: 'hidden' }} {...msgPan.panHandlers}>
+                    {visibleMessages.map(({ msg, y }) => (
                         <CarouselBubble
                             key={msg.id}
                             msg={msg}
-                            index={absoluteIndex}
-                            viewOffsetAnim={viewOffsetAnim}
+                            yIndex={y}
+                            scrollPxAnim={scrollPxAnim}
                             onReply={handleReply}
                             onReadMore={handleReadMore}
                         />
@@ -374,7 +355,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                             onPress={goToLatest}
                             activeOpacity={0.85}
                             style={{
-                                position: 'absolute', bottom: INPUT_H + 14,
+                                position: 'absolute', bottom: 14,
                                 alignSelf: 'center', zIndex: 20,
                                 backgroundColor: '#d97706',
                                 borderRadius: 20, paddingHorizontal: 18, paddingVertical: 9,

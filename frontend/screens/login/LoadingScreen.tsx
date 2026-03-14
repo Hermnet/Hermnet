@@ -319,13 +319,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
         outputRange: [50, 0]
     });
 
-    const DynamicGraphicsRenderer = ({ index }: { index: number }) => {
-        if (index === 0) return <SafeVaultAnimation />;
-        if (index === 1) return <PhonesCommunicationAnimation />;
-        if (index === 2) return <ShieldDefenseAnimation />;
-        return null;
-    };
-
     return (
         <View style={[styles.container, { paddingTop: 90 }]}>
             {/* Page indicators (white dots), now fixed outside the slide-up animation */}
@@ -369,7 +362,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
 
                                     {/* Container to load the 2D scene/complex animation */}
                                     <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                                        <DynamicGraphicsRenderer index={index} />
+                                        {index === 0 ? <SafeVaultAnimation /> : index === 1 ? <PhonesCommunicationAnimation /> : <ShieldDefenseAnimation />}
                                     </View>
                                 </View>
                             </View>
