@@ -78,10 +78,15 @@ export const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    fab: {
+    fabGroup: {
         position: 'absolute',
         bottom: 40,
         right: 25,
+        alignItems: 'flex-end',
+        zIndex: 6,
+        elevation: 6,
+    },
+    fab: {
         width: 64,
         height: 64,
         borderRadius: 32,
@@ -98,5 +103,34 @@ export const styles = StyleSheet.create({
         width: 32,
         height: 32,
         tintColor: '#ffffff',
-    }
+    },
+    subFabRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    subFabLabel: {
+        color: '#ffffff',
+        fontSize: 13,
+        fontWeight: '600',
+        backgroundColor: 'rgba(13, 17, 27, 0.88)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
+        marginRight: 12,
+        overflow: 'hidden',
+    },
+    subFab: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#354d8b',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
 });
