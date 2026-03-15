@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoid
 import { User, Lock, Search, Settings } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
 import ChatRoomScreen from './ChatRoomScreen';
+import SettingsScreen from '../settings/SettingsScreen';
+import QRScannerScreen from './QRScannerScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -11,7 +13,11 @@ const MOCK_CHATS: any[] = [];
 export default function ChatsScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
+    const [showSettings, setShowSettings] = useState(false);
+    const [showQR, setShowQR] = useState(false);
     const slideAnim = useRef(new Animated.Value(width)).current;
+    const settingsAnim = useRef(new Animated.Value(width)).current;
+    const qrAnim = useRef(new Animated.Value(width)).current;
 
     const filteredChats = MOCK_CHATS.filter(chat =>
         chat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -33,6 +39,44 @@ export default function ChatsScreen() {
             useNativeDriver: true,
         }).start(() => {
             setActiveChatId(null);
+        });
+    };
+
+    const handleOpenSettings = () => {
+        setShowSettings(true);
+        Animated.timing(settingsAnim, {
+            toValue: 0,
+            duration: 350,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const handleCloseSettings = () => {
+        Animated.timing(settingsAnim, {
+            toValue: width,
+            duration: 350,
+            useNativeDriver: true,
+        }).start(() => {
+            setShowSettings(false);
+        });
+    };
+
+    const handleOpenQR = () => {
+        setShowQR(true);
+        Animated.timing(qrAnim, {
+            toValue: 0,
+            duration: 350,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const handleCloseQR = () => {
+        Animated.timing(qrAnim, {
+            toValue: width,
+            duration: 350,
+            useNativeDriver: true,
+        }).start(() => {
+            setShowQR(false);
         });
     };
 
@@ -72,7 +116,7 @@ export default function ChatsScreen() {
                         />
                         <Search size={20} color="#a0aec0" style={styles.searchIcon} />
                     </View>
-                    <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6}>
+                    <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6} onPress={handleOpenSettings}>
                         <Settings size={24} color="#ffffff" />
                     </TouchableOpacity>
                 </View>
@@ -86,7 +130,7 @@ export default function ChatsScreen() {
                 />
 
                 {/* Floating Action Button */}
-                <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
+                <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={handleOpenQR}>
                     <Image
                         source={require('../../assets/logo_tight.png')}
                         style={styles.fabIcon}
@@ -103,6 +147,26 @@ export default function ChatsScreen() {
                 pointerEvents={activeChatId ? 'auto' : 'none'}
             >
                 {activeChatId && <ChatRoomScreen onBack={handleBack} />}
+            </Animated.View>
+
+            <Animated.View
+                style={[
+                    StyleSheet.absoluteFill,
+                    { transform: [{ translateX: settingsAnim }], zIndex: 20, elevation: 20, backgroundColor: '#0d111b' }
+                ]}
+                pointerEvents={showSettings ? 'auto' : 'none'}
+            >
+                {showSettings && <SettingsScreen onBack={handleCloseSettings} />}
+            </Animated.View>
+
+            <Animated.View
+                style={[
+                    StyleSheet.absoluteFill,
+                    { transform: [{ translateX: qrAnim }], zIndex: 30, elevation: 30 }
+                ]}
+                pointerEvents={showQR ? 'auto' : 'none'}
+            >
+                {showQR && <QRScannerScreen onClose={handleCloseQR} />}
             </Animated.View>
         </KeyboardAvoidingView>
     );
