@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, Dimensions, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { User, Lock, Search, Settings } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
 import ChatRoomScreen from './ChatRoomScreen';
 
@@ -49,12 +49,12 @@ export default function ChatsScreen() {
             onPress={() => handleChatPress(item.id)}
         >
             <View style={styles.avatarContainer}>
-                <Feather name="user" size={20} color="#bd2b2b" />
+                <User size={20} color="#bd2b2b" />
             </View>
             <Text style={styles.chatName}>{item.name}</Text>
             {item.hasUnread && (
                 <View style={styles.unreadBadge}>
-                    <Feather name="lock" size={10} color="#ffffff" />
+                    <Lock size={10} color="#ffffff" />
                 </View>
             )}
         </TouchableOpacity>
@@ -77,10 +77,10 @@ export default function ChatsScreen() {
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
-                        <Feather name="search" size={20} color="#a0aec0" style={styles.searchIcon} />
+                        <Search size={20} color="#a0aec0" style={styles.searchIcon} />
                     </View>
                     <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6}>
-                        <Feather name="settings" size={24} color="#ffffff" />
+                        <Settings size={24} color="#ffffff" />
                     </TouchableOpacity>
                 </View>
 

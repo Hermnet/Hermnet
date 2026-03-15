@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Easing, Dimensions, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Folder, ShieldAlert, Smartphone, Mail, Image as LucideImage, Zap, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from '../../styles/loadingStyles';
 import { styles as loginStyles } from '../../styles/loginStyles';
@@ -61,12 +61,12 @@ const SafeVaultAnimation = () => {
     return (
         <View style={localAnimStyles.sceneContainer}>
             <Animated.View style={{ zIndex: 1, transform: [{ translateX: folderTranslateX }, { scale: folderScale }] }}>
-                <Feather name="folder" size={40} color="#3182ce" />
+                <Folder size={40} color="#3182ce" />
             </Animated.View>
             <Animated.View style={[localAnimStyles.vaultCube, { transform: [{ scale: vaultScale }] }]}>
                 {/* Safe door */}
                 <View style={localAnimStyles.vaultDoor}>
-                    <MaterialCommunityIcons name="shield-lock-outline" size={30} color="#1a202c" />
+                    <ShieldAlert size={30} color="#1a202c" />
                 </View>
             </Animated.View>
         </View>
@@ -111,20 +111,20 @@ const PhonesCommunicationAnimation = () => {
     return (
         <View style={[localAnimStyles.sceneContainer, { flexDirection: 'row' }]}>
             {/* Sender Phone */}
-            <Feather name="smartphone" size={60} color="#1a202c" style={{ marginRight: 60 }} />
+            <Smartphone size={60} color="#1a202c" style={{ marginRight: 60 }} />
 
             {/* Data in transit (Envelope) */}
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', transform: [{ translateX: envelopeTranslateX }], opacity: envelopeOpacity }]}>
-                <Feather name="mail" size={24} color="#3182ce" />
+                <Mail size={24} color="#3182ce" />
             </Animated.View>
 
             {/* Vehicle in middle (Camouflaged image) */}
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: imageOpacity }]}>
-                <Feather name="image" size={34} color="#a0aec0" />
+                <LucideImage size={34} color="#a0aec0" />
             </Animated.View>
 
             {/* Receiver Phone */}
-            <Feather name="smartphone" size={60} color="#1a202c" style={{ marginLeft: 60 }} />
+            <Smartphone size={60} color="#1a202c" style={{ marginLeft: 60 }} />
         </View>
     );
 };
@@ -211,7 +211,7 @@ const ShieldDefenseAnimation = () => {
 
             {/* Incoming intruder laser from left */}
             <Animated.View style={{ position: 'absolute', opacity: incomingOpacity, transform: [{ translateX: dataTranslateX }, { rotate: '90deg' }] }}>
-                <Feather name="zap" size={36} color="#e53e3e" />
+                <Zap size={36} color="#e53e3e" />
             </Animated.View>
 
             {/* Broken deflected pieces flying backwards */}
@@ -224,7 +224,7 @@ const ShieldDefenseAnimation = () => {
 
             {/* Giant Protective Shield */}
             <Animated.View style={{ transform: [{ scale: shieldScale }, { rotate: shieldRotate }] }}>
-                <Feather name="shield" size={100} color="#1a202c" />
+                <Shield size={100} color="#1a202c" />
             </Animated.View>
         </View>
     );

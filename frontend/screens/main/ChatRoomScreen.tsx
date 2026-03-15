@@ -4,9 +4,9 @@ import {
     KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder,
     StatusBar, StyleSheet, SafeAreaView,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-react-native';
 import { styles } from '../../styles/chatRoomStyles';
-
+    
 // ─── Constantes de layout ──────────────────────────────────────────────────────
 const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
@@ -54,7 +54,7 @@ type MsgData = {
     isMine: boolean;
     replyTo?: { id: string; text: string; isMine: boolean } | null;
 };
-
+ 
 const INITIAL_MSGS: MsgData[] = [
     { id: 'm1', text: 'Hola! como estas?', isMine: true },
     { id: 'm2', text: 'Bien, y tu?', isMine: false },
@@ -121,7 +121,7 @@ const FullMessageModal = React.memo(({
                     <View style={sh.modalHeader}>
                         <Text style={sh.modalAuthor}>{msg?.isMine ? 'Tú' : 'Marta'}</Text>
                         <TouchableOpacity onPress={onClose}>
-                            <Feather name="x" size={22} color="#a0aabf" />
+                            <X size={22} color="#a0aabf" />
                         </TouchableOpacity>
                     </View>
                     <ScrollView showsVerticalScrollIndicator={false}>
@@ -364,7 +364,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                                 shadowOpacity: 0.30, shadowRadius: 6, elevation: 6,
                             }}
                         >
-                            <Feather name="chevrons-down" size={15} color="#fff" />
+                            <ChevronsDown size={15} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Último mensaje</Text>
                         </TouchableOpacity>
                     )}
@@ -373,11 +373,11 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                 {/* ── Header ── */}
                 <View style={sh.headerContainer}>
                     <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6}>
-                        <Feather name="arrow-left" size={28} color="#ffffff" />
+                        <ArrowLeft size={28} color="#ffffff" />
                     </TouchableOpacity>
                     <View style={styles.headerChatInfo}>
                         <View style={styles.headerAvatar}>
-                            <Feather name="user" size={16} color="#bd2b2b" />
+                            <User size={16} color="#bd2b2b" />
                         </View>
                         <Text style={styles.headerName}>Marta</Text>
                     </View>
@@ -387,7 +387,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                 <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
                     {replyingTo && (
                         <TouchableOpacity onPress={jumpToReply} activeOpacity={0.8} style={sh.replyBanner}>
-                            <Feather name="corner-up-left" size={14} color="#60a5fa" style={{ marginRight: 10 }} />
+                            <CornerUpLeft size={14} color="#60a5fa" style={{ marginRight: 10 }} />
                             <View style={{ flex: 1 }}>
                                 <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
                                     {replyingTo.isMine ? 'Tú' : 'Marta'}
@@ -396,7 +396,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                             </View>
                             <Text style={{ color: '#60a5fa', fontSize: 11, marginRight: 8 }}>↑ ver</Text>
                             <TouchableOpacity onPress={() => setReplyingTo(null)} style={{ padding: 4 }}>
-                                <Feather name="x" size={18} color="#a0aabf" />
+                                <X size={18} color="#a0aabf" />
                             </TouchableOpacity>
                         </TouchableOpacity>
                     )}
@@ -412,7 +412,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                             maxLength={500}
                         />
                         <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.7}>
-                            <Feather name="send" size={20} color="#1a202c" style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
+                            <Send size={20} color="#1a202c" style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
                         </TouchableOpacity>
                     </View>
                 </View>

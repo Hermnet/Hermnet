@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, Easing, Vibration } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Delete } from 'lucide-react-native';
 import { styles } from '../../styles/pinStyles';
 
 const PIN_LENGTH = 6;
@@ -153,7 +153,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                                     onPress={handleDelete}
                                     activeOpacity={0.6}
                                 >
-                                    <Feather name="x" size={26} color="#a0aec0" />
+                                    <Delete size={26} color="#a0aec0" />
                                 </TouchableOpacity>
                             );
                         }
