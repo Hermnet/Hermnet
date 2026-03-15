@@ -18,27 +18,23 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
 
     const shakeAnimation = useRef(new Animated.Value(0)).current;
 
-    // Automatically evaluate when reaching 6 digits
     useEffect(() => {
         if (step === 'create' && pin.length === PIN_LENGTH) {
-            // Brief pause to see the last dot light up
             setTimeout(() => {
                 setStep('confirm');
             }, 300);
         } else if (step === 'confirm' && confirmPin.length === PIN_LENGTH) {
             handleConfirm();
         } else if ((step === 'login' || step === 'restore') && pin.length === PIN_LENGTH) {
-            // If login or restore, resolve immediately (vault validation will be done by HomeScreen)
             setTimeout(() => {
                 onComplete(pin);
-                // Clear the pin in case validation fails and it returns here
                 setPin('');
             }, 300);
         }
     }, [pin, confirmPin, step]);
 
     const triggerShake = () => {
-        Vibration.vibrate(400); // Haptic feedback for physical device
+        Vibration.vibrate(400); 
         Animated.sequence([
             Animated.timing(shakeAnimation, { toValue: 10, duration: 50, useNativeDriver: true }),
             Animated.timing(shakeAnimation, { toValue: -10, duration: 50, useNativeDriver: true }),
@@ -49,12 +45,10 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
 
     const handleConfirm = () => {
         if (pin === confirmPin) {
-            // Success!
             setTimeout(() => {
                 onComplete(pin);
             }, 300);
         } else {
-            // Confirmation error
             setError(true);
             triggerShake();
             setTimeout(() => {
@@ -65,7 +59,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
     };
 
     const handlePress = (num: string) => {
-        if (error) return; // Block input during shake
+        if (error) return; 
 
         if ((step === 'create' || step === 'login' || step === 'restore') && pin.length < PIN_LENGTH) {
             setPin(prev => prev + num);
@@ -84,7 +78,6 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
         }
     };
 
-    // Static keypad array for clean iteration
     const KEYPAD = [
         ['1', '2', '3'],
         ['4', '5', '6'],
@@ -94,7 +87,6 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
 
     const currentLength = (step === 'create' || step === 'login' || step === 'restore') ? pin.length : confirmPin.length;
 
-    // Generate dots layout
     const renderDots = () => {
         const dots = [];
         for (let i = 0; i < PIN_LENGTH; i++) {
@@ -116,7 +108,6 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
     return (
         <View style={styles.container}>
 
-            {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.title}>
                     {step === 'create' ? 'CREA TU PIN DE SEGURIDAD' : step === 'confirm' ? 'CONFIRMA TU PIN' : step === 'restore' ? 'CONTRASEÑA DE RESPALDO' : 'DESBLOQUEA TU BÓVEDA'}
@@ -132,12 +123,10 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                 </Text>
             </View>
 
-            {/* Indicator Dots with Error Animation */}
             <Animated.View style={[styles.dotsContainer, { transform: [{ translateX: shakeAnimation }] }]}>
                 {renderDots()}
             </Animated.View>
 
-            {/* Custom Numeric Keypad inside Isolated Box */}
             <View style={styles.padBox}>
                 <View style={styles.padContainer}>
                     {KEYPAD.flat().map((key, idx) => {

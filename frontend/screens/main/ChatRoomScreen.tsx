@@ -7,7 +7,6 @@ import {
 import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-react-native';
 import { styles } from '../../styles/chatRoomStyles';
     
-// ─── Constantes de layout ──────────────────────────────────────────────────────
 const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
 const INPUT_H = Platform.OS === 'ios' ? 110 : 95;
@@ -25,20 +24,17 @@ const getDynamicTextProps = (text: string, hasReply: boolean) => {
     return { fontSize, lineHeight, maxLines, needsTruncation };
 };
 
-// ─── Constantes de animación del carrusel ──────────────────────────────────────
-// bottomDist = (índice * SLOT_PX) - scrollPxAnim
-// 0 = foco (mensaje activo en la base), >0 = por encima, <0 = por debajo
 const _S = SLOT_PX;
 const Z_INPUT = [-_S * 2, -_S, 0, _S, _S * 2, _S * 3, _S * 4, _S * 5, _S * 6];
 const TY_OUT = [
-    _S * 2,              // 2 slots abajo: fuera de pantalla
-    _S,                  // 1 slot abajo: saliendo
-    0,                   // foco: posición base
-    -(AVAIL_H * 0.28),   // 1 arriba
-    -(AVAIL_H * 0.50),   // 2 arriba
-    -(AVAIL_H * 0.67),   // 3 arriba
-    -(AVAIL_H * 0.78),   // 4 arriba (desvaneciéndose)
-    -(AVAIL_H * 0.86),   // 5 arriba (casi invisible)
+    _S * 2,              // 2 slots below: offscreen
+    _S,                  // 1 slot below: exiting
+    0,                   // focus: base position
+    -(AVAIL_H * 0.28),   // 1 slot above
+    -(AVAIL_H * 0.50),   // 2 slots above
+    -(AVAIL_H * 0.67),   // 3 slots above
+    -(AVAIL_H * 0.78),   // 4 slots above (fading out)
+    -(AVAIL_H * 0.86),   // 5 slots above (almost invisible)
     -(AVAIL_H * 0.86),   // clamped
 ];
 const SCALE_OUT = [1.0, 1.0, 1.0, 0.88, 0.75, 0.62, 0.50, 0.42, 0.42];
@@ -47,7 +43,7 @@ const OPAC_OUT  = [1.0, 1.0, 1.0, 0.82, 0.58, 0.32, 0.12, 0.0,  0.0];
 const RENDER_WINDOW = 16;
 const RENDER_BUFFER = 6;
 
-// ─── Tipos ─────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 type MsgData = {
     id: string;
     text: string;
@@ -57,7 +53,6 @@ type MsgData = {
  
 const INITIAL_MSGS: MsgData[] = [];
 
-// ─── Estilos estáticos ─────────────────────────────────────────────────────────
 const sh = StyleSheet.create({
     headerContainer: {
         position: 'absolute', top: 0, width: '100%', zIndex: 100,
@@ -74,7 +69,6 @@ const sh = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center',
         borderLeftWidth: 4, borderLeftColor: '#3b82f6',
     },
-    // Modal de mensaje completo
     modalOverlay: {
         flex: 1, backgroundColor: 'rgba(0,0,0,0.72)',
         justifyContent: 'flex-end',
@@ -96,7 +90,7 @@ const sh = StyleSheet.create({
     modalText: { color: '#e8eaf6', fontSize: 16, lineHeight: 24 },
 });
 
-// ─── Modal de texto completo ───────────────────────────────────────────────────
+// ─── Full Text Modal ───────────────────────────────────────────────────────────
 const FullMessageModal = React.memo(({
     msg, onClose,
 }: { msg: MsgData | null; onClose: () => void }) => (
@@ -126,10 +120,9 @@ const FullMessageModal = React.memo(({
     </Modal>
 ));
 
-// ─── CarouselBubble ────────────────────────────────────────────────────────────
 type BubbleProps = {
     msg: MsgData;
-    yIndex: number; // El Y físico donde se apila (0 = bottom)
+    yIndex: number; // Physical Y stacking position (0 = bottom)
     scrollPxAnim: Animated.Value;
     onReply: (msg: MsgData) => void;
     onReadMore: (msg: MsgData) => void;
@@ -138,16 +131,15 @@ type BubbleProps = {
 const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadMore }: BubbleProps) => {
     const { fontSize, lineHeight, maxLines, needsTruncation } = getDynamicTextProps(msg.text, !!msg.replyTo);
 
-    // Animación suave de apilamiento vertical (cuando llegan nuevos mensajes)
+    // Smooth vertical stacking animation when new messages arrive
     const yAnim = useRef(new Animated.Value(yIndex)).current;
     useEffect(() => {
         Animated.spring(yAnim, { toValue: yIndex, friction: 9, tension: 55, useNativeDriver: true }).start();
     }, [yIndex]);
 
-    // Distancia vertical desde la base focal
+    // Vertical distance from the focal base
     const bottomDist = Animated.subtract(yAnim, scrollPxAnim);
 
-    // Efecto físico 3D en cascada acoplado a la cima
     const translateY = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: TY_OUT, extrapolate: 'clamp' })).current;
     const scale = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: SCALE_OUT, extrapolate: 'clamp' })).current;
     const opacity = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: OPAC_OUT, extrapolate: 'clamp' })).current;
@@ -170,7 +162,7 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
             paddingHorizontal: 20,
             opacity,
             transform: [{ translateY }, { scale }],
-            // Calculamos pseudo index de z para no complicar el pass
+            // Calculate a pseudo z-index to avoid overlap complications
             zIndex: 10000 - Math.round(yIndex),
         }}>
             <TouchableOpacity
@@ -185,7 +177,7 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
                     msg.isMine ? styles.messageBubbleRight : styles.messageBubbleLeft,
                     { overflow: 'hidden', maxWidth: '82%', transform: [{ scale: pressScale }] },
                 ]}>
-                    {/* Cita (reply) al estilo WhatsApp */}
+                    {/* Quote (reply) WhatsApp style */}
                     {msg.replyTo && (
                         <View style={{
                             borderLeftWidth: 3, borderLeftColor: 'rgba(255,255,255,0.55)',
@@ -201,7 +193,7 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
                         </View>
                     )}
 
-                    {/* Texto: fuente dinámica según longitud → compresión progresiva */}
+                    {/* Text: dynamic font sizing based on length -> progressive compression */}
                     <Text
                         style={[styles.messageText, { fontSize, lineHeight }]}
                         numberOfLines={maxLines}
@@ -210,7 +202,7 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
                         {msg.text}
                     </Text>
 
-                    {/* "Leer más" solo si el texto fue cortado por superar 140 chars */}
+                    {/* Read More link rendered only if text limit exceeded 140 chars */}
                     {needsTruncation && (
                         <TouchableOpacity onPress={() => onReadMore(msg)} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
                             <Text style={{
@@ -246,12 +238,12 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
 
     useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
 
-    // Posiciones fijas por slot: índice * SLOT_PX (sin depender de altura de burbuja)
+    // Fixed slot positions: index * SLOT_PX (independent of bubble height)
     const messageLayouts = useMemo(() => {
         return allMessages.map((msg, i) => ({ msg, y: i * SLOT_PX, idx: i }));
     }, [allMessages]);
 
-    // Windowing: solo montar mensajes en el rango físico
+    // Windowing implementation: render only components in the physical viewport
     const visibleMessages = useMemo(() => {
         const start = Math.max(0, renderOffset - RENDER_BUFFER);
         const end = Math.min(messageLayouts.length, renderOffset + RENDER_WINDOW);
@@ -330,7 +322,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
         <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={[styles.container, { overflow: 'hidden' }]} {...globalSwipe.panHandlers}>
 
-                {/* ── Área de mensajes (clipeada entre header e input) ── */}
+                {/* ── Messages area (clipped between header and input) ── */}
                 <View style={{ position: 'absolute', top: HEADER_H, bottom: INPUT_H, left: 0, right: 0, overflow: 'hidden' }} {...msgPan.panHandlers}>
                     {visibleMessages.map(({ msg, y }) => (
                         <CarouselBubble
@@ -410,7 +402,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                     </View>
                 </View>
 
-                {/* ── Modal mensaje completo ── */}
+                {/* ── Full message modal ── */}
                 <FullMessageModal msg={fullTextMsg} onClose={closeModal} />
 
             </View>

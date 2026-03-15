@@ -61,7 +61,6 @@ export default function ChatsScreen() {
         >
             <StatusBar barStyle="light-content" />
             <View style={styles.container}>
-                {/* Header: Search and Settings */}
                 <View style={styles.headerRow}>
                     <View style={styles.searchContainer}>
                         <TextInput
@@ -78,7 +77,6 @@ export default function ChatsScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Chats List */}
                 <FlatList
                     data={filteredChats}
                     keyExtractor={(item) => item.id}
@@ -97,7 +95,6 @@ export default function ChatsScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Chat Room Overlay Animated Layer */}
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,

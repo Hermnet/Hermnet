@@ -40,19 +40,18 @@ const SafeVaultAnimation = () => {
         );
         loop.start();
         return () => loop.stop();
-    }, [animValue]);
+    });
 
-    // Folder comes from the right and enters the safe (center)
     const folderTranslateX = animValue.interpolate({
         inputRange: [0, 0.4, 0.6, 1, 2],
-        outputRange: [100, 20, 0, 0, 0] // Starts at 100px, stops when entering the safe (0)
+        outputRange: [100, 20, 0, 0, 0] 
     });
-    // Shrinks when entering to simulate being "saved" inside
+    
     const folderScale = animValue.interpolate({
         inputRange: [0, 0.4, 0.7, 1, 2],
         outputRange: [1, 1, 0, 0, 0]
     });
-    // The safe blinks when receiving the folder
+    
     const vaultScale = animValue.interpolate({
         inputRange: [0, 0.6, 0.7, 0.8, 1, 2],
         outputRange: [1, 1, 1.1, 1, 1, 1]
@@ -64,7 +63,6 @@ const SafeVaultAnimation = () => {
                 <Folder size={40} color="#3182ce" />
             </Animated.View>
             <Animated.View style={[localAnimStyles.vaultCube, { transform: [{ scale: vaultScale }] }]}>
-                {/* Safe door */}
                 <View style={localAnimStyles.vaultDoor}>
                     <ShieldAlert size={30} color="#1a202c" />
                 </View>
@@ -89,41 +87,35 @@ const PhonesCommunicationAnimation = () => {
         );
         loop.start();
         return () => loop.stop();
-    }, [animValue]);
+    });
 
-    // Interpolation for the flying envelope
     const envelopeTranslateX = animValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [-60, 60] // From left to right
+        outputRange: [-60, 60] 
     });
-    //  The envelope disappears and reappears (camouflages) mid-transmission
+    
     const envelopeOpacity = animValue.interpolate({
         inputRange: [0, 0.1, 0.4, 0.6, 0.9, 1],
-        outputRange: [0, 1, 0, 0, 1, 0] // Disappears completely in the middle (ghost camouflage)
+        outputRange: [0, 1, 0, 0, 1, 0] 
     });
 
-    // Small icon floating in the middle while the letter is transparent, symbolizing "Image"
     const imageOpacity = animValue.interpolate({
         inputRange: [0, 0.3, 0.5, 0.7, 1],
-        outputRange: [0, 0, 1, 0, 0] // Appears only exactly in the middle
+        outputRange: [0, 0, 1, 0, 0] 
     });
 
     return (
         <View style={[localAnimStyles.sceneContainer, { flexDirection: 'row' }]}>
-            {/* Sender Phone */}
             <Smartphone size={60} color="#1a202c" style={{ marginRight: 60 }} />
 
-            {/* Data in transit (Envelope) */}
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', transform: [{ translateX: envelopeTranslateX }], opacity: envelopeOpacity }]}>
                 <Mail size={24} color="#3182ce" />
             </Animated.View>
 
-            {/* Vehicle in middle (Camouflaged image) */}
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: imageOpacity }]}>
                 <LucideImage size={34} color="#a0aec0" />
             </Animated.View>
 
-            {/* Receiver Phone */}
             <Smartphone size={60} color="#1a202c" style={{ marginLeft: 60 }} />
         </View>
     );
@@ -197,7 +189,6 @@ const ShieldDefenseAnimation = () => {
 
     return (
         <View style={localAnimStyles.sceneContainer}>
-            {/* Energy Force Field Ripple */}
             <Animated.View style={{
                 position: 'absolute',
                 width: 120,
@@ -209,12 +200,10 @@ const ShieldDefenseAnimation = () => {
                 transform: [{ scale: rippleScale }]
             }} />
 
-            {/* Incoming intruder laser from left */}
             <Animated.View style={{ position: 'absolute', opacity: incomingOpacity, transform: [{ translateX: dataTranslateX }, { rotate: '90deg' }] }}>
                 <Zap size={36} color="#e53e3e" />
             </Animated.View>
 
-            {/* Broken deflected pieces flying backwards */}
             <Animated.View style={{ position: 'absolute', opacity: brokenOpacity, transform: [{ translateX: piece1TranslateX }, { translateY: piece1TranslateY }, { rotate: '-45deg' }] }}>
                 <View style={{ width: 14, height: 5, backgroundColor: '#e53e3e', borderRadius: 3 }} />
             </Animated.View>
@@ -222,7 +211,6 @@ const ShieldDefenseAnimation = () => {
                 <View style={{ width: 14, height: 5, backgroundColor: '#e53e3e', borderRadius: 3 }} />
             </Animated.View>
 
-            {/* Giant Protective Shield */}
             <Animated.View style={{ transform: [{ scale: shieldScale }, { rotate: shieldRotate }] }}>
                 <Shield size={100} color="#1a202c" />
             </Animated.View>
@@ -272,7 +260,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
     const enterAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // Base progress bar filling smoothly over 12 seconds
         Animated.timing(progressAnimation, {
             toValue: 100,
             duration: 9000,
@@ -288,7 +275,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
             }).start();
         });
 
-        // Auto-advances screen if the user does not drag manually.
         let interval = setInterval(() => {
             if (userInteracted.current) {
                 clearInterval(interval);
@@ -321,7 +307,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
 
     return (
         <View style={[styles.container, { paddingTop: 90 }]}>
-            {/* Page indicators (white dots), now fixed outside the slide-up animation */}
             <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
                 {SLIDES.map((_, index) => (
                     <Animated.View
@@ -336,7 +321,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
             </View>
 
             <Animated.View style={{ flex: 1, width: '100%', alignItems: 'center', transform: [{ translateY: contentTranslateY }] }}>
-                {/* Swipeable Carousel */}
                 <View style={{ flex: 1, alignSelf: 'stretch' }}>
                     <FlatList
                         ref={flatListRef}
@@ -347,11 +331,10 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                         showsHorizontalScrollIndicator={false}
                         onScrollBeginDrag={() => { userInteracted.current = true; }}
                         onMomentumScrollEnd={(event) => {
-                            // Resolves exactly where the user's scroll left us
                             const newInd = Math.round(event.nativeEvent.contentOffset.x / width);
                             setCurrentIndex(newInd);
                         }}
-                        scrollEnabled={true} // Allows user to swipe naturally!
+                        scrollEnabled={true}
                         renderItem={({ item, index }) => (
                             <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
                                 <View style={styles.card}>
@@ -360,7 +343,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                                         <Text style={styles.description}>{item.description}</Text>
                                     </View>
 
-                                    {/* Container to load the 2D scene/complex animation */}
                                     <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                         {index === 0 ? <SafeVaultAnimation /> : index === 1 ? <PhonesCommunicationAnimation /> : <ShieldDefenseAnimation />}
                                     </View>
@@ -370,7 +352,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                     />
                 </View>
 
-                {/* Bottom Section - Improved Progress Bar */}
                 <View style={[styles.bottomSection, { marginBottom: 20 }]}>
                     <Text style={styles.loadingText}>
                         {showButton ? "Clave Creada Exitosamente" : "Generando Clave Privada..."}
@@ -389,7 +370,6 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                 </View>
             </Animated.View>
 
-            {/* New Continue button */}
             {showButton && (
                 <Animated.View style={{
                     position: 'absolute',
