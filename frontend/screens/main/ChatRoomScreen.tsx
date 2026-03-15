@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder,
-    StatusBar, StyleSheet, SafeAreaView,
+    StatusBar,
 } from 'react-native';
 import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-react-native';
-import { styles } from '../../styles/chatRoomStyles';
+import { styles, sh } from '../../styles/chatRoomStyles';
     
 const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
@@ -52,43 +52,6 @@ type MsgData = {
 };
  
 const INITIAL_MSGS: MsgData[] = [];
-
-const sh = StyleSheet.create({
-    headerContainer: {
-        position: 'absolute', top: 0, width: '100%', zIndex: 100,
-        backgroundColor: '#0d111b',
-        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : 60,
-        paddingBottom: 15, paddingHorizontal: 16,
-        flexDirection: 'row', alignItems: 'center',
-        borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    replyBanner: {
-        backgroundColor: '#1a2234',
-        paddingHorizontal: 14, paddingVertical: 10,
-        borderTopLeftRadius: 16, borderTopRightRadius: 16,
-        flexDirection: 'row', alignItems: 'center',
-        borderLeftWidth: 4, borderLeftColor: '#3b82f6',
-    },
-    modalOverlay: {
-        flex: 1, backgroundColor: 'rgba(0,0,0,0.72)',
-        justifyContent: 'flex-end',
-    },
-    modalSheet: {
-        backgroundColor: '#141927',
-        borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        paddingTop: 16, paddingBottom: 36, paddingHorizontal: 20,
-        maxHeight: SCREEN_H * 0.75,
-    },
-    modalHandle: {
-        width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 2, alignSelf: 'center', marginBottom: 16,
-    },
-    modalHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
-    },
-    modalAuthor: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
-    modalText: { color: '#e8eaf6', fontSize: 16, lineHeight: 24 },
-});
 
 // ─── Full Text Modal ───────────────────────────────────────────────────────────
 const FullMessageModal = React.memo(({
