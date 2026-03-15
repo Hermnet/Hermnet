@@ -55,14 +55,7 @@ type MsgData = {
     replyTo?: { id: string; text: string; isMine: boolean } | null;
 };
  
-const INITIAL_MSGS: MsgData[] = [
-    { id: 'm1', text: 'Hola! como estas?', isMine: true },
-    { id: 'm2', text: 'Bien, y tu?', isMine: false },
-    { id: 'm3', text: 'Hola! como estas?', isMine: true },
-    { id: 'm4', text: 'Bien, y tu?', isMine: false },
-    { id: 'm5', text: 'Todo muy bien leyendo documentación secreta de llaves criptográficas 😎', isMine: true },
-    { id: 'm6', text: '¡Increíble!', isMine: false },
-].reverse();
+const INITIAL_MSGS: MsgData[] = [];
 
 // ─── Estilos estáticos ─────────────────────────────────────────────────────────
 const sh = StyleSheet.create({

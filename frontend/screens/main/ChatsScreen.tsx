@@ -6,13 +6,7 @@ import ChatRoomScreen from './ChatRoomScreen';
 
 const { width } = Dimensions.get('window');
 
-const MOCK_CHATS = [
-    {
-        id: '1',
-        name: 'Marta',
-        hasUnread: true,
-    }
-];
+const MOCK_CHATS: any[] = [];
 
 export default function ChatsScreen() {
     const [searchQuery, setSearchQuery] = useState('');
