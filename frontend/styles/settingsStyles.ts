@@ -214,6 +214,126 @@ export const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#ffffff',
     },
+    // ── Sub-screen shared ──
+    headerSpacer: {
+        width: 44,
+    },
+    // ── Toggle row ──
+    toggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 18,
+        minHeight: 58,
+    },
+    toggleInfo: {
+        flex: 1,
+        paddingRight: 12,
+    },
+    toggleLabel: {
+        color: '#e2e8f0',
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    toggleSub: {
+        color: '#64748b',
+        fontSize: 12,
+        marginTop: 2,
+        lineHeight: 18,
+    },
+    // ── Segment control (text size) ──
+    segmentWrapper: {
+        backgroundColor: '#141927',
+        borderRadius: 16,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+    },
+    segmentTitle: {
+        color: '#a0aec0',
+        fontSize: 13,
+        marginBottom: 10,
+    },
+    segmentControl: {
+        flexDirection: 'row',
+        backgroundColor: '#0d111b',
+        borderRadius: 10,
+        padding: 3,
+    },
+    segmentBtn: {
+        flex: 1,
+        paddingVertical: 9,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    segmentBtnActive: {
+        backgroundColor: '#3b82f6',
+    },
+    segmentText: {
+        color: '#64748b',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    segmentTextActive: {
+        color: '#ffffff',
+    },
+    // ── Action buttons (Transfer) ──
+    actionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#1e2d4a',
+        borderRadius: 14,
+        paddingVertical: 16,
+        marginBottom: 12,
+        gap: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    actionBtnText: {
+        color: '#e2e8f0',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    // ── FAQ / Help ──
+    faqItem: {
+        paddingVertical: 14,
+        paddingHorizontal: 18,
+    },
+    faqQ: {
+        color: '#e2e8f0',
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    faqA: {
+        color: '#94a3b8',
+        fontSize: 13,
+        lineHeight: 20,
+    },
+    // ── Terms ──
+    termsText: {
+        color: '#94a3b8',
+        fontSize: 13,
+        lineHeight: 22,
+        marginBottom: 10,
+    },
+    termsTitle: {
+        color: '#e2e8f0',
+        fontSize: 15,
+        fontWeight: '700',
+        marginTop: 18,
+        marginBottom: 8,
+    },
+    // ── Version info ──
+    versionWrap: {
+        alignItems: 'center',
+        paddingVertical: 24,
+    },
+    versionText: {
+        color: '#4a5568',
+        fontSize: 12,
+    },
     // QR Share modal
     qrModalHeader: {
         color: '#a0aec0',

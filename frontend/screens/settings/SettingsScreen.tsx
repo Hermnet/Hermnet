@@ -1,38 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Modal,
-    KeyboardAvoidingView, Platform, Alert,
+    KeyboardAvoidingView, Platform, Alert, Animated, Dimensions, StyleSheet,
 } from 'react-native';
 import {
     ArrowLeft, User, Bell, Shield, HelpCircle, FileText,
     Download, LogOut, Trash2, ChevronRight,
-    AlertTriangle, Copy,
+    AlertTriangle, Copy, Accessibility,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { styles } from '../../styles/settingsStyles';
+import SecurityScreen from './SecurityScreen';
+import NotificationsScreen from './NotificationsScreen';
+import PrivacyScreen from './PrivacyScreen';
+import HelpScreen from './HelpScreen';
+import TermsScreen from './TermsScreen';
+import TransferScreen from './TransferScreen';
+import AccessibilityScreen from './AccessibilityScreen';
+
+const { width } = Dimensions.get('window');
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type ConfirmModal = 'logout' | 'delete' | null;
+type SubScreen = 'security' | 'notifications' | 'privacy' | 'help' | 'terms' | 'transfer' | 'accessibility' | null;
 
 interface Props {
     onBack: () => void;
-    /** El Hash ID del usuario, por ejemplo "HNET-4a2f9c" */
     hashId?: string;
 }
 
 // ─── Row helper ────────────────────────────────────────────────────────────────
 function SettingRow({
-    icon,
-    label,
-    iconBg = '#1e2d4a',
-    onPress,
-    last = false,
+    icon, label, iconBg = '#1e2d4a', onPress, last = false,
 }: {
-    icon: React.ReactNode;
-    label: string;
-    iconBg?: string;
-    onPress?: () => void;
-    last?: boolean;
+    icon: React.ReactNode; label: string; iconBg?: string; onPress?: () => void; last?: boolean;
 }) {
     return (
         <>
@@ -51,26 +52,34 @@ function SettingRow({
 // ─── SettingsScreen ────────────────────────────────────────────────────────────
 export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props) {
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
+    const [activeSub, setActiveSub] = useState<SubScreen>(null);
+    const subAnim = useRef(new Animated.Value(width)).current;
+
+    const openSub = (screen: SubScreen) => {
+        setActiveSub(screen);
+        Animated.timing(subAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    };
+
+    const closeSub = () => {
+        Animated.timing(subAnim, { toValue: width, duration: 300, useNativeDriver: true }).start(() => {
+            setActiveSub(null);
+        });
+    };
 
     const handleCopyId = async () => {
         await Clipboard.setStringAsync(hashId);
         Alert.alert('Copiado', 'Tu Hash ID fue copiado al portapapeles.');
     };
 
-    const handleExportBackup = () => {
-        // TODO: implementar exportación de respaldo .hnet
-        Alert.alert('Exportar respaldo', 'Funcionalidad próximamente disponible.');
-    };
-
     const confirmLogout = () => {
         setConfirmModal(null);
-        // TODO: limpiar sesión / navegación al login
+        // TODO: clear session and navigate to login
         Alert.alert('Sesión cerrada', 'Has cerrado sesión correctamente.');
     };
 
     const confirmDeleteAccount = () => {
         setConfirmModal(null);
-        // TODO: eliminar cuenta en backend + limpiar datos locales
+        // TODO: delete account on backend and clear local data
         Alert.alert('Cuenta eliminada', 'Tu cuenta ha sido eliminada.');
     };
 
@@ -117,16 +126,31 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
                             icon={<Shield size={17} color="#60a5fa" />}
                             label="Seguridad"
                             iconBg="#1e2d4a"
+                            onPress={() => openSub('security')}
                         />
                         <SettingRow
                             icon={<Bell size={17} color="#a78bfa" />}
                             label="Notificaciones"
                             iconBg="#2d1f4a"
+                            onPress={() => openSub('notifications')}
                         />
                         <SettingRow
                             icon={<Shield size={17} color="#34d399" />}
                             label="Privacidad"
                             iconBg="#1a3a2d"
+                            onPress={() => openSub('privacy')}
+                            last
+                        />
+                    </View>
+
+                    {/* ── Sección Preferencias ── */}
+                    <Text style={styles.sectionLabel}>Preferencias</Text>
+                    <View style={styles.sectionCard}>
+                        <SettingRow
+                            icon={<Accessibility size={17} color="#818cf8" />}
+                            label="Accesibilidad"
+                            iconBg="#1e1f3a"
+                            onPress={() => openSub('accessibility')}
                             last
                         />
                     </View>
@@ -138,11 +162,13 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
                             icon={<HelpCircle size={17} color="#fbbf24" />}
                             label="Ayuda y Soporte"
                             iconBg="#3a2e10"
+                            onPress={() => openSub('help')}
                         />
                         <SettingRow
                             icon={<FileText size={17} color="#a0aec0" />}
                             label="Términos y Condiciones"
                             iconBg="#1e2535"
+                            onPress={() => openSub('terms')}
                             last
                         />
                     </View>
@@ -154,7 +180,7 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
                             icon={<Download size={17} color="#34d399" />}
                             label="Transferir Archivos"
                             iconBg="#1a3a2d"
-                            onPress={handleExportBackup}
+                            onPress={() => openSub('transfer')}
                             last
                         />
                     </View>
@@ -262,6 +288,23 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            {/* ── Sub-screen slide overlay ── */}
+            <Animated.View
+                style={[
+                    StyleSheet.absoluteFill,
+                    { transform: [{ translateX: subAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' },
+                ]}
+                pointerEvents={activeSub ? 'auto' : 'none'}
+            >
+                {activeSub === 'security' && <SecurityScreen onBack={closeSub} />}
+                {activeSub === 'notifications' && <NotificationsScreen onBack={closeSub} />}
+                {activeSub === 'privacy' && <PrivacyScreen onBack={closeSub} />}
+                {activeSub === 'help' && <HelpScreen onBack={closeSub} />}
+                {activeSub === 'terms' && <TermsScreen onBack={closeSub} />}
+                {activeSub === 'transfer' && <TransferScreen onBack={closeSub} />}
+                {activeSub === 'accessibility' && <AccessibilityScreen onBack={closeSub} />}
+            </Animated.View>
 
         </KeyboardAvoidingView>
     );
