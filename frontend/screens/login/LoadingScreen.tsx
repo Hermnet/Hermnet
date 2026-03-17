@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Easing, Dimensions, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { Folder, ShieldAlert, Smartphone, Mail, Image as LucideImage, Zap, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { styles } from '../../styles/loadingStyles';
+import { styles, localAnimStyles } from '../../styles/loadingStyles';
 import { styles as loginStyles } from '../../styles/loginStyles';
 
 const { width } = Dimensions.get('window');
@@ -218,36 +218,6 @@ const ShieldDefenseAnimation = () => {
     );
 }
 
-// -------- AUXILIARY INTERNAL STYLES --------
-const localAnimStyles = StyleSheet.create({
-    sceneContainer: {
-        width: '100%',
-        height: 180,
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-    },
-    vaultCube: {
-        width: 80,
-        height: 80,
-        backgroundColor: '#cbd5e1',
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'absolute',
-        shadowColor: '#1a202c', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 8
-    },
-    vaultDoor: {
-        width: 60,
-        height: 60,
-        borderWidth: 2,
-        borderColor: '#94a3b8',
-        borderRadius: 6,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#e2e8f0',
-    }
-});
 
 
 export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {

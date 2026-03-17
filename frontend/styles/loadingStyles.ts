@@ -1,5 +1,35 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
+export const localAnimStyles = StyleSheet.create({
+    sceneContainer: {
+        width: '100%',
+        height: 180,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    vaultCube: {
+        width: 80,
+        height: 80,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'absolute',
+        shadowColor: '#1a202c', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 8
+    },
+    vaultDoor: {
+        width: 60,
+        height: 60,
+        borderWidth: 2,
+        borderColor: '#94a3b8',
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#e2e8f0',
+    }
+});
+
 const { width, height } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
