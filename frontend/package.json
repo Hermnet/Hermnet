@@ -27,7 +27,8 @@
     "react-native": "0.81.5",
     "react-native-quick-crypto": "^1.0.9",
     "react-native-svg": "15.12.1",
-    "react-refresh": "^0.18.0"
+    "react-refresh": "^0.18.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@testing-library/jest-native": "^5.4.3",
