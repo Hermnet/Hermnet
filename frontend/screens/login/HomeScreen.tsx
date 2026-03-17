@@ -110,103 +110,103 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
         );
     };
 
-const handlePinComplete = (pinCode: string) => {
-    setIsLoading(true);
+    const handlePinComplete = (pinCode: string) => {
+        setIsLoading(true);
 
-    Animated.spring(slideLoadingAnim, {
-        toValue: 0,
-        tension: 40,
-        friction: 8,
-        useNativeDriver: true,
-    }).start();
-};
+        Animated.spring(slideLoadingAnim, {
+            toValue: 0,
+            tension: 40,
+            friction: 8,
+            useNativeDriver: true,
+        }).start();
+    };
 
-const handleLoginComplete = (pinCode: string) => {
-    if (onAuthSuccess) {
-        onAuthSuccess();
+    const handleLoginComplete = (pinCode: string) => {
+        if (onAuthSuccess) {
+            onAuthSuccess();
+        }
+    };
+
+    if (hasAccount === null) {
+        return <View style={{ flex: 1, backgroundColor: '#0d111b' }} />;
     }
-};
 
-if (hasAccount === null) {
-    return <View style={{ flex: 1, backgroundColor: '#0d111b' }} />;
-}
+    return (
+        <View style={{ flex: 1, backgroundColor: '#0d111b' }}>
+            {!hasAccount && (
+                <Animated.View style={[loginStyles.container, StyleSheet.absoluteFill, { opacity: fadeHomeAnim, transform: [{ translateY: translateYHomeAnim }] }]}>
+                    <View style={loginStyles.content}>
+                        <Image
+                            source={require('../../assets/logo_tight.png')}
+                            style={loginStyles.logo}
+                            resizeMode="contain"
+                        />
+                        <ShimmerText
+                            text="HERMNET"
+                            style={loginStyles.title}
+                            duration={3000}
+                        />
+                    </View>
 
-return (
-    <View style={{ flex: 1, backgroundColor: '#0d111b' }}>
-        {!hasAccount && (
-            <Animated.View style={[loginStyles.container, StyleSheet.absoluteFill, { opacity: fadeHomeAnim, transform: [{ translateY: translateYHomeAnim }] }]}>
-                <View style={loginStyles.content}>
-                    <Image
-                        source={require('../../assets/logo_tight.png')}
-                        style={loginStyles.logo}
-                        resizeMode="contain"
-                    />
-                    <ShimmerText
-                        text="HERMNET"
-                        style={loginStyles.title}
-                        duration={3000}
-                    />
-                </View>
-
-                <TouchableOpacity
-                    style={loginStyles.secondaryButton}
-                    onPress={handleRestoreClick}
-                    activeOpacity={0.6}
-                >
-                    <Text style={loginStyles.secondaryButtonText}>¿Ya tienes cuenta? / Restaurar</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={loginStyles.button}
-                    onPress={handleGenerateClick}
-                    activeOpacity={0.8}
-                >
-                    <Text style={loginStyles.buttonText}>Generar Clave Privada</Text>
-                </TouchableOpacity>
-            </Animated.View>
-        )}
-
-        {(showPin || hasAccount) && (
-            <Animated.View
-                style={[
-                    StyleSheet.absoluteFill,
-                    {
-                        opacity: hasAccount ? 1 : fadePinAnim,
-                        transform: hasAccount ? [] : [{ translateY: translateYPinAnim }],
-                        zIndex: 5,
-                        elevation: 5,
-                        backgroundColor: '#0d111b'
-                    }
-                ]}
-            >
-                <PinScreen
-                    mode={hasAccount ? 'login' : (isRestoring ? 'restore' : 'setup')}
-                    onComplete={hasAccount ? handleLoginComplete : handlePinComplete}
-                />
-
-
-                {hasAccount && (
                     <TouchableOpacity
-                        style={[loginStyles.secondaryButton, { position: 'absolute', bottom: 40, alignSelf: 'center' }]}
+                        style={loginStyles.secondaryButton}
                         onPress={handleRestoreClick}
                         activeOpacity={0.6}
                     >
-                        <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
+                        <Text style={loginStyles.secondaryButtonText}>¿Ya tienes cuenta? / Restaurar</Text>
                     </TouchableOpacity>
-                )}
-            </Animated.View>
-        )}
 
-        {isLoading && (
-            <Animated.View
-                style={[
-                    StyleSheet.absoluteFill,
-                    { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' }
-                ]}
-            >
-                <LoadingScreen onFinish={() => { if (onAuthSuccess) onAuthSuccess(); }} />
-            </Animated.View>
-        )}
-    </View>
-);
+                    <TouchableOpacity
+                        style={loginStyles.button}
+                        onPress={handleGenerateClick}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={loginStyles.buttonText}>Generar Clave Privada</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
+
+            {(showPin || hasAccount) && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        {
+                            opacity: hasAccount ? 1 : fadePinAnim,
+                            transform: hasAccount ? [] : [{ translateY: translateYPinAnim }],
+                            zIndex: 5,
+                            elevation: 5,
+                            backgroundColor: '#0d111b'
+                        }
+                    ]}
+                >
+                    <PinScreen
+                        mode={hasAccount ? 'login' : (isRestoring ? 'restore' : 'setup')}
+                        onComplete={hasAccount ? handleLoginComplete : handlePinComplete}
+                    />
+
+
+                    {hasAccount && (
+                        <TouchableOpacity
+                            style={[loginStyles.secondaryButton, { position: 'absolute', bottom: 40, alignSelf: 'center' }]}
+                            onPress={handleRestoreClick}
+                            activeOpacity={0.6}
+                        >
+                            <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
+                        </TouchableOpacity>
+                    )}
+                </Animated.View>
+            )}
+
+            {isLoading && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' }
+                    ]}
+                >
+                    <LoadingScreen onFinish={() => { if (onAuthSuccess) onAuthSuccess(); }} />
+                </Animated.View>
+            )}
+        </View>
+    );
 }
