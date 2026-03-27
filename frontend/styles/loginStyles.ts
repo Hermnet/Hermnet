@@ -1,11 +1,11 @@
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { StyleSheet } from 'react-native';
+import { SCREEN_WIDTH } from '../constants/layout';
+import { BG_PRIMARY } from './theme';
 
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0d111b', // Dark background color similar to the image
+        backgroundColor: BG_PRIMARY,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     logo: {
-        width: width * 0.7, // 70% of screen width purely for the shield
+        width: SCREEN_WIDTH * 0.7, // 70% of screen width purely for the shield
         height: undefined,
         aspectRatio: 1.05, // The exact ratio found for the shield
         marginBottom: 4,  // Very little space so the text sits right below

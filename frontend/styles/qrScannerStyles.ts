@@ -1,11 +1,12 @@
-import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
+import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { SCREEN_WIDTH } from '../constants/layout';
+import { BG_PRIMARY, ACCENT_LIGHT, ACCENT_BUTTON } from './theme';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-export const FRAME_SIZE = SCREEN_W * 0.68;
+export const FRAME_SIZE = SCREEN_WIDTH * 0.68;
 
-export const CORNER_SIZE = 22;
+export const CORNER_SIZE      = 22;
 export const CORNER_THICKNESS = 3;
-export const CORNER_COLOR = '#60a5fa';
+export const CORNER_COLOR     = ACCENT_LIGHT;
 
 export const sh = StyleSheet.create({
     container: {
@@ -14,7 +15,7 @@ export const sh = StyleSheet.create({
     },
     fullCenter: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
@@ -34,7 +35,7 @@ export const sh = StyleSheet.create({
         marginBottom: 24,
     },
     permBtn: {
-        backgroundColor: '#354d8b',
+        backgroundColor: ACCENT_BUTTON,
         borderRadius: 12,
         paddingVertical: 14,
         paddingHorizontal: 32,
@@ -153,7 +154,7 @@ export const sh = StyleSheet.create({
     },
     rescanBtn: {
         marginTop: 16,
-        backgroundColor: '#354d8b',
+        backgroundColor: ACCENT_BUTTON,
         borderRadius: 12,
         paddingVertical: 12,
         paddingHorizontal: 28,
