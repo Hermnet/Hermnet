@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet } from 'react-native';
 import { User, Lock, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
@@ -7,14 +7,16 @@ import ChatRoomScreen from './ChatRoomScreen';
 import SettingsScreen from '../settings/SettingsScreen';
 import QRScannerScreen from './QRScannerScreen';
 import ShowQRScreen from './ShowQRScreen';
+import { useAuthStore } from '../../store/authStore';
+import { contactsService } from '../../services/ContactsService';
+import { messageFlowService } from '../../services/MessageFlowService';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 type Chat = {
     id: string;
     name: string;
     hasUnread?: boolean;
 };
-
-const MOCK_CHATS: Chat[] = [];
 
 export default function ChatsScreen() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +25,11 @@ export default function ChatsScreen() {
     const [showQR, setShowQR] = useState(false);
     const [showShowQR, setShowShowQR] = useState(false);
     const [fabOpen, setFabOpen] = useState(false);
+    const [chats, setChats] = useState<Chat[]>([]);
+    const [serverError, setServerError] = useState(false);
+
+    const { identity } = useAuthStore();
+    const networkStatus = useNetworkStatus();
 
     const chatSlide     = useSlideAnim();
     const settingsSlide = useSlideAnim();
@@ -35,7 +42,22 @@ export default function ChatsScreen() {
     const btn1TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
     const btn2TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
 
-    const filteredChats = MOCK_CHATS.filter(chat =>
+    useEffect(() => {
+        if (!identity) return;
+        const load = async () => {
+            const [contacts] = await Promise.all([
+                contactsService.getAllContacts(),
+                messageFlowService.syncInbox(identity.id, identity.privateKey).catch(() => {}),
+            ]);
+            setChats(contacts.map(c => ({
+                id: c.contactHash,
+                name: c.alias ?? c.contactHash.slice(5, 17),
+            })));
+        };
+        load().catch(() => setServerError(true));
+    }, [identity?.id]);
+
+    const filteredChats = chats.filter(chat =>
         chat.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -135,6 +157,21 @@ export default function ChatsScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {networkStatus !== 'online' && (
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#1a2340', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#f59e0b' }} />
+                        <Text style={{ color: '#fbbf24', fontSize: 13 }}>
+                            {networkStatus === 'checking' ? 'Comprobando conexión...' : 'Sin conexión a la red, comprobando...'}
+                        </Text>
+                    </View>
+                )}
+                {networkStatus === 'online' && serverError && (
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#2d1a1a', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#f87171' }} />
+                        <Text style={{ color: '#f87171', fontSize: 13 }}>Sin conexión al servidor</Text>
+                    </View>
+                )}
+
                 <FlatList
                     data={filteredChats}
                     keyExtractor={(item) => item.id}
@@ -143,7 +180,6 @@ export default function ChatsScreen() {
                     showsVerticalScrollIndicator={false}
                 />
 
-                {/* FAB backdrop - closes menu on outside tap */}
                 {fabOpen && (
                     <TouchableOpacity
                         style={[StyleSheet.absoluteFill, { zIndex: 5 }]}
@@ -152,9 +188,7 @@ export default function ChatsScreen() {
                     />
                 )}
 
-                {/* FAB Group */}
                 <View style={styles.fabGroup}>
-                    {/* Sub-button: Enseñar QR */}
                     <Animated.View
                         style={[styles.subFabRow, {
                             opacity: btnOpacity,
@@ -168,7 +202,6 @@ export default function ChatsScreen() {
                         </TouchableOpacity>
                     </Animated.View>
 
-                    {/* Sub-button: Escanear QR */}
                     <Animated.View
                         style={[styles.subFabRow, {
                             opacity: btnOpacity,
@@ -182,7 +215,6 @@ export default function ChatsScreen() {
                         </TouchableOpacity>
                     </Animated.View>
 
-                    {/* Main FAB */}
                     <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={toggleFab} accessibilityLabel={fabOpen ? 'Cerrar menú' : 'Abrir menú'}>
                         <Image
                             source={require('../../assets/logo_tight.png')}
@@ -200,7 +232,7 @@ export default function ChatsScreen() {
                 ]}
                 pointerEvents={activeChatId ? 'auto' : 'none'}
             >
-                {activeChatId && <ChatRoomScreen onBack={handleBack} />}
+                {activeChatId && <ChatRoomScreen chatId={activeChatId} onBack={handleBack} />}
             </Animated.View>
 
             <Animated.View
