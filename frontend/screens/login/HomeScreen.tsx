@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, Alert, ActivityIndicator } from 'react-native';
+import QuickCrypto from 'react-native-quick-crypto';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
 import PinScreen from './PinScreen';
@@ -10,6 +11,10 @@ import { useAuthStore } from '../../store/authStore';
 
 const { height } = Dimensions.get('window');
 
+function hashPin(pin: string, salt: string): string {
+    return QuickCrypto.createHash('sha256').update(pin + salt).digest('hex') as string;
+}
+
 export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
     const [hasAccount, setHasAccount] = useState<boolean | null>(null);
     const [showPin, setShowPin] = useState(false);
@@ -18,6 +23,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
     const [loginLoading, setLoginLoading] = useState(false);
 
     const bootstrapPromiseRef = useRef<Promise<LoginFlowResult> | null>(null);
+    const pinRef = useRef<string>('');
     const { login: authStoreLogin } = useAuthStore();
 
     const fadeHomeAnim       = useRef(new Animated.Value(1)).current;
@@ -66,15 +72,19 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
         );
     };
 
-    const handlePinComplete = (_pin: string) => {
+    const handlePinComplete = (pin: string) => {
+        pinRef.current = pin;
         setIsLoading(true);
         bootstrapPromiseRef.current = authFlowService.bootstrapLogin();
         Animated.spring(slideLoadingAnim, { toValue: 0, tension: 40, friction: 8, useNativeDriver: true }).start();
     };
 
     const handleLoadingFinish = useCallback(async () => {
+        const pin = pinRef.current;
+        pinRef.current = '';
         try {
             const result = await bootstrapPromiseRef.current!;
+            await authSessionService.setPinHash(hashPin(pin, result.identity.id));
             await authStoreLogin(result.identity, result.jwtToken);
             if (onAuthSuccess) onAuthSuccess();
         } catch {
@@ -101,14 +111,28 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
         }
     }, [authStoreLogin, onAuthSuccess, slideLoadingAnim]);
 
-    const handleLoginComplete = useCallback(async (_pin: string) => {
+    const handleLoginComplete = useCallback(async (pin: string) => {
         setLoginLoading(true);
         try {
             const result = await authFlowService.bootstrapLogin();
             await authStoreLogin(result.identity, result.jwtToken);
             if (onAuthSuccess) onAuthSuccess();
         } catch {
-            Alert.alert('Error de autenticación', 'No se pudo verificar tu identidad. Comprueba la conexión.');
+            const [cachedIdentity, cachedJwt, storedHash] = await Promise.all([
+                authSessionService.getIdentity(),
+                authSessionService.getJwtToken(),
+                authSessionService.getPinHash(),
+            ]);
+            if (cachedIdentity && cachedJwt && storedHash) {
+                if (hashPin(pin, cachedIdentity.id) !== storedHash) {
+                    Alert.alert('PIN incorrecto', 'No se pudo acceder a tu bóveda local.');
+                    return;
+                }
+                await authStoreLogin(cachedIdentity, cachedJwt);
+                if (onAuthSuccess) onAuthSuccess();
+            } else {
+                Alert.alert('Error de autenticación', 'No se pudo verificar tu identidad. Comprueba la conexión.');
+            }
         } finally {
             setLoginLoading(false);
         }

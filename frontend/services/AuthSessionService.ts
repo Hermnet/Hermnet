@@ -3,6 +3,7 @@ import { Identity } from './IdentityService';
 
 const IDENTITY_KEY = 'hermnet.identity';
 const JWT_KEY = 'hermnet.jwt';
+const PIN_HASH_KEY = 'hermnet.pin_hash';
 
 /**
  * Stores identity and JWT state in secure local storage.
@@ -31,6 +32,18 @@ export class AuthSessionService {
 
   async clearJwtToken(): Promise<void> {
     await SecureStore.deleteItemAsync(JWT_KEY);
+  }
+
+  async getPinHash(): Promise<string | null> {
+    return SecureStore.getItemAsync(PIN_HASH_KEY);
+  }
+
+  async setPinHash(hash: string): Promise<void> {
+    await SecureStore.setItemAsync(PIN_HASH_KEY, hash);
+  }
+
+  async clearPinHash(): Promise<void> {
+    await SecureStore.deleteItemAsync(PIN_HASH_KEY);
   }
 }
 
