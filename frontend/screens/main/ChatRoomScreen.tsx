@@ -189,6 +189,98 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
     prev.onReply === next.onReply && prev.onReadMore === next.onReadMore
 );
 
+// ─── Reply Banner ──────────────────────────────────────────────────────────────
+type ReplyBannerProps = { msg: MsgData; onJumpTo: () => void; onCancel: () => void };
+const ReplyBanner = React.memo(({ msg, onJumpTo, onCancel }: ReplyBannerProps) => (
+    <TouchableOpacity onPress={onJumpTo} activeOpacity={0.8} style={sh.replyBanner}>
+        <CornerUpLeft size={14} color="#60a5fa" style={{ marginRight: 10 }} />
+        <View style={{ flex: 1 }}>
+            <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
+                {msg.isMine ? 'Tú' : 'Marta'}
+            </Text>
+            <Text style={{ color: '#a0aabf', fontSize: 13 }} numberOfLines={1}>{msg.text}</Text>
+        </View>
+        <Text style={{ color: '#60a5fa', fontSize: 11, marginRight: 8 }}>↑ ver</Text>
+        <TouchableOpacity onPress={onCancel} style={{ padding: 4 }}>
+            <X size={18} color="#a0aabf" />
+        </TouchableOpacity>
+    </TouchableOpacity>
+));
+
+// ─── Message Input Bar ─────────────────────────────────────────────────────────
+type InputBarProps = {
+    value: string;
+    onChangeText: (t: string) => void;
+    onSend: () => void;
+    replyingTo: MsgData | null;
+    onJumpToReply: () => void;
+    onCancelReply: () => void;
+};
+const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, onJumpToReply, onCancelReply }: InputBarProps) => (
+    <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
+        {replyingTo && (
+            <ReplyBanner msg={replyingTo} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
+        )}
+        <View style={[styles.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
+            <TextInput
+                style={styles.textInput}
+                value={value}
+                onChangeText={onChangeText}
+                placeholder="Escribe aqui..."
+                placeholderTextColor="#a0aabf"
+                multiline
+                maxLength={500}
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={onSend} activeOpacity={0.7}>
+                <Send size={20} color="#1a202c" style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
+            </TouchableOpacity>
+        </View>
+    </View>
+));
+
+// ─── Message Carousel Area ─────────────────────────────────────────────────────
+type MessageCarouselProps = {
+    visibleMessages: Array<{ msg: MsgData; y: number }>;
+    scrollPxAnim: Animated.Value;
+    scrolledBack: boolean;
+    panHandlers: object;
+    onReply: (msg: MsgData) => void;
+    onReadMore: (msg: MsgData) => void;
+    onGoToLatest: () => void;
+};
+const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBack, panHandlers, onReply, onReadMore, onGoToLatest }: MessageCarouselProps) => (
+    <View style={{ position: 'absolute', top: HEADER_H, bottom: INPUT_H, left: 0, right: 0, overflow: 'hidden' }} {...panHandlers}>
+        {visibleMessages.map(({ msg, y }) => (
+            <CarouselBubble
+                key={msg.id}
+                msg={msg}
+                yIndex={y}
+                scrollPxAnim={scrollPxAnim}
+                onReply={onReply}
+                onReadMore={onReadMore}
+            />
+        ))}
+        {scrolledBack && (
+            <TouchableOpacity
+                onPress={onGoToLatest}
+                activeOpacity={0.85}
+                style={{
+                    position: 'absolute', bottom: 14,
+                    alignSelf: 'center', zIndex: 20,
+                    backgroundColor: '#d97706',
+                    borderRadius: 20, paddingHorizontal: 18, paddingVertical: 9,
+                    flexDirection: 'row', alignItems: 'center', gap: 7,
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: 0.30, shadowRadius: 6, elevation: 6,
+                }}
+            >
+                <ChevronsDown size={15} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Último mensaje</Text>
+            </TouchableOpacity>
+        )}
+    </View>
+));
+
 // ─── ChatRoomScreen ────────────────────────────────────────────────────────────
 export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
     const [allMessages, setAllMessages] = useState<MsgData[]>(INITIAL_MSGS);
@@ -232,6 +324,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
     const goToLatest = useCallback(() => jumpToY(0, 0), [jumpToY]);
     const handleReply = useCallback((msg: MsgData) => setReplyingTo(msg), []);
     const handleReadMore = useCallback((msg: MsgData) => setFullTextMsg(msg), []);
+    const handleCancelReply = useCallback(() => setReplyingTo(null), []);
     const closeModal = useCallback(() => setFullTextMsg(null), []);
 
     const handleSend = useCallback(() => {
@@ -289,37 +382,15 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
             <View style={[styles.container, { overflow: 'hidden' }]} {...globalSwipe.panHandlers}>
 
                 {/* ── Messages area (clipped between header and input) ── */}
-                <View style={{ position: 'absolute', top: HEADER_H, bottom: INPUT_H, left: 0, right: 0, overflow: 'hidden' }} {...msgPan.panHandlers}>
-                    {visibleMessages.map(({ msg, y }) => (
-                        <CarouselBubble
-                            key={msg.id}
-                            msg={msg}
-                            yIndex={y}
-                            scrollPxAnim={scrollPxAnim}
-                            onReply={handleReply}
-                            onReadMore={handleReadMore}
-                        />
-                    ))}
-
-                    {scrolledBack && (
-                        <TouchableOpacity
-                            onPress={goToLatest}
-                            activeOpacity={0.85}
-                            style={{
-                                position: 'absolute', bottom: 14,
-                                alignSelf: 'center', zIndex: 20,
-                                backgroundColor: '#d97706',
-                                borderRadius: 20, paddingHorizontal: 18, paddingVertical: 9,
-                                flexDirection: 'row', alignItems: 'center', gap: 7,
-                                shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
-                                shadowOpacity: 0.30, shadowRadius: 6, elevation: 6,
-                            }}
-                        >
-                            <ChevronsDown size={15} color="#fff" />
-                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Último mensaje</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                <MessageCarousel
+                    visibleMessages={visibleMessages}
+                    scrollPxAnim={scrollPxAnim}
+                    scrolledBack={scrolledBack}
+                    panHandlers={msgPan.panHandlers}
+                    onReply={handleReply}
+                    onReadMore={handleReadMore}
+                    onGoToLatest={goToLatest}
+                />
 
                 {/* ── Header ── */}
                 <View style={sh.headerContainer}>
@@ -335,38 +406,14 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                 </View>
 
                 {/* ── Input ── */}
-                <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
-                    {replyingTo && (
-                        <TouchableOpacity onPress={jumpToReply} activeOpacity={0.8} style={sh.replyBanner}>
-                            <CornerUpLeft size={14} color="#60a5fa" style={{ marginRight: 10 }} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
-                                    {replyingTo.isMine ? 'Tú' : 'Marta'}
-                                </Text>
-                                <Text style={{ color: '#a0aabf', fontSize: 13 }} numberOfLines={1}>{replyingTo.text}</Text>
-                            </View>
-                            <Text style={{ color: '#60a5fa', fontSize: 11, marginRight: 8 }}>↑ ver</Text>
-                            <TouchableOpacity onPress={() => setReplyingTo(null)} style={{ padding: 4 }}>
-                                <X size={18} color="#a0aabf" />
-                            </TouchableOpacity>
-                        </TouchableOpacity>
-                    )}
-
-                    <View style={[styles.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
-                        <TextInput
-                            style={styles.textInput}
-                            value={newMessage}
-                            onChangeText={setNewMessage}
-                            placeholder="Escribe aqui..."
-                            placeholderTextColor="#a0aabf"
-                            multiline
-                            maxLength={500}
-                        />
-                        <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.7}>
-                            <Send size={20} color="#1a202c" style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
+                <MessageInputBar
+                    value={newMessage}
+                    onChangeText={setNewMessage}
+                    onSend={handleSend}
+                    replyingTo={replyingTo}
+                    onJumpToReply={jumpToReply}
+                    onCancelReply={handleCancelReply}
+                />
 
                 {/* ── Full message modal ── */}
                 <FullMessageModal msg={fullTextMsg} onClose={closeModal} />

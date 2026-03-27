@@ -29,14 +29,13 @@ function ConfirmView({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () 
     const progressAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        // Animate progress bar
-        Animated.timing(progressAnim, {
+        const animation = Animated.timing(progressAnim, {
             toValue: 0,
             duration: CONFIRM_DELAY * 1000,
             useNativeDriver: false,
-        }).start();
+        });
+        animation.start();
 
-        // Countdown timer
         const interval = setInterval(() => {
             setCountdown(prev => {
                 if (prev <= 1) {
@@ -47,7 +46,10 @@ function ConfirmView({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () 
             });
         }, 1000);
 
-        return () => clearInterval(interval);
+        return () => {
+            animation.stop();
+            clearInterval(interval);
+        };
     }, []);
 
     const ready = countdown === 0;
