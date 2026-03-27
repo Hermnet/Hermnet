@@ -124,6 +124,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                         style={loginStyles.secondaryButton}
                         onPress={handleRestoreClick}
                         activeOpacity={0.6}
+                        accessibilityLabel="Restaurar identidad existente"
                     >
                         <Text style={loginStyles.secondaryButtonText}>¿Ya tienes cuenta? / Restaurar</Text>
                     </TouchableOpacity>
@@ -132,6 +133,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                         style={loginStyles.button}
                         onPress={handleGenerateClick}
                         activeOpacity={0.8}
+                        accessibilityLabel="Generar nueva clave privada"
                     >
                         <Text style={loginStyles.buttonText}>Generar Clave Privada</Text>
                     </TouchableOpacity>
@@ -161,6 +163,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                             style={[loginStyles.secondaryButton, { position: 'absolute', bottom: 40, alignSelf: 'center' }]}
                             onPress={handleRestoreClick}
                             activeOpacity={0.6}
+                            accessibilityLabel="Olvidé mi PIN, restaurar archivo .hnet"
                         >
                             <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
                         </TouchableOpacity>

@@ -141,6 +141,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                                     style={styles.key}
                                     onPress={handleDelete}
                                     activeOpacity={0.6}
+                                    accessibilityLabel="Borrar dígito"
                                 >
                                     <Delete size={26} color="#a0aec0" />
                                 </TouchableOpacity>
@@ -153,6 +154,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                                 style={styles.key}
                                 onPress={() => handlePress(key)}
                                 activeOpacity={0.6}
+                                accessibilityLabel={`Dígito ${key}`}
                             >
                                 <Text style={styles.keyText}>{key}</Text>
                             </TouchableOpacity>

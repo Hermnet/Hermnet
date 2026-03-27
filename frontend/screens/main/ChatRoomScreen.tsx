@@ -201,7 +201,7 @@ const ReplyBanner = React.memo(({ msg, onJumpTo, onCancel }: ReplyBannerProps) =
             <Text style={{ color: '#a0aabf', fontSize: 13 }} numberOfLines={1}>{msg.text}</Text>
         </View>
         <Text style={{ color: '#60a5fa', fontSize: 11, marginRight: 8 }}>↑ ver</Text>
-        <TouchableOpacity onPress={onCancel} style={{ padding: 4 }}>
+        <TouchableOpacity onPress={onCancel} style={{ padding: 4 }} accessibilityLabel="Cancelar respuesta">
             <X size={18} color="#a0aabf" />
         </TouchableOpacity>
     </TouchableOpacity>
@@ -231,7 +231,7 @@ const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, o
                 multiline
                 maxLength={500}
             />
-            <TouchableOpacity style={styles.sendButton} onPress={onSend} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.sendButton} onPress={onSend} activeOpacity={0.7} accessibilityLabel="Enviar mensaje">
                 <Send size={20} color="#1a202c" style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
             </TouchableOpacity>
         </View>
@@ -264,6 +264,7 @@ const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBac
             <TouchableOpacity
                 onPress={onGoToLatest}
                 activeOpacity={0.85}
+                accessibilityLabel="Ir al último mensaje"
                 style={{
                     position: 'absolute', bottom: 14,
                     alignSelf: 'center', zIndex: 20,
@@ -394,7 +395,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
 
                 {/* ── Header ── */}
                 <View style={sh.headerContainer}>
-                    <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6}>
+                    <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6} accessibilityLabel="Volver atrás">
                         <ArrowLeft size={28} color="#ffffff" />
                     </TouchableOpacity>
                     <View style={styles.headerChatInfo}>

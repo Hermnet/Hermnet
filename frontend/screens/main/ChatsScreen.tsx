@@ -8,7 +8,13 @@ import SettingsScreen from '../settings/SettingsScreen';
 import QRScannerScreen from './QRScannerScreen';
 import ShowQRScreen from './ShowQRScreen';
 
-const MOCK_CHATS: any[] = [];
+type Chat = {
+    id: string;
+    name: string;
+    hasUnread?: boolean;
+};
+
+const MOCK_CHATS: Chat[] = [];
 
 export default function ChatsScreen() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -87,11 +93,12 @@ export default function ChatsScreen() {
         showQRSlide.close(() => setShowShowQR(false));
     }, [showQRSlide]);
 
-    const renderItem = useCallback(({ item }: { item: any }) => (
+    const renderItem = useCallback(({ item }: { item: Chat }) => (
         <TouchableOpacity
             style={styles.chatItem}
             activeOpacity={0.7}
             onPress={() => handleChatPress(item.id)}
+            accessibilityLabel={`Abrir chat con ${item.name}`}
         >
             <View style={styles.avatarContainer}>
                 <User size={20} color="#bd2b2b" />
@@ -123,7 +130,7 @@ export default function ChatsScreen() {
                         />
                         <Search size={20} color="#a0aec0" style={styles.searchIcon} />
                     </View>
-                    <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6} onPress={handleOpenSettings}>
+                    <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6} onPress={handleOpenSettings} accessibilityLabel="Ajustes">
                         <Settings size={24} color="#ffffff" />
                     </TouchableOpacity>
                 </View>
@@ -156,7 +163,7 @@ export default function ChatsScreen() {
                         pointerEvents={fabOpen ? 'auto' : 'none'}
                     >
                         <Text style={styles.subFabLabel}>Enseñar QR</Text>
-                        <TouchableOpacity style={styles.subFab} activeOpacity={0.8} onPress={handleShowQR}>
+                        <TouchableOpacity style={styles.subFab} activeOpacity={0.8} onPress={handleShowQR} accessibilityLabel="Enseñar mi código QR">
                             <QrCode size={22} color="#ffffff" />
                         </TouchableOpacity>
                     </Animated.View>
@@ -170,13 +177,13 @@ export default function ChatsScreen() {
                         pointerEvents={fabOpen ? 'auto' : 'none'}
                     >
                         <Text style={styles.subFabLabel}>Escanear QR</Text>
-                        <TouchableOpacity style={styles.subFab} activeOpacity={0.8} onPress={handleOpenScanQR}>
+                        <TouchableOpacity style={styles.subFab} activeOpacity={0.8} onPress={handleOpenScanQR} accessibilityLabel="Escanear código QR">
                             <ScanLine size={22} color="#ffffff" />
                         </TouchableOpacity>
                     </Animated.View>
 
                     {/* Main FAB */}
-                    <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={toggleFab}>
+                    <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={toggleFab} accessibilityLabel={fabOpen ? 'Cerrar menú' : 'Abrir menú'}>
                         <Image
                             source={require('../../assets/logo_tight.png')}
                             style={styles.fabIcon}
