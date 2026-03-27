@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Modal,
-    KeyboardAvoidingView, Platform, Alert, Animated, Dimensions, StyleSheet,
+    KeyboardAvoidingView, Platform, Alert, Animated, StyleSheet,
 } from 'react-native';
 import {
     ArrowLeft, User, Bell, Shield, HelpCircle, FileText,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { styles } from '../../styles/settingsStyles';
+import { useSlideAnim } from '../../hooks/useSlideAnim';
 import SecurityScreen from './SecurityScreen';
 import NotificationsScreen from './NotificationsScreen';
 import PrivacyScreen from './PrivacyScreen';
@@ -17,8 +18,6 @@ import HelpScreen from './HelpScreen';
 import TermsScreen from './TermsScreen';
 import TransferScreen from './TransferScreen';
 import AccessibilityScreen from './AccessibilityScreen';
-
-const { width } = Dimensions.get('window');
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type ConfirmModal = 'logout' | 'delete' | null;
@@ -30,7 +29,7 @@ interface Props {
 }
 
 // ─── Row helper ────────────────────────────────────────────────────────────────
-function SettingRow({
+const SettingRow = React.memo(function SettingRow({
     icon, label, iconBg = '#1e2d4a', onPress, last = false,
 }: {
     icon: React.ReactNode; label: string; iconBg?: string; onPress?: () => void; last?: boolean;
@@ -47,23 +46,21 @@ function SettingRow({
             {!last && <View style={styles.rowSeparator} />}
         </>
     );
-}
+});
 
 // ─── SettingsScreen ────────────────────────────────────────────────────────────
 export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props) {
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
     const [activeSub, setActiveSub] = useState<SubScreen>(null);
-    const subAnim = useRef(new Animated.Value(width)).current;
+    const subSlide = useSlideAnim(300);
 
     const openSub = (screen: SubScreen) => {
         setActiveSub(screen);
-        Animated.timing(subAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+        subSlide.open();
     };
 
     const closeSub = () => {
-        Animated.timing(subAnim, { toValue: width, duration: 300, useNativeDriver: true }).start(() => {
-            setActiveSub(null);
-        });
+        subSlide.close(() => setActiveSub(null));
     };
 
     const handleCopyId = async () => {
@@ -293,7 +290,7 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: subAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' },
+                    { transform: [{ translateX: subSlide.anim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' },
                 ]}
                 pointerEvents={activeSub ? 'auto' : 'none'}
             >

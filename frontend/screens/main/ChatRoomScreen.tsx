@@ -92,7 +92,10 @@ type BubbleProps = {
 };
 
 const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadMore }: BubbleProps) => {
-    const { fontSize, lineHeight, maxLines, needsTruncation } = getDynamicTextProps(msg.text, !!msg.replyTo);
+    const { fontSize, lineHeight, maxLines, needsTruncation } = useMemo(
+        () => getDynamicTextProps(msg.text, !!msg.replyTo),
+        [msg.text, msg.replyTo]
+    );
 
     // Smooth vertical stacking animation when new messages arrive
     const yAnim = useRef(new Animated.Value(yIndex)).current;
