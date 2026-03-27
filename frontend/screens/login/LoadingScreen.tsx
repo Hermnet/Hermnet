@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Animated, Easing, Dimensions, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, Animated, Easing, FlatList, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Folder, ShieldAlert, Smartphone, Mail, Image as LucideImage, Zap, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles, localAnimStyles } from '../../styles/loadingStyles';
 import { styles as loginStyles } from '../../styles/loginStyles';
-
-const { width } = Dimensions.get('window');
+import { SCREEN_WIDTH } from '../../constants/layout';
 
 const SLIDES = [
     {
@@ -25,40 +24,45 @@ const SLIDES = [
     }
 ];
 
-// -------- ANIMATION: SLIDE 1 (SAFE AND FOLDER) --------
-const SafeVaultAnimation = () => {
+// ── Shared hook: looping Animated.timing ──────────────────────────────────────
+function useLoopAnim(toValue: number, duration: number, easing: (t: number) => number) {
     const animValue = useRef(new Animated.Value(0)).current;
-
     useEffect(() => {
         const loop = Animated.loop(
-            Animated.timing(animValue, {
-                toValue: 2, // Phases: 0 to 1 (enters), 1 to 2 (resets and waits)
-                duration: 3500,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            })
+            Animated.timing(animValue, { toValue, duration, easing, useNativeDriver: true })
         );
         loop.start();
         return () => loop.stop();
-    });
+    }, []);
+    return animValue;
+}
+
+// ── Shared container for each animation scene ─────────────────────────────────
+const LoadingAnimationStep = ({ style, children }: { style?: ViewStyle; children: React.ReactNode }) => (
+    <View style={[localAnimStyles.sceneContainer, style]}>{children}</View>
+);
+
+// -------- ANIMATION: SLIDE 1 (SAFE AND FOLDER) --------
+const SafeVaultAnimation = () => {
+    const animValue = useLoopAnim(2, 3500, Easing.linear);
 
     const folderTranslateX = animValue.interpolate({
         inputRange: [0, 0.4, 0.6, 1, 2],
-        outputRange: [100, 20, 0, 0, 0] 
+        outputRange: [100, 20, 0, 0, 0]
     });
-    
+
     const folderScale = animValue.interpolate({
         inputRange: [0, 0.4, 0.7, 1, 2],
         outputRange: [1, 1, 0, 0, 0]
     });
-    
+
     const vaultScale = animValue.interpolate({
         inputRange: [0, 0.6, 0.7, 0.8, 1, 2],
         outputRange: [1, 1, 1.1, 1, 1, 1]
     });
 
     return (
-        <View style={localAnimStyles.sceneContainer}>
+        <LoadingAnimationStep>
             <Animated.View style={{ zIndex: 1, transform: [{ translateX: folderTranslateX }, { scale: folderScale }] }}>
                 <Folder size={40} color="#3182ce" />
             </Animated.View>
@@ -67,45 +71,31 @@ const SafeVaultAnimation = () => {
                     <ShieldAlert size={30} color="#1a202c" />
                 </View>
             </Animated.View>
-        </View>
+        </LoadingAnimationStep>
     );
 };
 
 // -------- ANIMATION: SLIDE 2 (PHONES SENDING DATA/LETTERS) --------
 const PhonesCommunicationAnimation = () => {
-    const animValue = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        // The letter goes from one phone to another
-        const loop = Animated.loop(
-            Animated.timing(animValue, {
-                toValue: 1,
-                duration: 2500,
-                easing: Easing.inOut(Easing.ease),
-                useNativeDriver: true,
-            })
-        );
-        loop.start();
-        return () => loop.stop();
-    });
+    const animValue = useLoopAnim(1, 2500, Easing.inOut(Easing.ease));
 
     const envelopeTranslateX = animValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [-60, 60] 
+        outputRange: [-60, 60]
     });
-    
+
     const envelopeOpacity = animValue.interpolate({
         inputRange: [0, 0.1, 0.4, 0.6, 0.9, 1],
-        outputRange: [0, 1, 0, 0, 1, 0] 
+        outputRange: [0, 1, 0, 0, 1, 0]
     });
 
     const imageOpacity = animValue.interpolate({
         inputRange: [0, 0.3, 0.5, 0.7, 1],
-        outputRange: [0, 0, 1, 0, 0] 
+        outputRange: [0, 0, 1, 0, 0]
     });
 
     return (
-        <View style={[localAnimStyles.sceneContainer, { flexDirection: 'row' }]}>
+        <LoadingAnimationStep style={{ flexDirection: 'row' }}>
             <Smartphone size={60} color="#1a202c" style={{ marginRight: 60 }} />
 
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', transform: [{ translateX: envelopeTranslateX }], opacity: envelopeOpacity }]}>
@@ -117,36 +107,20 @@ const PhonesCommunicationAnimation = () => {
             </Animated.View>
 
             <Smartphone size={60} color="#1a202c" style={{ marginLeft: 60 }} />
-        </View>
+        </LoadingAnimationStep>
     );
 };
 
-
 // -------- ANIMATION: SLIDE 3 (SHIELD REPELLING ATTACKS/DATA) --------
 const ShieldDefenseAnimation = () => {
-    const animValue = useRef(new Animated.Value(0)).current;
+    const animValue = useLoopAnim(1, 2200, Easing.linear);
 
-    useEffect(() => {
-        const loop = Animated.loop(
-            Animated.timing(animValue, {
-                toValue: 1,
-                duration: 2200,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            })
-        );
-        loop.start();
-        return () => loop.stop();
-    }, [animValue]);
-
-    // "Dangerous" laser speeds in from the left side
     const dataTranslateX = animValue.interpolate({
         inputRange: [0, 0.4],
-        outputRange: [-140, -42], // Shoots from left towards center shield
+        outputRange: [-140, -42],
         extrapolate: 'clamp',
     });
 
-    // Upon collision (0.4), it breaks into pieces and deflects backward-up and backward-down
     const piece1TranslateX = animValue.interpolate({
         inputRange: [0, 0.4, 1], outputRange: [0, -42, -120]
     });
@@ -161,17 +135,14 @@ const ShieldDefenseAnimation = () => {
         inputRange: [0, 0.4, 1], outputRange: [0, 0, 90]
     });
 
-    // The incoming attack is visible until it hits the shield
     const incomingOpacity = animValue.interpolate({
         inputRange: [0, 0.1, 0.39, 0.4], outputRange: [0, 1, 1, 0]
     });
 
-    // The broken pieces appear at impact and fade out as they fly away
     const brokenOpacity = animValue.interpolate({
         inputRange: [0, 0.39, 0.4, 0.7, 1], outputRange: [0, 0, 1, 0, 0]
     });
 
-    // The shield braces for impact: scales up and tilts slightly backward to absorb the blow
     const shieldScale = animValue.interpolate({
         inputRange: [0, 0.35, 0.4, 0.5, 1], outputRange: [1, 1, 1.15, 1, 1]
     });
@@ -179,7 +150,6 @@ const ShieldDefenseAnimation = () => {
         inputRange: [0, 0.35, 0.4, 0.6, 1], outputRange: ['0deg', '0deg', '15deg', '0deg', '0deg']
     });
 
-    // Energy ripple effect when the laser hits the shield
     const rippleScale = animValue.interpolate({
         inputRange: [0, 0.4, 0.7, 1], outputRange: [0.8, 0.8, 1.4, 1.4]
     });
@@ -188,7 +158,7 @@ const ShieldDefenseAnimation = () => {
     });
 
     return (
-        <View style={localAnimStyles.sceneContainer}>
+        <LoadingAnimationStep>
             <Animated.View style={{
                 position: 'absolute',
                 width: 120,
@@ -214,10 +184,9 @@ const ShieldDefenseAnimation = () => {
             <Animated.View style={{ transform: [{ scale: shieldScale }, { rotate: shieldRotate }] }}>
                 <Shield size={100} color="#1a202c" />
             </Animated.View>
-        </View>
+        </LoadingAnimationStep>
     );
-}
-
+};
 
 
 export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
@@ -275,6 +244,20 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
         outputRange: [50, 0]
     });
 
+    const renderSlide = useCallback(({ item, index }: { item: typeof SLIDES[0]; index: number }) => (
+        <View style={{ width: SCREEN_WIDTH, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={styles.card}>
+                <View style={{ width: '100%', alignItems: 'center' }}>
+                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={styles.description}>{item.description}</Text>
+                </View>
+                <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    {index === 0 ? <SafeVaultAnimation /> : index === 1 ? <PhonesCommunicationAnimation /> : <ShieldDefenseAnimation />}
+                </View>
+            </View>
+        </View>
+    ), []);
+
     return (
         <View style={[styles.container, { paddingTop: 90 }]}>
             <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
@@ -301,24 +284,11 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                         showsHorizontalScrollIndicator={false}
                         onScrollBeginDrag={() => { userInteracted.current = true; }}
                         onMomentumScrollEnd={(event) => {
-                            const newInd = Math.round(event.nativeEvent.contentOffset.x / width);
+                            const newInd = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                             setCurrentIndex(newInd);
                         }}
                         scrollEnabled={true}
-                        renderItem={({ item, index }) => (
-                            <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
-                                <View style={styles.card}>
-                                    <View style={{ width: '100%', alignItems: 'center' }}>
-                                        <Text style={styles.title}>{item.title}</Text>
-                                        <Text style={styles.description}>{item.description}</Text>
-                                    </View>
-
-                                    <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                                        {index === 0 ? <SafeVaultAnimation /> : index === 1 ? <PhonesCommunicationAnimation /> : <ShieldDefenseAnimation />}
-                                    </View>
-                                </View>
-                            </View>
-                        )}
+                        renderItem={renderSlide}
                     />
                 </View>
 

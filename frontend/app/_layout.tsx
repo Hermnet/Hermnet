@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Slot } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 
 export default function RootLayout() {
@@ -9,5 +10,10 @@ export default function RootLayout() {
     hydrate();
   }, []);
 
-  return <Slot />;
+  return (
+    <>
+      <Slot />
+      <StatusBar style="light" />
+    </>
+  );
 }

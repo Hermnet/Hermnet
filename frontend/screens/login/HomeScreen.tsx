@@ -15,29 +15,23 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
 
     useEffect(() => {
         const checkExistingVault = async () => {
-            // TODO: Integrate with SQLite/SecureStore 
-            // Quick test mock (change to true and reload Expo to see Cold Start magic)
+            // TODO: Integrate with SQLite/SecureStore
             const exists = false;
-
             setHasAccount(exists);
         };
-
 
         setTimeout(checkExistingVault, 400);
     }, []);
 
-    const fadeHomeAnim = useRef(new Animated.Value(1)).current;
+    const fadeHomeAnim       = useRef(new Animated.Value(1)).current;
     const translateYHomeAnim = useRef(new Animated.Value(0)).current;
+    const fadePinAnim        = useRef(new Animated.Value(0)).current;
+    const translateYPinAnim  = useRef(new Animated.Value(40)).current;
+    const slideLoadingAnim   = useRef(new Animated.Value(height)).current;
 
-    const fadePinAnim = useRef(new Animated.Value(0)).current;
-    const translateYPinAnim = useRef(new Animated.Value(40)).current;
-
-    const slideLoadingAnim = useRef(new Animated.Value(height)).current;
-
-    const handleGenerateClick = () => {
-        setIsRestoring(false);
+    // ── Shared animation sequence: home → pin screen ──────────────────────────
+    const animateToPinScreen = () => {
         setShowPin(true);
-
         Animated.parallel([
             Animated.timing(fadeHomeAnim, {
                 toValue: 0,
@@ -62,8 +56,13 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                 delay: 50,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
-            })
+            }),
         ]).start();
+    };
+
+    const handleGenerateClick = () => {
+        setIsRestoring(false);
+        animateToPinScreen();
     };
 
     const handleRestoreClick = () => {
@@ -76,34 +75,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                     text: "Simular Selección",
                     onPress: () => {
                         setIsRestoring(true);
-                        setShowPin(true);
-
-                        Animated.parallel([
-                            Animated.timing(fadeHomeAnim, {
-                                toValue: 0,
-                                duration: 350,
-                                useNativeDriver: true,
-                            }),
-                            Animated.timing(translateYHomeAnim, {
-                                toValue: -50,
-                                duration: 400,
-                                easing: Easing.out(Easing.quad),
-                                useNativeDriver: true,
-                            }),
-                            Animated.timing(fadePinAnim, {
-                                toValue: 1,
-                                duration: 400,
-                                delay: 50,
-                                useNativeDriver: true,
-                            }),
-                            Animated.timing(translateYPinAnim, {
-                                toValue: 0,
-                                duration: 400,
-                                delay: 50,
-                                easing: Easing.out(Easing.cubic),
-                                useNativeDriver: true,
-                            })
-                        ]).start();
+                        animateToPinScreen();
                     }
                 }
             ]
@@ -152,6 +124,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                         style={loginStyles.secondaryButton}
                         onPress={handleRestoreClick}
                         activeOpacity={0.6}
+                        accessibilityLabel="Restaurar identidad existente"
                     >
                         <Text style={loginStyles.secondaryButtonText}>¿Ya tienes cuenta? / Restaurar</Text>
                     </TouchableOpacity>
@@ -160,6 +133,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                         style={loginStyles.button}
                         onPress={handleGenerateClick}
                         activeOpacity={0.8}
+                        accessibilityLabel="Generar nueva clave privada"
                     >
                         <Text style={loginStyles.buttonText}>Generar Clave Privada</Text>
                     </TouchableOpacity>
@@ -184,12 +158,12 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                         onComplete={hasAccount ? handleLoginComplete : handlePinComplete}
                     />
 
-
                     {hasAccount && (
                         <TouchableOpacity
                             style={[loginStyles.secondaryButton, { position: 'absolute', bottom: 40, alignSelf: 'center' }]}
                             onPress={handleRestoreClick}
                             activeOpacity={0.6}
+                            accessibilityLabel="Olvidé mi PIN, restaurar archivo .hnet"
                         >
                             <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
                         </TouchableOpacity>
