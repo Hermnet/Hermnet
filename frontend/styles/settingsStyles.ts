@@ -1,13 +1,21 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
+import {
+    BG_PRIMARY, BG_SURFACE, BG_ELEVATED,
+    ACCENT_PRIMARY,
+    TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_DIM, TEXT_HINT, TEXT_FAINT,
+    SUCCESS_BG,
+    DANGER_BG, DANGER_BORDER, DANGER_TEXT,
+    BORDER_FAINT, BORDER_LIGHT, BORDER_SUBTLE,
+} from './theme';
 
 export const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     container: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     header: {
         flexDirection: 'row',
@@ -16,14 +24,14 @@ export const styles = StyleSheet.create({
         paddingBottom: 16,
         paddingHorizontal: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.06)',
+        borderBottomColor: BORDER_FAINT,
     },
     backBtn: {
         padding: 6,
         marginRight: 12,
     },
     headerTitle: {
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
         fontSize: 20,
         fontWeight: '700',
     },
@@ -34,7 +42,7 @@ export const styles = StyleSheet.create({
     },
     // ── Hash ID card ──
     hashIdCard: {
-        backgroundColor: '#141927',
+        backgroundColor: BG_SURFACE,
         borderRadius: 16,
         paddingVertical: 18,
         paddingHorizontal: 20,
@@ -42,19 +50,19 @@ export const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: BORDER_FAINT,
     },
     hashIdIconWrap: {
         width: 38,
         height: 38,
         borderRadius: 10,
-        backgroundColor: '#1e2d4a',
+        backgroundColor: BG_ELEVATED,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 14,
     },
     hashIdLabel: {
-        color: '#a0aec0',
+        color: TEXT_MUTED,
         fontSize: 12,
         marginBottom: 3,
     },
@@ -65,7 +73,7 @@ export const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     copyHint: {
-        color: '#4a5568',
+        color: TEXT_FAINT,
         fontSize: 11,
         marginTop: 2,
     },
@@ -81,10 +89,10 @@ export const styles = StyleSheet.create({
         marginLeft: 4,
     },
     sectionCard: {
-        backgroundColor: '#141927',
+        backgroundColor: BG_SURFACE,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: BORDER_FAINT,
         overflow: 'hidden',
     },
     row: {
@@ -95,7 +103,7 @@ export const styles = StyleSheet.create({
     },
     rowSeparator: {
         height: 1,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: BORDER_SUBTLE,
         marginLeft: 56,
     },
     rowIconWrap: {
@@ -108,7 +116,7 @@ export const styles = StyleSheet.create({
     },
     rowLabel: {
         flex: 1,
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 15,
         fontWeight: '500',
     },
@@ -123,10 +131,10 @@ export const styles = StyleSheet.create({
         marginTop: 28,
         gap: 10,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: BORDER_LIGHT,
     },
     logoutText: {
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 16,
         fontWeight: '600',
     },
@@ -139,16 +147,16 @@ export const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#7f1d1d',
+        backgroundColor: DANGER_BG,
         borderRadius: 14,
         paddingVertical: 16,
         marginTop: 32,
         gap: 10,
         borderWidth: 1,
-        borderColor: '#991b1b',
+        borderColor: DANGER_BORDER,
     },
     deleteText: {
-        color: '#fca5a5',
+        color: DANGER_TEXT,
         fontSize: 16,
         fontWeight: '700',
     },
@@ -161,32 +169,32 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 32,
     },
     confirmModal: {
-        backgroundColor: '#141927',
+        backgroundColor: BG_SURFACE,
         borderRadius: 24,
         padding: 28,
         width: '100%',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: BORDER_LIGHT,
     },
     confirmIconWrap: {
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: '#7f1d1d',
+        backgroundColor: DANGER_BG,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 16,
     },
     confirmTitle: {
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
         fontSize: 18,
         fontWeight: '700',
         marginBottom: 8,
         textAlign: 'center',
     },
     confirmSubtitle: {
-        color: '#a0aec0',
+        color: TEXT_MUTED,
         fontSize: 14,
         textAlign: 'center',
         marginBottom: 24,
@@ -204,15 +212,15 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     confirmBtnGreen: {
-        backgroundColor: '#15803d',
+        backgroundColor: SUCCESS_BG,
     },
     confirmBtnRed: {
-        backgroundColor: '#991b1b',
+        backgroundColor: DANGER_BORDER,
     },
     confirmBtnText: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
     },
     // ── Sub-screen shared ──
     headerSpacer: {
@@ -231,32 +239,32 @@ export const styles = StyleSheet.create({
         paddingRight: 12,
     },
     toggleLabel: {
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 15,
         fontWeight: '500',
     },
     toggleSub: {
-        color: '#64748b',
+        color: TEXT_HINT,
         fontSize: 12,
         marginTop: 2,
         lineHeight: 18,
     },
     // ── Segment control (text size) ──
     segmentWrapper: {
-        backgroundColor: '#141927',
+        backgroundColor: BG_SURFACE,
         borderRadius: 16,
         padding: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: BORDER_FAINT,
     },
     segmentTitle: {
-        color: '#a0aec0',
+        color: TEXT_MUTED,
         fontSize: 13,
         marginBottom: 10,
     },
     segmentControl: {
         flexDirection: 'row',
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
         borderRadius: 10,
         padding: 3,
     },
@@ -267,31 +275,31 @@ export const styles = StyleSheet.create({
         borderRadius: 8,
     },
     segmentBtnActive: {
-        backgroundColor: '#3b82f6',
+        backgroundColor: ACCENT_PRIMARY,
     },
     segmentText: {
-        color: '#64748b',
+        color: TEXT_HINT,
         fontSize: 13,
         fontWeight: '600',
     },
     segmentTextActive: {
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
     },
     // ── Action buttons (Transfer) ──
     actionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#1e2d4a',
+        backgroundColor: BG_ELEVATED,
         borderRadius: 14,
         paddingVertical: 16,
         marginBottom: 12,
         gap: 10,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: BORDER_LIGHT,
     },
     actionBtnText: {
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 15,
         fontWeight: '600',
     },
@@ -301,25 +309,25 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 18,
     },
     faqQ: {
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 6,
     },
     faqA: {
-        color: '#94a3b8',
+        color: TEXT_DIM,
         fontSize: 13,
         lineHeight: 20,
     },
     // ── Terms ──
     termsText: {
-        color: '#94a3b8',
+        color: TEXT_DIM,
         fontSize: 13,
         lineHeight: 22,
         marginBottom: 10,
     },
     termsTitle: {
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 15,
         fontWeight: '700',
         marginTop: 18,
@@ -331,12 +339,12 @@ export const styles = StyleSheet.create({
         paddingVertical: 24,
     },
     versionText: {
-        color: '#4a5568',
+        color: TEXT_FAINT,
         fontSize: 12,
     },
     // QR Share modal
     qrModalHeader: {
-        color: '#a0aec0',
+        color: TEXT_MUTED,
         fontSize: 13,
         fontWeight: '600',
         letterSpacing: 0.5,
@@ -353,7 +361,7 @@ export const styles = StyleSheet.create({
         marginBottom: 20,
     },
     qrPlaceholderText: {
-        color: '#0d111b',
+        color: BG_PRIMARY,
         fontSize: 12,
         fontWeight: '700',
         textAlign: 'center',

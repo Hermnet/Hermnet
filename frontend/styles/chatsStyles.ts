@@ -1,15 +1,16 @@
 import { StyleSheet } from 'react-native';
+import { BG_PRIMARY, ACCENT_BUTTON, SURFACE_LIGHT, TEXT_DARK } from './theme';
 
 export const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     container: {
         flex: 1,
         paddingHorizontal: 20,
         paddingTop: 50,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     headerRow: {
         flexDirection: 'row',
@@ -39,7 +40,7 @@ export const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: '#354d8b',
+        backgroundColor: ACCENT_BUTTON,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -49,7 +50,7 @@ export const styles = StyleSheet.create({
     chatItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#bcc2ce',
+        backgroundColor: SURFACE_LIGHT,
         borderRadius: 30,
         paddingVertical: 12,
         paddingHorizontal: 15,
@@ -68,7 +69,7 @@ export const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1a202c',
+        color: TEXT_DARK,
     },
     unreadBadge: {
         width: 22,
@@ -90,7 +91,7 @@ export const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: '#354d8b',
+        backgroundColor: ACCENT_BUTTON,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
@@ -124,7 +125,7 @@ export const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: '#354d8b',
+        backgroundColor: ACCENT_BUTTON,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',

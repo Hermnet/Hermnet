@@ -1,4 +1,6 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../constants/layout';
+import { ACCENT_LIGHT, TEXT_SECONDARY, TEXT_FAINT, TEXT_DARK } from './theme';
 
 export const localAnimStyles = StyleSheet.create({
     sceneContainer: {
@@ -26,11 +28,9 @@ export const localAnimStyles = StyleSheet.create({
         borderRadius: 6,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#e2e8f0',
+        backgroundColor: TEXT_SECONDARY,
     }
 });
-
-const { width, height } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
     container: {
@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#4a5568',
+        backgroundColor: TEXT_FAINT,
         marginHorizontal: 4,
     },
     activeDot: {
@@ -64,9 +64,9 @@ export const styles = StyleSheet.create({
         elevation: 5,
     },
     card: {
-        width: width * 0.85,
-        height: height * 0.65,
-        backgroundColor: '#e2e8f0', // A purer platinum gray
+        width: SCREEN_WIDTH * 0.85,
+        height: SCREEN_HEIGHT * 0.65,
+        backgroundColor: TEXT_SECONDARY, // A purer platinum gray
         borderRadius: 24,
         padding: 30,
         alignItems: 'center',
@@ -81,14 +81,14 @@ export const styles = StyleSheet.create({
     title: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#1a202c',
+        color: TEXT_DARK,
         textAlign: 'center',
         marginBottom: 20,
         letterSpacing: 1.5,
     },
     description: {
         fontSize: 16,
-        color: '#4a5568',
+        color: TEXT_FAINT,
         textAlign: 'center',
         lineHeight: 26,
         fontWeight: '500',
@@ -114,7 +114,7 @@ export const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     loadingText: {
-        color: '#e2e8f0',
+        color: TEXT_SECONDARY,
         fontSize: 15,
         marginBottom: 16,
         fontWeight: '600',
@@ -133,7 +133,7 @@ export const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     progressBarGlow: {
-        shadowColor: '#60A5FA',
+        shadowColor: ACCENT_LIGHT,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
         shadowRadius: 10,

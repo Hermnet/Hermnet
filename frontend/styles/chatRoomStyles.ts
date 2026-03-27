@@ -1,27 +1,31 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
+import {
+    BG_PRIMARY, BG_SURFACE, ACCENT_PRIMARY, ACCENT_LIGHT,
+    SURFACE_LIGHT, TEXT_DARK, BORDER_SUBTLE,
+} from './theme';
 
 export const sh = StyleSheet.create({
     headerContainer: {
         position: 'absolute', top: 0, width: '100%', zIndex: 100,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
         paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : 60,
         paddingBottom: 15, paddingHorizontal: 16,
         flexDirection: 'row', alignItems: 'center',
-        borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+        borderBottomWidth: 1, borderBottomColor: BORDER_SUBTLE,
     },
     replyBanner: {
         backgroundColor: '#1a2234',
         paddingHorizontal: 14, paddingVertical: 10,
         borderTopLeftRadius: 16, borderTopRightRadius: 16,
         flexDirection: 'row', alignItems: 'center',
-        borderLeftWidth: 4, borderLeftColor: '#3b82f6',
+        borderLeftWidth: 4, borderLeftColor: ACCENT_PRIMARY,
     },
     modalOverlay: {
         flex: 1, backgroundColor: 'rgba(0,0,0,0.72)',
         justifyContent: 'flex-end',
     },
     modalSheet: {
-        backgroundColor: '#141927',
+        backgroundColor: BG_SURFACE,
         borderTopLeftRadius: 24, borderTopRightRadius: 24,
         paddingTop: 16, paddingBottom: 36, paddingHorizontal: 20,
     },
@@ -32,18 +36,18 @@ export const sh = StyleSheet.create({
     modalHeader: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
     },
-    modalAuthor: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
+    modalAuthor: { color: ACCENT_LIGHT, fontSize: 13, fontWeight: '700' },
     modalText: { color: '#e8eaf6', fontSize: 16, lineHeight: 24 },
 });
 
 export const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     container: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     header: {
         flexDirection: 'row',
@@ -61,7 +65,7 @@ export const styles = StyleSheet.create({
     headerChatInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#bcc2ce',
+        backgroundColor: SURFACE_LIGHT,
         borderRadius: 25,
         paddingVertical: 8,
         paddingHorizontal: 15,
@@ -79,7 +83,7 @@ export const styles = StyleSheet.create({
     headerName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1a202c',
+        color: TEXT_DARK,
     },
     messageRow: {
         flexDirection: 'row',
@@ -100,7 +104,7 @@ export const styles = StyleSheet.create({
         borderRadius: 24, // Burbujas más redondeadas
     },
     messageBubbleRight: {
-        backgroundColor: '#3b82f6', // hermnet blue
+        backgroundColor: ACCENT_PRIMARY, // hermnet blue
         borderBottomRightRadius: 6,
     },
     messageBubbleLeft: {
