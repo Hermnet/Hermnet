@@ -1,22 +1,30 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
+import {
+    BG_PRIMARY, BG_SURFACE, BG_ELEVATED,
+    ACCENT_PRIMARY, ACCENT_LIGHT,
+    TEXT_PRIMARY, TEXT_DIM, TEXT_HINT,
+    SUCCESS_BG,
+    DANGER_BG, DANGER_BORDER, DANGER_TEXT,
+    BORDER_SUBTLE, BORDER_FAINT,
+} from './theme';
 
 export const styles = StyleSheet.create({
     // ── Confirmation phase ──────────────────────────────────────────────────────
     overlay: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 28,
     },
     confirmCard: {
         width: '100%',
-        backgroundColor: '#141d2e',
+        backgroundColor: BG_SURFACE,
         borderRadius: 24,
         padding: 28,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: BORDER_FAINT,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.4,
@@ -35,14 +43,14 @@ export const styles = StyleSheet.create({
         borderColor: 'rgba(245, 158, 11, 0.22)',
     },
     confirmTitle: {
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
         fontSize: 20,
         fontWeight: '700',
         marginBottom: 10,
         letterSpacing: 0.3,
     },
     confirmText: {
-        color: '#94a3b8',
+        color: TEXT_DIM,
         fontSize: 14,
         textAlign: 'center',
         lineHeight: 22,
@@ -50,7 +58,7 @@ export const styles = StyleSheet.create({
     },
     confirmBtn: {
         width: '100%',
-        backgroundColor: '#15803d',
+        backgroundColor: SUCCESS_BG,
         borderRadius: 14,
         paddingVertical: 14,
         alignItems: 'center',
@@ -60,7 +68,7 @@ export const styles = StyleSheet.create({
         backgroundColor: '#1e3a2a',
     },
     confirmBtnText: {
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
         fontSize: 15,
         fontWeight: '700',
     },
@@ -70,15 +78,15 @@ export const styles = StyleSheet.create({
     },
     denyBtn: {
         width: '100%',
-        backgroundColor: '#7f1d1d',
+        backgroundColor: DANGER_BG,
         borderRadius: 14,
         paddingVertical: 14,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#991b1b',
+        borderColor: DANGER_BORDER,
     },
     denyBtnText: {
-        color: '#fca5a5',
+        color: DANGER_TEXT,
         fontSize: 15,
         fontWeight: '700',
     },
@@ -86,7 +94,7 @@ export const styles = StyleSheet.create({
     // ── QR Display phase ────────────────────────────────────────────────────────
     container: {
         flex: 1,
-        backgroundColor: '#0d111b',
+        backgroundColor: BG_PRIMARY,
     },
     header: {
         flexDirection: 'row',
@@ -96,18 +104,18 @@ export const styles = StyleSheet.create({
         paddingBottom: 15,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
+        borderBottomColor: BORDER_SUBTLE,
     },
     backBtn: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#1e2d4a',
+        backgroundColor: BG_ELEVATED,
         justifyContent: 'center',
         alignItems: 'center',
     },
     headerTitle: {
-        color: '#ffffff',
+        color: TEXT_PRIMARY,
         fontSize: 18,
         fontWeight: '700',
     },
@@ -124,7 +132,7 @@ export const styles = StyleSheet.create({
     identityBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1e2d4a',
+        backgroundColor: BG_ELEVATED,
         borderRadius: 20,
         paddingVertical: 10,
         paddingHorizontal: 16,
@@ -140,7 +148,7 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     identityId: {
-        color: '#60a5fa',
+        color: ACCENT_LIGHT,
         fontSize: 15,
         fontWeight: '700',
         letterSpacing: 0.5,
@@ -149,7 +157,7 @@ export const styles = StyleSheet.create({
         padding: 16,
         backgroundColor: '#ffffff',
         borderRadius: 20,
-        shadowColor: '#3b82f6',
+        shadowColor: ACCENT_PRIMARY,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.25,
         shadowRadius: 20,
@@ -174,14 +182,14 @@ export const styles = StyleSheet.create({
     qrTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
     qrBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
     qrPlaceholderText: {
-        color: '#94a3b8',
+        color: TEXT_DIM,
         fontSize: 13,
         fontWeight: '600',
         textAlign: 'center',
         marginTop: 8,
     },
     hint: {
-        color: '#64748b',
+        color: TEXT_HINT,
         fontSize: 13,
         textAlign: 'center',
         lineHeight: 20,
