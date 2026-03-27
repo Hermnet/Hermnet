@@ -7,6 +7,7 @@ import {
 import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-react-native';
 import { styles, sh } from '../../styles/chatRoomStyles';
 import { messageFlowService } from '../../services/MessageFlowService';
+import { databaseService } from '../../services/DatabaseService';
     
 const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
@@ -299,6 +300,14 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     const currentPx = useRef(0);
 
     useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
+
+    useEffect(() => {
+        databaseService.getMessagesByContact(chatId)
+            .then(history => {
+                if (history.length > 0) setAllMessages(history);
+            })
+            .catch(() => {});
+    }, [chatId]);
 
     // Fixed slot positions: index * SLOT_PX (independent of bubble height)
     const messageLayouts = useMemo(() => {

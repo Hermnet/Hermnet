@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator } from 'react-native';
 import { User, Lock, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
@@ -27,6 +27,7 @@ export default function ChatsScreen() {
     const [fabOpen, setFabOpen] = useState(false);
     const [chats, setChats] = useState<Chat[]>([]);
     const [serverError, setServerError] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const { identity } = useAuthStore();
     const networkStatus = useNetworkStatus();
@@ -44,6 +45,7 @@ export default function ChatsScreen() {
 
     useEffect(() => {
         if (!identity) return;
+        setIsLoading(true);
         const load = async () => {
             const [contacts] = await Promise.all([
                 contactsService.getAllContacts(),
@@ -54,7 +56,9 @@ export default function ChatsScreen() {
                 name: c.alias ?? c.contactHash.slice(5, 17),
             })));
         };
-        load().catch(() => setServerError(true));
+        load()
+            .catch(() => setServerError(true))
+            .finally(() => setIsLoading(false));
     }, [identity?.id]);
 
     const filteredChats = chats.filter(chat =>
@@ -172,13 +176,16 @@ export default function ChatsScreen() {
                     </View>
                 )}
 
-                <FlatList
-                    data={filteredChats}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.listContainer}
-                    showsVerticalScrollIndicator={false}
-                />
+                {isLoading
+                    ? <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 40 }} />
+                    : <FlatList
+                        data={filteredChats}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderItem}
+                        contentContainerStyle={styles.listContainer}
+                        showsVerticalScrollIndicator={false}
+                    />
+                }
 
                 {fabOpen && (
                     <TouchableOpacity

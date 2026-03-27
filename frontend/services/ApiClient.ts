@@ -23,32 +23,44 @@ export class ApiClient {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  /**
-   * Registers a request interceptor.
-   */
   addRequestInterceptor(interceptor: RequestInterceptor): void {
     this.requestInterceptors.push(interceptor);
   }
 
-  /**
-   * Executes an HTTP request and parses JSON response when available.
-   */
   async request<T>(config: RequestConfig): Promise<T> {
-    let finalConfig = config;
+    const finalConfig = await this.applyInterceptors(config);
+    const response = await this.fetchRaw(finalConfig);
 
-    for (const interceptor of this.requestInterceptors) {
-      finalConfig = await interceptor(finalConfig);
+    if (response.status === 401 && unauthorizedHandler) {
+      await unauthorizedHandler();
+      const retryConfig = await this.applyInterceptors(config);
+      const retryResponse = await this.fetchRaw(retryConfig);
+      return this.parseResponse<T>(retryResponse);
     }
 
-    const response = await fetch(`${this.baseUrl}${finalConfig.path}`, {
-      method: finalConfig.method ?? 'GET',
+    return this.parseResponse<T>(response);
+  }
+
+  private async applyInterceptors(config: RequestConfig): Promise<RequestConfig> {
+    let result = config;
+    for (const interceptor of this.requestInterceptors) {
+      result = await interceptor(result);
+    }
+    return result;
+  }
+
+  private fetchRaw(config: RequestConfig): Promise<Response> {
+    return fetch(`${this.baseUrl}${config.path}`, {
+      method: config.method ?? 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...(finalConfig.headers ?? {}),
+        ...(config.headers ?? {}),
       },
-      body: finalConfig.body !== undefined ? JSON.stringify(finalConfig.body) : undefined,
+      body: config.body !== undefined ? JSON.stringify(config.body) : undefined,
     });
+  }
 
+  private async parseResponse<T>(response: Response): Promise<T> {
     const responseText = response.status === 204 ? '' : await response.text();
 
     if (!response.ok) {
@@ -69,9 +81,6 @@ export const apiClient = new ApiClient(apiBaseUrl);
 
 let hasConfiguredJwtInterceptor = false;
 
-/**
- * Configures a singleton interceptor that injects Authorization headers.
- */
 export const configureJwtInterceptor = (
   tokenProvider: () => Promise<string | null>
 ): void => {
@@ -95,4 +104,11 @@ export const configureJwtInterceptor = (
   });
 
   hasConfiguredJwtInterceptor = true;
+};
+
+type UnauthorizedHandler = () => Promise<void>;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export const configureUnauthorizedHandler = (handler: UnauthorizedHandler): void => {
+  unauthorizedHandler = handler;
 };

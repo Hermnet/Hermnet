@@ -31,7 +31,7 @@ export class MessageFlowService {
     });
 
     await messageApiService.sendMessage(input.recipientId, stegoPacket);
-    await databaseService.saveMessageHistory(encryptedPayload, 'SENT');
+    await databaseService.saveDecryptedMessage(input.recipientId, input.plaintext, true);
   }
 
   /**
@@ -48,7 +48,7 @@ export class MessageFlowService {
       const plaintext = messageCryptoService.decryptWithPrivateKey(encryptedPayload, localPrivateKey);
 
       plaintextMessages.push(plaintext);
-      await databaseService.saveMessageHistory(new TextEncoder().encode(plaintext), 'DELIVERED');
+      await databaseService.saveDecryptedMessage('', plaintext, false);
     }
 
     return plaintextMessages;
