@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Easing, FlatList, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Folder, ShieldAlert, Smartphone, Mail, Image as LucideImage, Zap, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -244,6 +244,20 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
         outputRange: [50, 0]
     });
 
+    const renderSlide = useCallback(({ item, index }: { item: typeof SLIDES[0]; index: number }) => (
+        <View style={{ width: SCREEN_WIDTH, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={styles.card}>
+                <View style={{ width: '100%', alignItems: 'center' }}>
+                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={styles.description}>{item.description}</Text>
+                </View>
+                <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    {index === 0 ? <SafeVaultAnimation /> : index === 1 ? <PhonesCommunicationAnimation /> : <ShieldDefenseAnimation />}
+                </View>
+            </View>
+        </View>
+    ), []);
+
     return (
         <View style={[styles.container, { paddingTop: 90 }]}>
             <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
@@ -274,20 +288,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
                             setCurrentIndex(newInd);
                         }}
                         scrollEnabled={true}
-                        renderItem={({ item, index }) => (
-                            <View style={{ width: SCREEN_WIDTH, alignItems: 'center', justifyContent: 'center' }}>
-                                <View style={styles.card}>
-                                    <View style={{ width: '100%', alignItems: 'center' }}>
-                                        <Text style={styles.title}>{item.title}</Text>
-                                        <Text style={styles.description}>{item.description}</Text>
-                                    </View>
-
-                                    <View style={{ width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                                        {index === 0 ? <SafeVaultAnimation /> : index === 1 ? <PhonesCommunicationAnimation /> : <ShieldDefenseAnimation />}
-                                    </View>
-                                </View>
-                            </View>
-                        )}
+                        renderItem={renderSlide}
                     />
                 </View>
 

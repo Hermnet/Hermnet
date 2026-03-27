@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, Easing, Vibration } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Animated, Vibration } from 'react-native';
 import { Delete } from 'lucide-react-native';
 import { styles } from '../../styles/pinStyles';
 
@@ -58,17 +58,17 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
         }
     };
 
-    const handlePress = (num: string) => {
-        if (error) return; 
+    const handlePress = useCallback((num: string) => {
+        if (error) return;
 
-        if ((step === 'create' || step === 'login' || step === 'restore') && pin.length < PIN_LENGTH) {
-            setPin(prev => prev + num);
-        } else if (step === 'confirm' && confirmPin.length < PIN_LENGTH) {
-            setConfirmPin(prev => prev + num);
+        if (step === 'create' || step === 'login' || step === 'restore') {
+            setPin(prev => prev.length < PIN_LENGTH ? prev + num : prev);
+        } else if (step === 'confirm') {
+            setConfirmPin(prev => prev.length < PIN_LENGTH ? prev + num : prev);
         }
-    };
+    }, [error, step]);
 
-    const handleDelete = () => {
+    const handleDelete = useCallback(() => {
         if (error) return;
 
         if (step === 'create' || step === 'login' || step === 'restore') {
@@ -76,7 +76,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
         } else {
             setConfirmPin(prev => prev.slice(0, -1));
         }
-    };
+    }, [error, step]);
 
     const KEYPAD = [
         ['1', '2', '3'],
