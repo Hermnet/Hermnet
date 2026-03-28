@@ -1,4 +1,4 @@
-import { ApiClient } from '../services/ApiClient';
+import { ApiClient, configureUnauthorizedHandler } from '../services/ApiClient';
 
 describe('ApiClient', () => {
   beforeEach(() => {
@@ -40,10 +40,26 @@ describe('ApiClient', () => {
 
     (global as any).fetch.mockResolvedValue({
       ok: false,
-      status: 401,
-      text: async () => 'Unauthorized',
+      status: 400,
+      text: async () => 'Bad Request',
     });
 
-    await expect(client.request({ path: '/api/messages', method: 'GET' })).rejects.toThrow('Unauthorized');
+    await expect(client.request({ path: '/api/messages', method: 'GET' })).rejects.toThrow('Bad Request');
+  });
+
+  it('should call unauthorizedHandler and retry when backend returns 401', async () => {
+    const client = new ApiClient('http://localhost:8080');
+    const handler = jest.fn().mockResolvedValue(undefined);
+    configureUnauthorizedHandler(handler);
+
+    (global as any).fetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => 'Unauthorized' })
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => JSON.stringify({ ok: true }) });
+
+    const result = await client.request({ path: '/api/test', method: 'GET' });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect((global as any).fetch).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ok: true });
   });
 });
