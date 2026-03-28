@@ -37,10 +37,10 @@ if (typeof window !== 'undefined' && !window.dispatchEvent) {
 // Mock for expo-sqlite to simulate database operations
 jest.mock('expo-sqlite', () => ({
   openDatabaseAsync: jest.fn(() => ({
-    execAsync: jest.fn(),
-    getFirstAsync: jest.fn(),
-    getAllAsync: jest.fn(),
-    runAsync: jest.fn(),
+    execAsync: jest.fn().mockResolvedValue(undefined),
+    getFirstAsync: jest.fn().mockResolvedValue(null),
+    getAllAsync: jest.fn().mockResolvedValue([]),
+    runAsync: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 
