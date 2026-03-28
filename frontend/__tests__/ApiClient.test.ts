@@ -47,6 +47,20 @@ describe('ApiClient', () => {
     await expect(client.request({ path: '/api/messages', method: 'GET' })).rejects.toThrow('Bad Request');
   });
 
+  it('should throw RATE_LIMIT_EXCEEDED when backend returns 429', async () => {
+    const client = new ApiClient('http://localhost:8080');
+
+    (global as any).fetch.mockResolvedValue({
+      ok: false,
+      status: 429,
+      text: async () => '{"message":"Too Many Requests"}',
+    });
+
+    await expect(
+      client.request({ path: '/api/messages', method: 'POST' })
+    ).rejects.toThrow('RATE_LIMIT_EXCEEDED');
+  });
+
   it('should call unauthorizedHandler and retry when backend returns 401', async () => {
     const client = new ApiClient('http://localhost:8080');
     const handler = jest.fn().mockResolvedValue(undefined);

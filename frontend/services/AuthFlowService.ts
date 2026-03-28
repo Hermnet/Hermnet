@@ -1,5 +1,5 @@
 import { authApiService } from './AuthApiService';
-import { configureJwtInterceptor, configureUnauthorizedHandler } from './ApiClient';
+import { configureJwtInterceptor } from './ApiClient';
 import { authSessionService } from './AuthSessionService';
 import { Identity, identityService } from './IdentityService';
 
@@ -15,9 +15,6 @@ export interface LoginFlowResult {
 export class AuthFlowService {
   constructor() {
     configureJwtInterceptor(() => authSessionService.getJwtToken());
-    configureUnauthorizedHandler(async () => {
-      await this.bootstrapLogin();
-    });
   }
 
   /**

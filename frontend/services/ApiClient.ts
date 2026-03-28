@@ -63,6 +63,10 @@ export class ApiClient {
   private async parseResponse<T>(response: Response): Promise<T> {
     const responseText = response.status === 204 ? '' : await response.text();
 
+    if (response.status === 429) {
+      throw new Error('RATE_LIMIT_EXCEEDED');
+    }
+
     if (!response.ok) {
       throw new Error(responseText || `HTTP ${response.status}`);
     }
