@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder,
-    StatusBar,
+    StatusBar, Alert,
 } from 'react-native';
 import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-react-native';
 import { styles, sh } from '../../styles/chatRoomStyles';
+import { messageFlowService } from '../../services/MessageFlowService';
+import { databaseService } from '../../services/DatabaseService';
     
 const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
@@ -215,8 +217,9 @@ type InputBarProps = {
     replyingTo: MsgData | null;
     onJumpToReply: () => void;
     onCancelReply: () => void;
+    isSending: boolean;
 };
-const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, onJumpToReply, onCancelReply }: InputBarProps) => (
+const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, onJumpToReply, onCancelReply, isSending }: InputBarProps) => (
     <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
         {replyingTo && (
             <ReplyBanner msg={replyingTo} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
@@ -231,8 +234,8 @@ const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, o
                 multiline
                 maxLength={500}
             />
-            <TouchableOpacity style={styles.sendButton} onPress={onSend} activeOpacity={0.7} accessibilityLabel="Enviar mensaje">
-                <Send size={20} color="#1a202c" style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
+            <TouchableOpacity style={styles.sendButton} onPress={onSend} activeOpacity={isSending ? 1 : 0.7} accessibilityLabel="Enviar mensaje">
+                <Send size={20} color={isSending ? '#5a6a7a' : '#1a202c'} style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
             </TouchableOpacity>
         </View>
     </View>
@@ -283,19 +286,28 @@ const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBac
 ));
 
 // ─── ChatRoomScreen ────────────────────────────────────────────────────────────
-export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
+export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void; chatId: string }) {
     const [allMessages, setAllMessages] = useState<MsgData[]>(INITIAL_MSGS);
     const [newMessage, setNewMessage] = useState('');
     const [replyingTo, setReplyingTo] = useState<MsgData | null>(null);
     const [fullTextMsg, setFullTextMsg] = useState<MsgData | null>(null);
     const [scrolledBack, setScrolledBack] = useState(false);
     const [renderOffset, setRenderOffset] = useState(0);
+    const [isSending, setIsSending] = useState(false);
 
     const allMessagesRef = useRef(allMessages);
     const scrollPxAnim = useRef(new Animated.Value(0)).current;
     const currentPx = useRef(0);
 
     useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
+
+    useEffect(() => {
+        databaseService.getMessagesByContact(chatId)
+            .then(history => {
+                if (history.length > 0) setAllMessages(history);
+            })
+            .catch(() => {});
+    }, [chatId]);
 
     // Fixed slot positions: index * SLOT_PX (independent of bubble height)
     const messageLayouts = useMemo(() => {
@@ -330,7 +342,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
 
     const handleSend = useCallback(() => {
         const text = newMessage.trim();
-        if (!text) return;
+        if (!text || isSending) return;
         const newMsg: MsgData = {
             id: `m${Date.now()}`,
             text,
@@ -349,7 +361,12 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
         });
         setNewMessage('');
         setReplyingTo(null);
-    }, [newMessage, replyingTo, scrollPxAnim]);
+
+        setIsSending(true);
+        messageFlowService.sendMessage({ recipientId: chatId, plaintext: text })
+            .catch(() => Alert.alert('Error al enviar', 'El mensaje no se pudo entregar.'))
+            .finally(() => setIsSending(false));
+    }, [newMessage, replyingTo, scrollPxAnim, chatId, isSending]);
 
     const msgPan = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
@@ -414,6 +431,7 @@ export default function ChatRoomScreen({ onBack }: { onBack: () => void }) {
                     replyingTo={replyingTo}
                     onJumpToReply={jumpToReply}
                     onCancelReply={handleCancelReply}
+                    isSending={isSending}
                 />
 
                 {/* ── Full message modal ── */}

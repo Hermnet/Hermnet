@@ -22,10 +22,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   hydrate: async () => {
     try {
       const identity = await authSessionService.getIdentity();
-      const jwt = await authSessionService.getJwtToken();
-      set({ identity, jwt, isLoaded: true, error: null });
-    } catch (e) {
-      set({ isLoaded: true, error: (e as Error).message });
+      set({ identity: identity ?? null, jwt: null, isLoaded: true, error: null });
+    } catch {
+      set({ identity: null, jwt: null, isLoaded: true, error: null });
     }
   },
 

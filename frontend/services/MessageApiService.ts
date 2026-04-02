@@ -1,8 +1,9 @@
 import { apiClient } from './ApiClient';
+import { Buffer } from 'buffer';
 
 interface SendMessageRequestDto {
   recipientId: string;
-  stegoImage: number[];
+  stegoImage: string;
 }
 
 /**
@@ -15,7 +16,7 @@ export class MessageApiService {
   async sendMessage(recipientId: string, stegoImage: Uint8Array | Uint8ClampedArray): Promise<void> {
     const payload: SendMessageRequestDto = {
       recipientId,
-      stegoImage: Array.from(stegoImage),
+      stegoImage: Buffer.from(stegoImage).toString('base64'),
     };
 
     await apiClient.request<void>({

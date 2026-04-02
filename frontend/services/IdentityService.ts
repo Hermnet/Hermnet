@@ -55,7 +55,6 @@ export class IdentityService {
     signNonce(privateKey: string, nonce: string): string {
         const signer = (QuickCrypto as any).createSign('RSA-SHA256');
         signer.update(nonce);
-        signer.end();
         return signer.sign(privateKey, 'base64');
     }
 }

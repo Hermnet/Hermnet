@@ -2,6 +2,7 @@ import { databaseService } from './DatabaseService';
 import { messageApiService } from './MessageApiService';
 import { messageCryptoService } from './MessageCryptoService';
 import { steganographyService } from './SteganographyService';
+import { authSessionService } from './AuthSessionService';
 
 export interface SendMessageInput {
   recipientId: string;
@@ -18,12 +19,17 @@ export class MessageFlowService {
    * plaintext -> encrypt -> steganography embed -> POST /api/messages
    */
   async sendMessage(input: SendMessageInput): Promise<void> {
-    const recipientPublicKey = await databaseService.getContactPublicKey(input.recipientId);
+    const [recipientPublicKey, senderIdentity] = await Promise.all([
+      databaseService.getContactPublicKey(input.recipientId),
+      authSessionService.getIdentity(),
+    ]);
+
     if (!recipientPublicKey) {
       throw new Error(`Recipient public key not found for ${input.recipientId}`);
     }
 
-    const encryptedPayload = messageCryptoService.encryptForRecipient(input.plaintext, recipientPublicKey);
+    const envelope = JSON.stringify({ from: senderIdentity?.id ?? '', text: input.plaintext });
+    const encryptedPayload = messageCryptoService.encryptForRecipient(envelope, recipientPublicKey);
 
     const coverImage = input.coverImageRgba ?? this.createDefaultCoverImage();
     const stegoPacket = steganographyService.embedPayload(coverImage, encryptedPayload, {
@@ -31,7 +37,7 @@ export class MessageFlowService {
     });
 
     await messageApiService.sendMessage(input.recipientId, stegoPacket);
-    await databaseService.saveMessageHistory(encryptedPayload, 'SENT');
+    await databaseService.saveDecryptedMessage(input.recipientId, input.plaintext, true);
   }
 
   /**
@@ -45,10 +51,21 @@ export class MessageFlowService {
     for (const packet of packets) {
       const rgbaPacket = new Uint8ClampedArray(packet);
       const encryptedPayload = steganographyService.extractPayload(rgbaPacket);
-      const plaintext = messageCryptoService.decryptWithPrivateKey(encryptedPayload, localPrivateKey);
+      const decrypted = messageCryptoService.decryptWithPrivateKey(encryptedPayload, localPrivateKey);
+
+      let contactHash = '';
+      let plaintext = decrypted;
+
+      try {
+        const envelope = JSON.parse(decrypted) as { from: string; text: string };
+        contactHash = envelope.from;
+        plaintext = envelope.text;
+      } catch {
+        // payload sin envoltorio: compatibilidad con versiones anteriores
+      }
 
       plaintextMessages.push(plaintext);
-      await databaseService.saveMessageHistory(new TextEncoder().encode(plaintext), 'DELIVERED');
+      await databaseService.saveDecryptedMessage(contactHash, plaintext, false);
     }
 
     return plaintextMessages;

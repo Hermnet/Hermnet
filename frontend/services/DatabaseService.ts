@@ -5,14 +5,9 @@ export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED';
 export class DatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
 
-  /**
-   * Initializes the database connection and creates necessary tables if they don't exist.
-   */
   async initDB() {
-    // Open the database (creates it if it doesn't exist)
     this.db = await SQLite.openDatabaseAsync('hermnet.db');
 
-    // Execute table creation queries aligned with the technical documentation.
     await this.db.execAsync(`
       PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS key_store (
@@ -30,7 +25,10 @@ export class DatabaseService {
       );
       CREATE TABLE IF NOT EXISTS messages_history (
         msg_id INTEGER PRIMARY KEY NOT NULL,
-        content_encrypted BLOB NOT NULL,
+        contact_hash TEXT NOT NULL DEFAULT '',
+        plaintext TEXT NOT NULL DEFAULT '',
+        is_mine INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL CHECK (status IN ('PENDING', 'SENT', 'DELIVERED'))
       );
       CREATE TABLE IF NOT EXISTS sync_queue (
@@ -46,20 +44,23 @@ export class DatabaseService {
         created_at INTEGER NOT NULL
       );
     `);
+
+    // Migrations for existing installs
+    const migrations = [
+      `ALTER TABLE messages_history ADD COLUMN contact_hash TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE messages_history ADD COLUMN plaintext TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE messages_history ADD COLUMN is_mine INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE messages_history ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0;`,
+    ];
+    for (const sql of migrations) {
+      await (this.db as any).runAsync(sql).catch(() => {});
+    }
   }
 
-  /**
-   * Retrieves the database instance.
-   * @returns {SQLite.SQLiteDatabase | null} The database instance.
-   */
   getDatabase() {
     return this.db;
   }
 
-  /**
-   * Returns the public key for a contact hash from the local vault.
-   * @param contactHash Recipient/user hash.
-   */
   async getContactPublicKey(contactHash: string): Promise<string | null> {
     const database = this.requireDatabase();
     const row = await (database as any).getFirstAsync(
@@ -74,16 +75,33 @@ export class DatabaseService {
     return row.public_key;
   }
 
-  /**
-   * Stores a message record in local history.
-   * @param content Message payload bytes.
-   * @param status Delivery status.
-   */
+  async saveDecryptedMessage(contactHash: string, plaintext: string, isMine: boolean): Promise<void> {
+    const database = this.requireDatabase();
+    await (database as any).runAsync(
+      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status) VALUES (?, ?, ?, ?, ?);',
+      [contactHash, plaintext, isMine ? 1 : 0, Date.now(), isMine ? 'SENT' : 'DELIVERED']
+    );
+  }
+
+  async getMessagesByContact(contactHash: string): Promise<Array<{ id: string; text: string; isMine: boolean }>> {
+    const db = this.getDatabase();
+    if (!db) return [];
+    const rows = await (db as any).getAllAsync(
+      'SELECT msg_id, plaintext, is_mine FROM messages_history WHERE contact_hash = ? ORDER BY msg_id DESC;',
+      [contactHash]
+    );
+    return (rows ?? []).map((r: any) => ({
+      id: String(r.msg_id),
+      text: r.plaintext,
+      isMine: r.is_mine === 1,
+    }));
+  }
+
   async saveMessageHistory(content: Uint8Array, status: MessageStatus): Promise<void> {
     const database = this.requireDatabase();
     await (database as any).runAsync(
-      'INSERT INTO messages_history (content_encrypted, status) VALUES (?, ?);',
-      [content, status]
+      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status) VALUES (?, ?, ?, ?, ?);',
+      ['', new TextDecoder().decode(content), 0, Date.now(), status]
     );
   }
 
