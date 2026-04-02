@@ -3,6 +3,7 @@ import { messageApiService } from '../services/MessageApiService';
 import { databaseService } from '../services/DatabaseService';
 import { messageCryptoService } from '../services/MessageCryptoService';
 import { steganographyService } from '../services/SteganographyService';
+import { authSessionService } from '../services/AuthSessionService';
 
 jest.mock('../services/MessageApiService', () => ({
   messageApiService: {
@@ -14,7 +15,13 @@ jest.mock('../services/MessageApiService', () => ({
 jest.mock('../services/DatabaseService', () => ({
   databaseService: {
     getContactPublicKey: jest.fn(),
-    saveMessageHistory: jest.fn(),
+    saveDecryptedMessage: jest.fn(),
+  },
+}));
+
+jest.mock('../services/AuthSessionService', () => ({
+  authSessionService: {
+    getIdentity: jest.fn(),
   },
 }));
 
@@ -25,44 +32,50 @@ describe('MessageFlowService', () => {
     jest.clearAllMocks();
   });
 
-  it('should execute outbox pipeline and post stego packet', async () => {
-    const recipientIdentity = {
-      publicKey: 'recipient-public-key',
-    };
-
-    const encryptedPayload = new Uint8Array([1, 2, 3, 4]);
-    const stegoPacket = new Uint8ClampedArray(64 * 64 * 4);
-
-    jest.spyOn(databaseService, 'getContactPublicKey').mockResolvedValue(recipientIdentity.publicKey);
-    jest.spyOn(messageCryptoService, 'encryptForRecipient').mockReturnValue(encryptedPayload);
-    jest.spyOn(steganographyService, 'embedPayload').mockReturnValue(stegoPacket);
+  it('should encrypt message with JSON envelope containing sender ID', async () => {
+    (authSessionService.getIdentity as jest.Mock).mockResolvedValue({ id: 'HNET-SENDER123' });
+    jest.spyOn(databaseService, 'getContactPublicKey').mockResolvedValue('recipient-public-key');
+    jest.spyOn(messageCryptoService, 'encryptForRecipient').mockReturnValue(new Uint8Array([1, 2, 3, 4]));
+    jest.spyOn(steganographyService, 'embedPayload').mockReturnValue(new Uint8ClampedArray(64 * 64 * 4));
 
     await senderService.sendMessage({
       recipientId: 'HNET-RECIPIENT',
       plaintext: 'hello world',
     });
 
-    expect(messageCryptoService.encryptForRecipient).toHaveBeenCalledWith('hello world', recipientIdentity.publicKey);
-    expect(steganographyService.embedPayload).toHaveBeenCalled();
-    expect(messageApiService.sendMessage).toHaveBeenCalledWith('HNET-RECIPIENT', stegoPacket);
-    expect(databaseService.saveMessageHistory).toHaveBeenCalledWith(encryptedPayload, 'SENT');
+    expect(messageCryptoService.encryptForRecipient).toHaveBeenCalledWith(
+      JSON.stringify({ from: 'HNET-SENDER123', text: 'hello world' }),
+      'recipient-public-key'
+    );
+    expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith('HNET-RECIPIENT', 'hello world', true);
   });
 
-  it('should execute inbox pipeline and persist decrypted messages', async () => {
+  it('should extract sender ID from envelope and save message under correct contactHash', async () => {
     const packet = new Uint8Array(256);
     const encryptedPayload = new Uint8Array([9, 8, 7, 6]);
+    const envelope = JSON.stringify({ from: 'HNET-SENDER123', text: 'hola' });
 
     jest.spyOn(messageApiService, 'getMessages').mockResolvedValue([packet]);
     jest.spyOn(steganographyService, 'extractPayload').mockReturnValue(encryptedPayload);
-    jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue('decrypted-text');
+    jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
 
     const messages = await senderService.syncInbox('HNET-ME', 'private-key');
 
-    expect(messageApiService.getMessages).toHaveBeenCalledWith('HNET-ME');
-    expect(steganographyService.extractPayload).toHaveBeenCalled();
-    expect(messageCryptoService.decryptWithPrivateKey).toHaveBeenCalledWith(encryptedPayload, 'private-key');
-    expect(databaseService.saveMessageHistory).toHaveBeenCalled();
-    expect(messages).toEqual(['decrypted-text']);
+    expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith('HNET-SENDER123', 'hola', false);
+    expect(messages).toEqual(['hola']);
+  });
+
+  it('should handle legacy plaintext payload (without envelope) gracefully', async () => {
+    const packet = new Uint8Array(256);
+
+    jest.spyOn(messageApiService, 'getMessages').mockResolvedValue([packet]);
+    jest.spyOn(steganographyService, 'extractPayload').mockReturnValue(new Uint8Array([1]));
+    jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue('plain text sin envoltorio');
+
+    const messages = await senderService.syncInbox('HNET-ME', 'private-key');
+
+    expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith('', 'plain text sin envoltorio', false);
+    expect(messages).toEqual(['plain text sin envoltorio']);
   });
 
   it('should fail sending when recipient key is missing', async () => {

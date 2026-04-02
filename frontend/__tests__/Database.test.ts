@@ -30,7 +30,8 @@ describe('DatabaseService', () => {
 
     expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS messages_history');
     expect(executedSql).toContain('msg_id INTEGER PRIMARY KEY NOT NULL');
-    expect(executedSql).toContain('content_encrypted BLOB NOT NULL');
+    expect(executedSql).toContain('plaintext TEXT NOT NULL');
+    expect(executedSql).toContain('is_mine INTEGER NOT NULL');
     expect(executedSql).toContain("status TEXT NOT NULL CHECK (status IN ('PENDING', 'SENT', 'DELIVERED'))");
 
     expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS sync_queue');
@@ -63,13 +64,12 @@ describe('DatabaseService', () => {
   it('should insert message history entries', async () => {
     await databaseService.initDB();
     const db = databaseService.getDatabase();
-    const payload = new Uint8Array([1, 2, 3]);
 
-    await databaseService.saveMessageHistory(payload, 'SENT');
+    await databaseService.saveDecryptedMessage('HNET-CONTACT', 'hello', true);
 
     expect(db?.runAsync).toHaveBeenCalledWith(
-      'INSERT INTO messages_history (content_encrypted, status) VALUES (?, ?);',
-      [payload, 'SENT']
+      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status) VALUES (?, ?, ?, ?, ?);',
+      expect.arrayContaining(['HNET-CONTACT', 'hello', 1, 'SENT'])
     );
   });
 });
