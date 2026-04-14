@@ -44,6 +44,7 @@ public class AuthService {
      * @param request Request containing user identifier.
      * @return ChallengeResponse with nonce to be signed by the client.
      */
+    @Transactional
     public ChallengeResponse challenge(ChallengeRequest request) {
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
