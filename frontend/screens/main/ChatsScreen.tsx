@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { User, Lock, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
@@ -86,6 +86,31 @@ export default function ChatsScreen() {
     const handleCloseQR = useCallback(() => {
         qrSlide.close(() => setShowQR(false));
     }, [qrSlide]);
+
+    const refreshContacts = useCallback(async () => {
+        const contacts = await contactsService.getAllContacts();
+        setChats(contacts.map(c => ({
+            id: c.contactHash,
+            name: c.alias ?? c.contactHash.slice(5, 17),
+        })));
+    }, []);
+
+    const handleScannedQR = useCallback(async (data: string) => {
+        try {
+            if (identity && data.includes(identity.id)) {
+                Alert.alert('QR no válido', 'No puedes añadirte a ti mismo como contacto.');
+                handleCloseQR();
+                return;
+            }
+            const contact = await contactsService.saveContactFromQR(data);
+            await refreshContacts();
+            handleCloseQR();
+            Alert.alert('Contacto añadido', `${contact.contactHash} se guardó correctamente.`);
+        } catch (err: any) {
+            handleCloseQR();
+            Alert.alert('Error', err?.message ?? 'No se pudo añadir el contacto.');
+        }
+    }, [identity, handleCloseQR, refreshContacts]);
 
     const closeFabMenu = useCallback(() => {
         setFabOpen(false);
@@ -259,7 +284,7 @@ export default function ChatsScreen() {
                 ]}
                 pointerEvents={showQR ? 'auto' : 'none'}
             >
-                {showQR && <QRScannerScreen onClose={handleCloseQR} />}
+                {showQR && <QRScannerScreen onClose={handleCloseQR} onScanned={handleScannedQR} />}
             </Animated.View>
 
             <Animated.View
