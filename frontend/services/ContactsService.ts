@@ -49,6 +49,9 @@ export class ContactsService {
         if (!payload.id || !payload.publicKey) {
             throw new Error('QR inválido: faltan campos id o publicKey');
         }
+        if (!payload.id.startsWith('HNET-')) {
+            throw new Error('QR inválido: formato de ID no reconocido');
+        }
 
         await this.saveContact(payload.id, payload.publicKey, alias);
         return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null };
