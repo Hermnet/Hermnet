@@ -11,6 +11,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.hermnet.api.dto.ChallengeRequest;
 import com.hermnet.api.dto.ChallengeResponse;
