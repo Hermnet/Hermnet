@@ -1,26 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Animated } from 'react-native';
-import { ArrowLeft, AlertTriangle, User, QrCode } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle, User } from 'lucide-react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { styles } from '../../styles/showQRStyles';
+import { useAuthStore } from '../../store/authStore';
 
 const CONFIRM_DELAY = 5;
 
 interface Props {
     onClose: () => void;
     hashId?: string;
-}
-
-// ── QR Placeholder ────────────────────────────────────────────────────────────
-function QRPlaceholder() {
-    return (
-        <View style={styles.qrBox}>
-            <View style={[styles.qrCornerMarker, styles.qrTL]} />
-            <View style={[styles.qrCornerMarker, styles.qrTR]} />
-            <View style={[styles.qrCornerMarker, styles.qrBL]} />
-            <QrCode size={80} color="#1e293b" />
-            <Text style={styles.qrPlaceholderText}>Tu código QR aparecerá aquí</Text>
-        </View>
-    );
 }
 
 // ── Confirmation phase ────────────────────────────────────────────────────────
@@ -98,8 +87,14 @@ function ConfirmView({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () 
 }
 
 // ── ShowQRScreen ──────────────────────────────────────────────────────────────
-export default function ShowQRScreen({ onClose, hashId = 'HNET-?????' }: Props) {
+export default function ShowQRScreen({ onClose, hashId }: Props) {
     const [confirmed, setConfirmed] = useState(false);
+    const { identity } = useAuthStore();
+
+    const displayId = hashId ?? identity?.id ?? 'HNET-?????';
+    const qrPayload = identity
+        ? JSON.stringify({ id: identity.id, publicKey: identity.publicKey })
+        : '';
 
     if (!confirmed) {
         return <ConfirmView onConfirm={() => setConfirmed(true)} onDeny={onClose} />;
@@ -125,12 +120,26 @@ export default function ShowQRScreen({ onClose, hashId = 'HNET-?????' }: Props) 
                     <View style={styles.identityIconWrap}>
                         <User size={16} color="#60a5fa" />
                     </View>
-                    <Text style={styles.identityId}>{hashId}</Text>
+                    <Text style={styles.identityId}>{displayId}</Text>
                 </View>
 
                 {/* QR */}
                 <View style={styles.qrWrapper}>
-                    <QRPlaceholder />
+                    <View style={styles.qrBox}>
+                        {qrPayload ? (
+                            <QRCode
+                                value={qrPayload}
+                                size={200}
+                                backgroundColor="#ffffff"
+                                color="#0d111b"
+                                ecl="M"
+                            />
+                        ) : (
+                            <Text style={styles.qrPlaceholderText}>
+                                Identidad no disponible
+                            </Text>
+                        )}
+                    </View>
                 </View>
 
                 <Text style={styles.hint}>
