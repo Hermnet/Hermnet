@@ -10,6 +10,7 @@ import com.hermnet.api.service.AuthService;
 import com.hermnet.api.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -68,6 +69,41 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Rotates the caller's JWT. The current token (sent via Authorization header)
+     * is revoked and a freshly issued token is returned.
+     *
+     * @param authorizationHeader Current "Bearer ..." header.
+     * @return ResponseEntity with the rotated JWT token.
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
+        String token = stripBearer(authorizationHeader);
+        LoginResponse response = authService.refresh(token);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Revokes the caller's JWT so subsequent requests with it are rejected.
+     *
+     * @param authorizationHeader Current "Bearer ..." header.
+     * @return 204 No Content.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
+        authService.logout(stripBearer(authorizationHeader));
+        return ResponseEntity.noContent().build();
+    }
+
+    private String stripBearer(String header) {
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7).trim();
+        }
+        return header;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -8,10 +8,12 @@ import com.hermnet.api.security.JwtAuthenticationFilter;
 import com.hermnet.api.security.JwtTokenProvider;
 import com.hermnet.api.repository.MessageRepository;
 import com.hermnet.api.model.Message;
-import com.hermnet.api.model.Message;
 import com.hermnet.api.config.IpAnonymizationFilter;
 import com.hermnet.api.repository.UserRepository;
 import com.hermnet.api.service.NotificationService;
+import com.hermnet.api.service.TokenBlacklistService;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.impl.DefaultClaims;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,6 +51,9 @@ public class MessageControllerSecurityTest {
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private TokenBlacklistService tokenBlacklistService;
 
     @MockBean
     private IpAnonymizationFilter ipAnonymizationFilter;
@@ -93,8 +98,13 @@ public class MessageControllerSecurityTest {
         SendMessageRequest request = new SendMessageRequest("HNET-VALID", new byte[] { 1, 2, 3 });
         String token = "valid.token";
 
-        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
-        when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn("user1");
+        java.util.HashMap<String, Object> map = new java.util.HashMap<>();
+        map.put(Claims.ID, "jti-1");
+        map.put(Claims.SUBJECT, "user1");
+        map.put(Claims.EXPIRATION, (System.currentTimeMillis() + 60_000) / 1000L);
+        Claims claims = new DefaultClaims(map);
+        when(jwtTokenProvider.parseClaims(token)).thenReturn(claims);
+        when(tokenBlacklistService.isBlacklisted("jti-1")).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenReturn(new Message());
 
         mockMvc.perform(post("/api/messages")

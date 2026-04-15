@@ -7,6 +7,7 @@ import com.hermnet.api.model.User;
 import com.hermnet.api.repository.AuthChallengeRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.impl.DefaultClaims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,7 +32,13 @@ class AuthServiceTest {
     private AuthChallengeRepository authChallengeRepository;
 
     @Mock
+    private com.hermnet.api.repository.UserRepository userRepository;
+
+    @Mock
     private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
 
     @InjectMocks
     private AuthService authService;
@@ -126,6 +134,81 @@ class AuthServiceTest {
 
 
 
+    }
+
+    @Test
+    void refresh_ShouldRevokeOldAndIssueNew_WhenTokenValid() {
+        java.util.HashMap<String, Object> map = new java.util.HashMap<>();
+        map.put(Claims.ID, "jti-old");
+        map.put(Claims.SUBJECT, "USER-HASH-123");
+        map.put(Claims.EXPIRATION, (System.currentTimeMillis() + 60_000) / 1000L);
+        Claims claims = new DefaultClaims(map);
+
+        when(jwtTokenProvider.parseClaims("raw-token")).thenReturn(claims);
+        when(tokenBlacklistService.isBlacklisted("jti-old")).thenReturn(false);
+        when(userRepository.existsById("USER-HASH-123")).thenReturn(true);
+        when(jwtTokenProvider.generateToken("USER-HASH-123")).thenReturn("new-jwt");
+
+        LoginResponse response = authService.refresh("raw-token");
+
+        assertEquals("new-jwt", response.token());
+        verify(tokenBlacklistService).revoke(claims, "REFRESH");
+    }
+
+    @Test
+    void refresh_ShouldThrow_WhenTokenBlacklisted() {
+        java.util.HashMap<String, Object> map = new java.util.HashMap<>();
+        map.put(Claims.ID, "jti-rev");
+        map.put(Claims.SUBJECT, "USER-HASH-123");
+        map.put(Claims.EXPIRATION, (System.currentTimeMillis() + 60_000) / 1000L);
+        Claims claims = new DefaultClaims(map);
+
+        when(jwtTokenProvider.parseClaims("tok")).thenReturn(claims);
+        when(tokenBlacklistService.isBlacklisted("jti-rev")).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> authService.refresh("tok"));
+    }
+
+    @Test
+    void refresh_ShouldThrow_WhenTokenMissing() {
+        assertThrows(IllegalArgumentException.class, () -> authService.refresh(""));
+    }
+
+    @Test
+    void refresh_ShouldThrow_WhenUserNotFound() {
+        java.util.HashMap<String, Object> map = new java.util.HashMap<>();
+        map.put(Claims.ID, "jti-a");
+        map.put(Claims.SUBJECT, "GHOST");
+        map.put(Claims.EXPIRATION, (System.currentTimeMillis() + 60_000) / 1000L);
+        Claims claims = new DefaultClaims(map);
+
+        when(jwtTokenProvider.parseClaims("t")).thenReturn(claims);
+        when(tokenBlacklistService.isBlacklisted("jti-a")).thenReturn(false);
+        when(userRepository.existsById("GHOST")).thenReturn(false);
+
+        assertThrows(IllegalArgumentException.class, () -> authService.refresh("t"));
+    }
+
+    @Test
+    void logout_ShouldRevoke_WhenTokenValid() {
+        java.util.HashMap<String, Object> map = new java.util.HashMap<>();
+        map.put(Claims.ID, "jti-out");
+        map.put(Claims.SUBJECT, "USER-HASH-123");
+        map.put(Claims.EXPIRATION, (System.currentTimeMillis() + 60_000) / 1000L);
+        Claims claims = new DefaultClaims(map);
+
+        when(jwtTokenProvider.parseClaims("bye")).thenReturn(claims);
+
+        authService.logout("bye");
+
+        verify(tokenBlacklistService).revoke(claims, "LOGOUT");
+    }
+
+    @Test
+    void logout_ShouldNoop_WhenTokenNullOrInvalid() {
+        authService.logout(null);
+        authService.logout("");
+        verify(tokenBlacklistService, never()).revoke(any(), anyString());
     }
 
     @Test

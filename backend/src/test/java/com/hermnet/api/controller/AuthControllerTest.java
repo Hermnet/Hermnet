@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,6 +43,9 @@ public class AuthControllerTest {
 
         @MockBean
         private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
+        @MockBean
+        private com.hermnet.api.service.TokenBlacklistService tokenBlacklistService;
 
         @MockBean
         private RateLimitFilter rateLimitFilter;
@@ -154,6 +159,46 @@ public class AuthControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.nonce").value("nonce-value"));
+        }
+
+        @Test
+        public void refresh_ShouldReturnNewToken_WhenAuthorizationHeaderIsValid() throws Exception {
+                LoginResponse response = new LoginResponse("rotated.jwt.token");
+                when(authService.refresh(eq("current.jwt.token"))).thenReturn(response);
+
+                mockMvc.perform(post("/api/auth/refresh")
+                                .header("Authorization", "Bearer current.jwt.token"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.token").value("rotated.jwt.token"));
+        }
+
+        @Test
+        public void refresh_ShouldReturn400_WhenTokenIsInvalid() throws Exception {
+                when(authService.refresh(any()))
+                                .thenThrow(new IllegalArgumentException("Token inválido o expirado"));
+
+                mockMvc.perform(post("/api/auth/refresh")
+                                .header("Authorization", "Bearer bad.token"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$").value("Token inválido o expirado"));
+        }
+
+        @Test
+        public void logout_ShouldReturn204_AndDelegateStrippedToken() throws Exception {
+                mockMvc.perform(post("/api/auth/logout")
+                                .header("Authorization", "Bearer tok.en.123"))
+                                .andExpect(status().isNoContent());
+
+                verify(authService).logout("tok.en.123");
+        }
+
+        @Test
+        public void logout_ShouldPassRawHeader_WhenBearerPrefixAbsent() throws Exception {
+                mockMvc.perform(post("/api/auth/logout")
+                                .header("Authorization", "raw-token"))
+                                .andExpect(status().isNoContent());
+
+                verify(authService).logout("raw-token");
         }
 
         @Test
