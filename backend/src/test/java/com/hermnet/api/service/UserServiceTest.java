@@ -77,7 +77,7 @@ public class UserServiceTest {
                 () -> userService.register(validRequest),
                 "Should throw IllegalArgumentException for duplicate ID");
 
-        assertEquals("The ID is already in use.", exception.getMessage());
+        assertEquals("El ID ya está en uso.", exception.getMessage());
         verify(userRepository, times(1)).existsById(validRequest.id());
         verify(userRepository, never()).save(any(User.class));
     }
