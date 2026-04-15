@@ -1,3 +1,6 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface RequestConfig {
@@ -79,7 +82,39 @@ export class ApiClient {
   }
 }
 
-const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+const BACKEND_PORT = 8080;
+
+function resolveApiBaseUrl(): string {
+  const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (explicit) {
+    return explicit;
+  }
+
+  const hostUri =
+    (Constants.expoConfig as { hostUri?: string } | null)?.hostUri ??
+    (Constants.expoGoConfig as { debuggerHost?: string } | null)?.debuggerHost ??
+    ((Constants.manifest2 as { extra?: { expoGo?: { debuggerHost?: string } } } | null)?.extra?.expoGo
+      ?.debuggerHost);
+
+  if (hostUri) {
+    const host = hostUri.split(':')[0];
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      return `http://${host}:${BACKEND_PORT}`;
+    }
+  }
+
+  if (Platform.OS === 'android') {
+    return `http://10.0.2.2:${BACKEND_PORT}`;
+  }
+
+  return `http://localhost:${BACKEND_PORT}`;
+}
+
+const apiBaseUrl = resolveApiBaseUrl();
+
+if (__DEV__) {
+  console.log(`[ApiClient] Using backend URL: ${apiBaseUrl}`);
+}
 
 export const apiClient = new ApiClient(apiBaseUrl);
 

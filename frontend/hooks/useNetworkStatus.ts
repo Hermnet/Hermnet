@@ -7,12 +7,12 @@ export function useNetworkStatus(): NetworkStatus {
     const [status, setStatus] = useState<NetworkStatus>('checking');
 
     useEffect(() => {
+        NetInfo.fetch().then(state => {
+            setStatus(state.isConnected === false ? 'offline' : 'online');
+        });
+
         const unsubscribe = NetInfo.addEventListener(state => {
-            if (state.isConnected && state.isInternetReachable !== false) {
-                setStatus('online');
-            } else {
-                setStatus('offline');
-            }
+            setStatus(state.isConnected === false ? 'offline' : 'online');
         });
 
         return unsubscribe;
