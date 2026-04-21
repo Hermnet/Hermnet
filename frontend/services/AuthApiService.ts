@@ -56,6 +56,20 @@ export class AuthApiService {
       body: payload,
     });
   }
+
+  async refresh(): Promise<LoginResponseDto> {
+    return apiClient.request<LoginResponseDto>({
+      path: '/api/auth/refresh',
+      method: 'POST',
+    });
+  }
+
+  async logout(): Promise<void> {
+    await apiClient.request<void>({
+      path: '/api/auth/logout',
+      method: 'POST',
+    });
+  }
 }
 
 export const authApiService = new AuthApiService();
