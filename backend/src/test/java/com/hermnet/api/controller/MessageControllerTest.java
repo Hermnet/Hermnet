@@ -21,10 +21,18 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.Collections;
 
 @WebMvcTest(MessageController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -44,6 +52,9 @@ public class MessageControllerTest {
 
     @MockBean
     private com.hermnet.api.security.JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private com.hermnet.api.service.TokenBlacklistService tokenBlacklistService;
 
     @MockBean
     private RateLimitFilter rateLimitFilter;
@@ -94,6 +105,48 @@ public class MessageControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @AfterEach
+    public void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticateAs(String userId) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList()));
+    }
+
+    @Test
+    public void ackMessages_ShouldDeleteAll_WhenCutoffMissing() throws Exception {
+        String userId = "HNET-USER-1";
+        authenticateAs(userId);
+        when(messageRepository.deleteByRecipientHash(userId)).thenReturn(3L);
+
+        mockMvc.perform(post("/api/messages/ack")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted").value(3));
+
+        verify(messageRepository).deleteByRecipientHash(userId);
+    }
+
+    @Test
+    public void ackMessages_ShouldDeleteUpToCutoff_WhenCutoffProvided() throws Exception {
+        String userId = "HNET-USER-2";
+        String cutoff = "2026-04-15T10:00:00";
+        authenticateAs(userId);
+        when(messageRepository.deleteByRecipientHashAndCreatedAtLessThanEqual(
+                eq(userId), any(LocalDateTime.class))).thenReturn(2L);
+
+        mockMvc.perform(post("/api/messages/ack")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cutoff\":\"" + cutoff + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted").value(2));
+
+        verify(messageRepository).deleteByRecipientHashAndCreatedAtLessThanEqual(
+                eq(userId), any(LocalDateTime.class));
     }
 
     @Test
