@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 import { Identity } from './IdentityService';
 
-const IDENTITY_KEY = 'hermnet.identity';
+const IDENTITY_ID_KEY = 'hermnet.identity.id';
+const IDENTITY_PUBLIC_KEY = 'hermnet.identity.publicKey';
+const IDENTITY_PRIVATE_KEY = 'hermnet.identity.privateKey';
 const JWT_KEY = 'hermnet.jwt';
 const PIN_HASH_KEY = 'hermnet.pin_hash';
 
@@ -10,16 +12,23 @@ const PIN_HASH_KEY = 'hermnet.pin_hash';
  */
 export class AuthSessionService {
   async getIdentity(): Promise<Identity | null> {
-    const rawIdentity = await SecureStore.getItemAsync(IDENTITY_KEY);
-    if (!rawIdentity) {
+    const [id, publicKey, privateKey] = await Promise.all([
+      SecureStore.getItemAsync(IDENTITY_ID_KEY),
+      SecureStore.getItemAsync(IDENTITY_PUBLIC_KEY),
+      SecureStore.getItemAsync(IDENTITY_PRIVATE_KEY),
+    ]);
+    if (!id || !publicKey || !privateKey) {
       return null;
     }
-
-    return JSON.parse(rawIdentity) as Identity;
+    return { id, publicKey, privateKey };
   }
 
   async setIdentity(identity: Identity): Promise<void> {
-    await SecureStore.setItemAsync(IDENTITY_KEY, JSON.stringify(identity));
+    await Promise.all([
+      SecureStore.setItemAsync(IDENTITY_ID_KEY, identity.id),
+      SecureStore.setItemAsync(IDENTITY_PUBLIC_KEY, identity.publicKey),
+      SecureStore.setItemAsync(IDENTITY_PRIVATE_KEY, identity.privateKey),
+    ]);
   }
 
   async getJwtToken(): Promise<string | null> {
