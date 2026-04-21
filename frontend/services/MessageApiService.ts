@@ -27,6 +27,18 @@ export class MessageApiService {
   }
 
   /**
+   * Acknowledges (y elimina) los mensajes del buzón del servidor.
+   * Si se proporciona cutoff, solo se borran los mensajes anteriores a esa marca de tiempo.
+   */
+  async ackMessages(cutoff?: string): Promise<void> {
+    await apiClient.request<void>({
+      path: '/api/messages/ack',
+      method: 'POST',
+      body: cutoff !== undefined ? { cutoff } : {},
+    });
+  }
+
+  /**
    * Retrieves steganographic packets for the provided user identifier.
    */
   async getMessages(myId: string): Promise<Uint8Array[]> {

@@ -11,6 +11,8 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { styles } from '../../styles/settingsStyles';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
+import { authFlowService } from '../../services/AuthFlowService';
+import { useAuthStore } from '../../store/authStore';
 import SecurityScreen from './SecurityScreen';
 import NotificationsScreen from './NotificationsScreen';
 import PrivacyScreen from './PrivacyScreen';
@@ -53,6 +55,7 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
     const [activeSub, setActiveSub] = useState<SubScreen>(null);
     const subSlide = useSlideAnim(300);
+    const storeLogout = useAuthStore((s) => s.logout);
 
     const openSub = (screen: SubScreen) => {
         setActiveSub(screen);
@@ -68,10 +71,10 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
         Alert.alert('Copiado', 'Tu Hash ID fue copiado al portapapeles.');
     };
 
-    const confirmLogout = () => {
+    const confirmLogout = async () => {
         setConfirmModal(null);
-        // TODO: clear session and navigate to login
-        Alert.alert('Sesión cerrada', 'Has cerrado sesión correctamente.');
+        await authFlowService.logout();
+        await storeLogout();
     };
 
     const confirmDeleteAccount = () => {

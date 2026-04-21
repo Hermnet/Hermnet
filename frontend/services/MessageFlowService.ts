@@ -46,6 +46,10 @@ export class MessageFlowService {
    */
   async syncInbox(myId: string, localPrivateKey: string): Promise<string[]> {
     const packets = await messageApiService.getMessages(myId);
+    if (packets.length === 0) {
+      return [];
+    }
+
     const plaintextMessages: string[] = [];
 
     for (const packet of packets) {
@@ -67,6 +71,9 @@ export class MessageFlowService {
       plaintextMessages.push(plaintext);
       await databaseService.saveDecryptedMessage(contactHash, plaintext, false);
     }
+
+    // Confirmar recepción al servidor para limpiar el buzón
+    await messageApiService.ackMessages();
 
     return plaintextMessages;
   }
