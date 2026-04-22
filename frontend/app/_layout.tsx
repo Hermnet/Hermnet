@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/DatabaseService';
 import { authFlowService } from '../services/AuthFlowService';
 import { configureUnauthorizedHandler } from '../services/ApiClient';
+import { AccessibilityProvider } from '../contexts/AccessibilityContext';
 
 export default function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
@@ -24,9 +25,9 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
+    <AccessibilityProvider>
       <Slot />
       <StatusBar style="light" />
-    </>
+    </AccessibilityProvider>
   );
 }
