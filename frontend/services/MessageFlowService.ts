@@ -27,8 +27,11 @@ export class MessageFlowService {
     if (!recipientPublicKey) {
       throw new Error(`Recipient public key not found for ${input.recipientId}`);
     }
+    if (!senderIdentity) {
+      throw new Error('No hay identidad local para firmar el mensaje');
+    }
 
-    const envelope = JSON.stringify({ from: senderIdentity?.id ?? '', text: input.plaintext });
+    const envelope = JSON.stringify({ from: senderIdentity.id, text: input.plaintext });
     const encryptedPayload = messageCryptoService.encryptForRecipient(envelope, recipientPublicKey);
 
     const coverImage = input.coverImageRgba ?? this.createDefaultCoverImage();
@@ -44,13 +47,16 @@ export class MessageFlowService {
    * Inbox pipeline:
    * GET /api/messages -> extract stego bytes -> decrypt -> save to SQLite
    */
+  /**
+   * Devuelve los contactHash únicos que enviaron mensajes nuevos en esta sincronización.
+   */
   async syncInbox(myId: string, localPrivateKey: string): Promise<string[]> {
     const packets = await messageApiService.getMessages(myId);
     if (packets.length === 0) {
       return [];
     }
 
-    const plaintextMessages: string[] = [];
+    const receivedFrom = new Set<string>();
 
     for (const packet of packets) {
       const rgbaPacket = new Uint8ClampedArray(packet);
@@ -68,14 +74,14 @@ export class MessageFlowService {
         // payload sin envoltorio: compatibilidad con versiones anteriores
       }
 
-      plaintextMessages.push(plaintext);
+      if (contactHash) receivedFrom.add(contactHash);
       await databaseService.saveDecryptedMessage(contactHash, plaintext, false);
     }
 
     // Confirmar recepción al servidor para limpiar el buzón
     await messageApiService.ackMessages();
 
-    return plaintextMessages;
+    return Array.from(receivedFrom);
   }
 
   private createDefaultCoverImage(): Uint8ClampedArray {

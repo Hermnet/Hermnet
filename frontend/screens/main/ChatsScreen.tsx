@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Lock, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
@@ -11,6 +12,8 @@ import { useAuthStore } from '../../store/authStore';
 import { contactsService } from '../../services/ContactsService';
 import { messageFlowService } from '../../services/MessageFlowService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { WARNING_BG, WARNING_MAIN, WARNING_LIGHT, DANGER_BG, DANGER_TEXT } from '../../styles/theme';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 type Chat = {
     id: string;
@@ -31,6 +34,8 @@ export default function ChatsScreen() {
 
     const { identity } = useAuthStore();
     const networkStatus = useNetworkStatus();
+    const { fontScale } = useAccessibility();
+    const insets = useSafeAreaInsets();
 
     const chatSlide     = useSlideAnim();
     const settingsSlide = useSlideAnim();
@@ -47,13 +52,18 @@ export default function ChatsScreen() {
         if (!identity) return;
         setIsLoading(true);
         const load = async () => {
-            const [contacts] = await Promise.all([
+            const [contacts, newFrom] = await Promise.all([
                 contactsService.getAllContacts(),
-                messageFlowService.syncInbox(identity.id, identity.privateKey).catch(() => {}),
+                messageFlowService.syncInbox(identity.id, identity.privateKey).catch(() => {
+                    setServerError(true);
+                    return [] as string[];
+                }),
             ]);
+            const unreadSet = new Set(newFrom ?? []);
             setChats(contacts.map(c => ({
                 id: c.contactHash,
                 name: c.alias ?? c.contactHash.slice(5, 17),
+                hasUnread: unreadSet.has(c.contactHash),
             })));
         };
         load()
@@ -68,6 +78,7 @@ export default function ChatsScreen() {
     const handleChatPress = useCallback((id: string) => {
         setActiveChatId(id);
         chatSlide.open();
+        setChats(prev => prev.map(c => c.id === id ? { ...c, hasUnread: false } : c));
     }, [chatSlide]);
 
     const handleBack = useCallback(() => {
@@ -154,14 +165,14 @@ export default function ChatsScreen() {
             <View style={styles.avatarContainer}>
                 <User size={20} color="#bd2b2b" />
             </View>
-            <Text style={styles.chatName}>{item.name}</Text>
+            <Text style={[styles.chatName, { fontSize: Math.round(16 * fontScale) }]}>{item.name}</Text>
             {item.hasUnread && (
                 <View style={styles.unreadBadge}>
                     <Lock size={10} color="#ffffff" />
                 </View>
             )}
         </TouchableOpacity>
-    ), [handleChatPress]);
+    ), [handleChatPress, fontScale]);
 
     return (
         <KeyboardAvoidingView
@@ -169,7 +180,7 @@ export default function ChatsScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
             <StatusBar barStyle="light-content" />
-            <View style={styles.container}>
+            <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
                 <View style={styles.headerRow}>
                     <View style={styles.searchContainer}>
                         <TextInput
@@ -187,17 +198,17 @@ export default function ChatsScreen() {
                 </View>
 
                 {networkStatus !== 'online' && (
-                    <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#1a2340', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#f59e0b' }} />
-                        <Text style={{ color: '#fbbf24', fontSize: 13 }}>
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: WARNING_BG, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: WARNING_MAIN }} />
+                        <Text style={{ color: WARNING_LIGHT, fontSize: 13 }}>
                             {networkStatus === 'checking' ? 'Comprobando conexión...' : 'Sin conexión a la red, comprobando...'}
                         </Text>
                     </View>
                 )}
                 {networkStatus === 'online' && serverError && (
-                    <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#2d1a1a', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#f87171' }} />
-                        <Text style={{ color: '#f87171', fontSize: 13 }}>Sin conexión al servidor</Text>
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: DANGER_BG, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: DANGER_TEXT }} />
+                        <Text style={{ color: DANGER_TEXT, fontSize: 13 }}>Sin conexión al servidor</Text>
                     </View>
                 )}
 

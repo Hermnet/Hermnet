@@ -8,7 +8,9 @@ import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-rea
 import { styles, sh } from '../../styles/chatRoomStyles';
 import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
-    
+import { contactsService } from '../../services/ContactsService';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
+
 const { height: SCREEN_H } = Dimensions.get('window');
 const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
 const INPUT_H = Platform.OS === 'ios' ? 110 : 95;
@@ -17,9 +19,9 @@ const SLOT_PX = 92;
 
 const TRUNCATE_AT = 200;
 
-const getDynamicTextProps = (text: string, hasReply: boolean) => {
-    const fontSize = text.length <= 80 ? 15 : 13;
-    const lineHeight = text.length <= 80 ? 22 : 18;
+const getDynamicTextProps = (text: string, hasReply: boolean, fontScale = 1.0) => {
+    const fontSize = Math.round((text.length <= 80 ? 15 : 13) * fontScale);
+    const lineHeight = Math.round((text.length <= 80 ? 22 : 18) * fontScale);
     const maxLines = hasReply ? 2 : 3;
     const approximateLines = (text.match(/\n/g) || []).length + Math.floor(text.length / 32) + 1;
     const needsTruncation = text.length > TRUNCATE_AT || approximateLines > maxLines;
@@ -29,15 +31,15 @@ const getDynamicTextProps = (text: string, hasReply: boolean) => {
 const _S = SLOT_PX;
 const Z_INPUT = [-_S * 2, -_S, 0, _S, _S * 2, _S * 3, _S * 4, _S * 5, _S * 6];
 const TY_OUT = [
-    _S * 2,              // 2 slots below: offscreen
-    _S,                  // 1 slot below: exiting
-    0,                   // focus: base position
-    -(AVAIL_H * 0.28),   // 1 slot above
-    -(AVAIL_H * 0.50),   // 2 slots above
-    -(AVAIL_H * 0.67),   // 3 slots above
-    -(AVAIL_H * 0.78),   // 4 slots above (fading out)
-    -(AVAIL_H * 0.86),   // 5 slots above (almost invisible)
-    -(AVAIL_H * 0.86),   // clamped
+    _S * 2,
+    _S,
+    0,
+    -(AVAIL_H * 0.28),
+    -(AVAIL_H * 0.50),
+    -(AVAIL_H * 0.67),
+    -(AVAIL_H * 0.78),
+    -(AVAIL_H * 0.86),
+    -(AVAIL_H * 0.86),
 ];
 const SCALE_OUT = [1.0, 1.0, 1.0, 0.88, 0.75, 0.62, 0.50, 0.42, 0.42];
 const OPAC_OUT  = [1.0, 1.0, 1.0, 0.82, 0.58, 0.32, 0.12, 0.0,  0.0];
@@ -52,13 +54,13 @@ type MsgData = {
     isMine: boolean;
     replyTo?: { id: string; text: string; isMine: boolean } | null;
 };
- 
+
 const INITIAL_MSGS: MsgData[] = [];
 
 // ─── Full Text Modal ───────────────────────────────────────────────────────────
 const FullMessageModal = React.memo(({
-    msg, onClose,
-}: { msg: MsgData | null; onClose: () => void }) => (
+    msg, contactName, onClose,
+}: { msg: MsgData | null; contactName: string; onClose: () => void }) => (
     <Modal
         visible={!!msg}
         transparent
@@ -71,7 +73,7 @@ const FullMessageModal = React.memo(({
                 <View style={sh.modalSheet}>
                     <View style={sh.modalHandle} />
                     <View style={sh.modalHeader}>
-                        <Text style={sh.modalAuthor}>{msg?.isMine ? 'Tú' : 'Marta'}</Text>
+                        <Text style={sh.modalAuthor}>{msg?.isMine ? 'Tú' : contactName}</Text>
                         <TouchableOpacity onPress={onClose}>
                             <X size={22} color="#a0aabf" />
                         </TouchableOpacity>
@@ -87,25 +89,35 @@ const FullMessageModal = React.memo(({
 
 type BubbleProps = {
     msg: MsgData;
-    yIndex: number; // Physical Y stacking position (0 = bottom)
+    yIndex: number;
     scrollPxAnim: Animated.Value;
+    contactName: string;
     onReply: (msg: MsgData) => void;
     onReadMore: (msg: MsgData) => void;
+    fontScale: number;
+    highContrast: boolean;
 };
 
-const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadMore }: BubbleProps) => {
+const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, contactName, onReply, onReadMore, fontScale, highContrast }: BubbleProps) => {
     const { fontSize, lineHeight, maxLines, needsTruncation } = useMemo(
-        () => getDynamicTextProps(msg.text, !!msg.replyTo),
-        [msg.text, msg.replyTo]
+        () => getDynamicTextProps(msg.text, !!msg.replyTo, fontScale),
+        [msg.text, msg.replyTo, fontScale]
     );
 
-    // Smooth vertical stacking animation when new messages arrive
+    const hcBubbleStyle = highContrast
+        ? (msg.isMine
+            ? { backgroundColor: '#dbeafe' }
+            : { backgroundColor: '#dcfce7' })
+        : null;
+    const hcTextColor = highContrast
+        ? (msg.isMine ? '#1e3a8a' : '#14532d')
+        : '#ffffff';
+
     const yAnim = useRef(new Animated.Value(yIndex)).current;
     useEffect(() => {
         Animated.spring(yAnim, { toValue: yIndex, friction: 9, tension: 55, useNativeDriver: true }).start();
     }, [yIndex]);
 
-    // Vertical distance from the focal base
     const bottomDist = Animated.subtract(yAnim, scrollPxAnim);
 
     const translateY = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: TY_OUT, extrapolate: 'clamp' })).current;
@@ -130,7 +142,6 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
             paddingHorizontal: 20,
             opacity,
             transform: [{ translateY }, { scale }],
-            // Calculate a pseudo z-index to avoid overlap complications
             zIndex: 10000 - Math.round(yIndex),
         }}>
             <TouchableOpacity
@@ -143,38 +154,37 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
                 <Animated.View style={[
                     styles.messageBubble,
                     msg.isMine ? styles.messageBubbleRight : styles.messageBubbleLeft,
+                    hcBubbleStyle,
                     { overflow: 'hidden', maxWidth: '82%', transform: [{ scale: pressScale }] },
                 ]}>
-                    {/* Quote (reply) WhatsApp style */}
                     {msg.replyTo && (
                         <View style={{
-                            borderLeftWidth: 3, borderLeftColor: 'rgba(255,255,255,0.55)',
+                            borderLeftWidth: 3,
+                            borderLeftColor: highContrast ? (msg.isMine ? '#1e3a8a' : '#14532d') : 'rgba(255,255,255,0.55)',
                             paddingLeft: 8, paddingVertical: 4, marginBottom: 6,
-                            backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: 6,
+                            backgroundColor: 'rgba(0,0,0,0.10)', borderRadius: 6,
                         }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '700', marginBottom: 1 }}>
-                                {msg.replyTo.isMine ? 'Tú' : 'Marta'}
+                            <Text style={{ color: hcTextColor, opacity: 0.7, fontSize: 11, fontWeight: '700', marginBottom: 1 }}>
+                                {msg.replyTo.isMine ? 'Tú' : contactName}
                             </Text>
-                            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }} numberOfLines={1}>
+                            <Text style={{ color: hcTextColor, opacity: 0.85, fontSize: 12 }} numberOfLines={1}>
                                 {msg.replyTo.text}
                             </Text>
                         </View>
                     )}
 
-                    {/* Text: dynamic font sizing based on length -> progressive compression */}
                     <Text
-                        style={[styles.messageText, { fontSize, lineHeight }]}
+                        style={[styles.messageText, { fontSize, lineHeight, color: hcTextColor }]}
                         numberOfLines={maxLines}
                         ellipsizeMode={maxLines ? 'tail' : undefined}
                     >
                         {msg.text}
                     </Text>
 
-                    {/* Read More link rendered only if text limit exceeded 140 chars */}
                     {needsTruncation && (
                         <TouchableOpacity onPress={() => onReadMore(msg)} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
                             <Text style={{
-                                color: msg.isMine ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.60)',
+                                color: hcTextColor, opacity: 0.65,
                                 fontSize: 12, fontWeight: '600', marginTop: 4,
                                 textDecorationLine: 'underline',
                             }}>
@@ -188,17 +198,19 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, onReply, onReadM
     );
 }, (prev, next) =>
     prev.yIndex === next.yIndex && prev.msg === next.msg &&
+    prev.contactName === next.contactName &&
+    prev.fontScale === next.fontScale && prev.highContrast === next.highContrast &&
     prev.onReply === next.onReply && prev.onReadMore === next.onReadMore
 );
 
 // ─── Reply Banner ──────────────────────────────────────────────────────────────
-type ReplyBannerProps = { msg: MsgData; onJumpTo: () => void; onCancel: () => void };
-const ReplyBanner = React.memo(({ msg, onJumpTo, onCancel }: ReplyBannerProps) => (
+type ReplyBannerProps = { msg: MsgData; contactName: string; onJumpTo: () => void; onCancel: () => void };
+const ReplyBanner = React.memo(({ msg, contactName, onJumpTo, onCancel }: ReplyBannerProps) => (
     <TouchableOpacity onPress={onJumpTo} activeOpacity={0.8} style={sh.replyBanner}>
         <CornerUpLeft size={14} color="#60a5fa" style={{ marginRight: 10 }} />
         <View style={{ flex: 1 }}>
             <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
-                {msg.isMine ? 'Tú' : 'Marta'}
+                {msg.isMine ? 'Tú' : contactName}
             </Text>
             <Text style={{ color: '#a0aabf', fontSize: 13 }} numberOfLines={1}>{msg.text}</Text>
         </View>
@@ -215,14 +227,15 @@ type InputBarProps = {
     onChangeText: (t: string) => void;
     onSend: () => void;
     replyingTo: MsgData | null;
+    contactName: string;
     onJumpToReply: () => void;
     onCancelReply: () => void;
     isSending: boolean;
 };
-const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, onJumpToReply, onCancelReply, isSending }: InputBarProps) => (
+const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending }: InputBarProps) => (
     <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
         {replyingTo && (
-            <ReplyBanner msg={replyingTo} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
+            <ReplyBanner msg={replyingTo} contactName={contactName} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
         )}
         <View style={[styles.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
             <TextInput
@@ -246,12 +259,15 @@ type MessageCarouselProps = {
     visibleMessages: Array<{ msg: MsgData; y: number }>;
     scrollPxAnim: Animated.Value;
     scrolledBack: boolean;
+    contactName: string;
     panHandlers: object;
     onReply: (msg: MsgData) => void;
     onReadMore: (msg: MsgData) => void;
     onGoToLatest: () => void;
+    fontScale: number;
+    highContrast: boolean;
 };
-const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBack, panHandlers, onReply, onReadMore, onGoToLatest }: MessageCarouselProps) => (
+const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBack, contactName, panHandlers, onReply, onReadMore, onGoToLatest, fontScale, highContrast }: MessageCarouselProps) => (
     <View style={{ position: 'absolute', top: HEADER_H, bottom: INPUT_H, left: 0, right: 0, overflow: 'hidden' }} {...panHandlers}>
         {visibleMessages.map(({ msg, y }) => (
             <CarouselBubble
@@ -259,8 +275,11 @@ const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBac
                 msg={msg}
                 yIndex={y}
                 scrollPxAnim={scrollPxAnim}
+                contactName={contactName}
                 onReply={onReply}
                 onReadMore={onReadMore}
+                fontScale={fontScale}
+                highContrast={highContrast}
             />
         ))}
         {scrolledBack && (
@@ -294,12 +313,23 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     const [scrolledBack, setScrolledBack] = useState(false);
     const [renderOffset, setRenderOffset] = useState(0);
     const [isSending, setIsSending] = useState(false);
+    const [contactName, setContactName] = useState<string>(chatId.slice(5, 17));
+    const { fontScale, prefs: { highContrast } } = useAccessibility();
 
     const allMessagesRef = useRef(allMessages);
     const scrollPxAnim = useRef(new Animated.Value(0)).current;
     const currentPx = useRef(0);
 
     useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
+
+    useEffect(() => {
+        contactsService.getAllContacts()
+            .then(contacts => {
+                const contact = contacts.find(c => c.contactHash === chatId);
+                setContactName(contact?.alias ?? chatId.slice(5, 17));
+            })
+            .catch(() => { /* mantiene el valor por defecto */ });
+    }, [chatId]);
 
     useEffect(() => {
         databaseService.getMessagesByContact(chatId)
@@ -309,12 +339,10 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
             .catch(() => {});
     }, [chatId]);
 
-    // Fixed slot positions: index * SLOT_PX (independent of bubble height)
     const messageLayouts = useMemo(() => {
         return allMessages.map((msg, i) => ({ msg, y: i * SLOT_PX, idx: i }));
     }, [allMessages]);
 
-    // Windowing implementation: render only components in the physical viewport
     const visibleMessages = useMemo(() => {
         const start = Math.max(0, renderOffset - RENDER_BUFFER);
         const end = Math.min(messageLayouts.length, renderOffset + RENDER_WINDOW);
@@ -399,18 +427,19 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={[styles.container, { overflow: 'hidden' }]} {...globalSwipe.panHandlers}>
 
-                {/* ── Messages area (clipped between header and input) ── */}
                 <MessageCarousel
                     visibleMessages={visibleMessages}
                     scrollPxAnim={scrollPxAnim}
                     scrolledBack={scrolledBack}
+                    contactName={contactName}
                     panHandlers={msgPan.panHandlers}
                     onReply={handleReply}
                     onReadMore={handleReadMore}
                     onGoToLatest={goToLatest}
+                    fontScale={fontScale}
+                    highContrast={highContrast}
                 />
 
-                {/* ── Header ── */}
                 <View style={sh.headerContainer}>
                     <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6} accessibilityLabel="Volver atrás">
                         <ArrowLeft size={28} color="#ffffff" />
@@ -419,23 +448,22 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                         <View style={styles.headerAvatar}>
                             <User size={16} color="#bd2b2b" />
                         </View>
-                        <Text style={styles.headerName}>Marta</Text>
+                        <Text style={styles.headerName}>{contactName}</Text>
                     </View>
                 </View>
 
-                {/* ── Input ── */}
                 <MessageInputBar
                     value={newMessage}
                     onChangeText={setNewMessage}
                     onSend={handleSend}
                     replyingTo={replyingTo}
+                    contactName={contactName}
                     onJumpToReply={jumpToReply}
                     onCancelReply={handleCancelReply}
                     isSending={isSending}
                 />
 
-                {/* ── Full message modal ── */}
-                <FullMessageModal msg={fullTextMsg} onClose={closeModal} />
+                <FullMessageModal msg={fullTextMsg} contactName={contactName} onClose={closeModal} />
 
             </View>
         </KeyboardAvoidingView>

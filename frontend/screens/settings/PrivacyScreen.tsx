@@ -1,43 +1,37 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { ArrowLeft, ShieldCheck, Eye, Database, Trash2 } from 'lucide-react-native';
 import { styles } from '../../styles/settingsStyles';
+import { databaseService } from '../../services/DatabaseService';
 
 interface Props {
     onBack: () => void;
 }
 
-// ── Toggle row ─────────────────────────────────────────────────────────────────
-function ToggleRow({
-    label, sub, value, onChange, last = false,
-}: {
-    label: string; sub?: string; value: boolean; onChange: (v: boolean) => void; last?: boolean;
-}) {
-    return (
-        <>
-            <View style={styles.toggleRow}>
-                <View style={styles.toggleInfo}>
-                    <Text style={styles.toggleLabel}>{label}</Text>
-                    {sub && <Text style={styles.toggleSub}>{sub}</Text>}
-                </View>
-                <Switch
-                    value={value}
-                    onValueChange={onChange}
-                    trackColor={{ false: '#1e2d4a', true: '#3b82f6' }}
-                    thumbColor="#ffffff"
-                    ios_backgroundColor="#1e2d4a"
-                />
-            </View>
-            {!last && <View style={styles.rowSeparator} />}
-        </>
-    );
-}
-
 // ── PrivacyScreen ──────────────────────────────────────────────────────────────
 export default function PrivacyScreen({ onBack }: Props) {
-    const [readReceipts, setReadReceipts] = useState(true);
-    const [lastSeen, setLastSeen] = useState(true);
-    const [incognito, setIncognito] = useState(false);
+
+    const handleClearHistory = () => {
+        Alert.alert(
+            'Borrar historial',
+            'Se eliminarán todos los mensajes guardados en este dispositivo. Esta acción no se puede deshacer.',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Borrar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await databaseService.clearAllData();
+                            Alert.alert('Hecho', 'El historial local ha sido eliminado.');
+                        } catch {
+                            Alert.alert('Error', 'No se pudo borrar el historial.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -51,33 +45,56 @@ export default function PrivacyScreen({ onBack }: Props) {
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <Text style={styles.sectionLabel}>Visibilidad</Text>
+
+                <Text style={styles.sectionLabel}>Modelo zero-knowledge</Text>
                 <View style={styles.sectionCard}>
-                    <ToggleRow
-                        label="Confirmaciones de lectura"
-                        sub="Permite que otros sepan cuando lees sus mensajes"
-                        value={readReceipts}
-                        onChange={setReadReceipts}
-                    />
-                    <ToggleRow
-                        label="Último acceso"
-                        sub="Muestra cuándo fue tu última conexión"
-                        value={lastSeen}
-                        onChange={setLastSeen}
-                        last
-                    />
+                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[styles.rowIconWrap, { backgroundColor: '#1a3a2d' }]}>
+                            <ShieldCheck size={17} color="#34d399" />
+                        </View>
+                        <View style={styles.toggleInfo}>
+                            <Text style={styles.toggleLabel}>Contenido de mensajes</Text>
+                            <Text style={styles.toggleSub}>
+                                Cifrado extremo a extremo. El servidor nunca ve ni almacena el texto de tus mensajes.
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.rowSeparator} />
+                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[styles.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
+                            <Eye size={17} color="#fbbf24" />
+                        </View>
+                        <View style={styles.toggleInfo}>
+                            <Text style={styles.toggleLabel}>Metadatos de enrutamiento</Text>
+                            <Text style={styles.toggleSub}>
+                                Para entregar mensajes, el servidor conoce el Hash ID del remitente y del destinatario, pero nunca el contenido.
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.rowSeparator} />
+                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[styles.rowIconWrap, { backgroundColor: '#1e2d4a' }]}>
+                            <Database size={17} color="#60a5fa" />
+                        </View>
+                        <View style={styles.toggleInfo}>
+                            <Text style={styles.toggleLabel}>Historial local</Text>
+                            <Text style={styles.toggleSub}>
+                                Los mensajes descifrados se guardan únicamente en este dispositivo. El servidor los borra en cuanto los descargas.
+                            </Text>
+                        </View>
+                    </View>
                 </View>
 
-                <Text style={styles.sectionLabel}>Protección</Text>
-                <View style={styles.sectionCard}>
-                    <ToggleRow
-                        label="Modo incógnito"
-                        sub="Oculta tu actividad en la red Hermnet"
-                        value={incognito}
-                        onChange={setIncognito}
-                        last
-                    />
-                </View>
+                <Text style={styles.sectionLabel}>Datos locales</Text>
+                <TouchableOpacity
+                    style={styles.deleteBtn}
+                    activeOpacity={0.75}
+                    onPress={handleClearHistory}
+                >
+                    <Trash2 size={20} color="#fca5a5" />
+                    <Text style={styles.deleteText}>Borrar historial local</Text>
+                </TouchableOpacity>
+
             </ScrollView>
         </View>
     );

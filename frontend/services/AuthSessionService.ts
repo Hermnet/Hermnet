@@ -54,6 +54,17 @@ export class AuthSessionService {
   async clearPinHash(): Promise<void> {
     await SecureStore.deleteItemAsync(PIN_HASH_KEY);
   }
+
+  /** Borra toda la identidad local (para eliminar cuenta). */
+  async clearAllIdentityData(): Promise<void> {
+    await Promise.all([
+      SecureStore.deleteItemAsync(IDENTITY_ID_KEY),
+      SecureStore.deleteItemAsync(IDENTITY_PUBLIC_KEY),
+      SecureStore.deleteItemAsync(IDENTITY_PRIVATE_KEY),
+      SecureStore.deleteItemAsync(JWT_KEY),
+      SecureStore.deleteItemAsync(PIN_HASH_KEY),
+    ]);
+  }
 }
 
 export const authSessionService = new AuthSessionService();

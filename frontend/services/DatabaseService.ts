@@ -105,6 +105,17 @@ export class DatabaseService {
     );
   }
 
+  async clearAllData(): Promise<void> {
+    const db = this.requireDatabase();
+    await (db as any).execAsync(`
+      DELETE FROM contacts_vault;
+      DELETE FROM messages_history;
+      DELETE FROM key_store;
+      DELETE FROM sync_queue;
+      DELETE FROM cover_images;
+    `);
+  }
+
   private requireDatabase(): SQLite.SQLiteDatabase {
     if (!this.db) {
       throw new Error('Database is not initialized. Call initDB() first.');

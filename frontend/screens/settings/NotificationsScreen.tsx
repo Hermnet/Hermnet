@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { styles } from '../../styles/settingsStyles';
+import { prefsService, NotificationPrefs } from '../../services/PrefsService';
 
 interface Props {
     onBack: () => void;
@@ -35,10 +36,25 @@ function ToggleRow({
 
 // ── NotificationsScreen ────────────────────────────────────────────────────────
 export default function NotificationsScreen({ onBack }: Props) {
-    const [pushEnabled, setPushEnabled] = useState(true);
-    const [preview, setPreview] = useState(false);
-    const [sound, setSound] = useState(true);
-    const [vibration, setVibration] = useState(true);
+    const [prefs, setPrefs] = useState<NotificationPrefs>({
+        pushEnabled: true, preview: false, sound: true, vibration: true,
+    });
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        prefsService.getNotificationPrefs().then(p => {
+            setPrefs(p);
+            setLoaded(true);
+        });
+    }, []);
+
+    const update = async (patch: Partial<NotificationPrefs>) => {
+        const next = { ...prefs, ...patch };
+        setPrefs(next);
+        await prefsService.setNotificationPrefs(next);
+    };
+
+    if (!loaded) return <View style={styles.container} />;
 
     return (
         <View style={styles.container}>
@@ -57,14 +73,14 @@ export default function NotificationsScreen({ onBack }: Props) {
                     <ToggleRow
                         label="Notificaciones push"
                         sub="Recibir alertas cuando lleguen mensajes nuevos"
-                        value={pushEnabled}
-                        onChange={setPushEnabled}
+                        value={prefs.pushEnabled}
+                        onChange={v => update({ pushEnabled: v })}
                     />
                     <ToggleRow
                         label="Vista previa"
                         sub="Muestra el texto del mensaje en la notificación"
-                        value={preview}
-                        onChange={setPreview}
+                        value={prefs.preview}
+                        onChange={v => update({ preview: v })}
                         last
                     />
                 </View>
@@ -74,14 +90,14 @@ export default function NotificationsScreen({ onBack }: Props) {
                     <ToggleRow
                         label="Sonido"
                         sub="Reproducir tono al recibir mensajes"
-                        value={sound}
-                        onChange={setSound}
+                        value={prefs.sound}
+                        onChange={v => update({ sound: v })}
                     />
                     <ToggleRow
                         label="Vibración"
                         sub="Vibrar al recibir mensajes"
-                        value={vibration}
-                        onChange={setVibration}
+                        value={prefs.vibration}
+                        onChange={v => update({ vibration: v })}
                         last
                     />
                 </View>

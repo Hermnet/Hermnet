@@ -10,7 +10,8 @@ Esta guía está pensada para levantar Hermnet en local de forma rápida y sin s
 - **Maven 3.9+**
 - **Node.js 18+** (recomendado LTS)
 - **npm 9+**
-- **Expo Go** en móvil (opcional) o emulador iOS/Android
+- **Emulador Android** (Android Studio) o **Simulador iOS** (Xcode, solo macOS)
+- ⚠️ **Expo Go no es compatible** — la app usa módulos nativos (`react-native-quick-crypto`, `expo-local-authentication`) que requieren un development build
 
 ## 2) Estructura y puertos
 
@@ -72,6 +73,8 @@ Cuando arranque bien, la API quedará disponible en `http://localhost:8080`.
 
 ## 4) Arrancar frontend (Expo)
 
+> ⚠️ **Importante:** la app usa módulos nativos (`react-native-quick-crypto`, `expo-local-authentication`) que **no funcionan en Expo Go**. Es obligatorio usar un development build con `expo run:android` / `expo run:ios`. Solo hay que hacerlo **una vez**; las siguientes sesiones pueden arrancar con `npx expo start` sobre la build ya instalada.
+
 Desde la carpeta `frontend`:
 
 ```bash
@@ -79,24 +82,30 @@ cd ../frontend
 npm install
 ```
 
-Configura URL del backend (el cliente usa `EXPO_PUBLIC_API_BASE_URL`):
+Configura la URL del backend (el cliente usa `EXPO_PUBLIC_API_BASE_URL`):
 
 ```bash
 export EXPO_PUBLIC_API_BASE_URL='http://localhost:8080'
 ```
 
-Luego inicia Expo:
+### Primera vez (o tras instalar nuevas dependencias nativas)
+
+Compila e instala la app con los módulos nativos enlazados:
 
 ```bash
-npm run start
+# Android (emulador o dispositivo físico)
+npx expo run:android
+
+# iOS (solo macOS, simulador o dispositivo)
+npx expo run:ios
 ```
 
-También puedes abrir directamente:
+### Arranques posteriores
+
+Una vez instalada la build nativa, basta con:
 
 ```bash
-npm run android
-npm run ios
-npm run web
+npx expo start
 ```
 
 ## 5) Importante según dónde corra la app
@@ -145,6 +154,8 @@ npm test
 - **Fallo al iniciar Firebase:** revisa ruta/permisos de `service-account.json` o `GOOGLE_APPLICATION_CREDENTIALS`.
 - **El móvil no conecta con localhost:** usa IP LAN de tu Mac, no `localhost`.
 - **Puerto 5432 ocupado:** cambia el mapeo en `backend/docker-compose.yml` o libera el puerto.
+- **"NitroModules not found" o rutas sin default export:** estás arrancando con Expo Go. Ejecuta `npx expo run:android` (o `run:ios`) para compilar el development build con los módulos nativos. Después ya puedes usar `npx expo start`.
+- **Cambios en dependencias nativas sin efecto:** si instalas un nuevo paquete con módulo nativo, vuelve a ejecutar `npx expo run:android` / `run:ios` para recompilar.
 
 ---
 

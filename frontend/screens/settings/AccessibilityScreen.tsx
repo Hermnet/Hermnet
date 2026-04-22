@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { styles } from '../../styles/settingsStyles';
+import { AccessibilityPrefs } from '../../services/PrefsService';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 interface Props {
     onBack: () => void;
@@ -37,11 +39,8 @@ function ToggleRow({
 
 // ── AccessibilityScreen ────────────────────────────────────────────────────────
 export default function AccessibilityScreen({ onBack }: Props) {
-    const [textSize, setTextSize] = useState<TextSize>('normal');
-    const [highContrast, setHighContrast] = useState(false);
-    const [reduceMotion, setReduceMotion] = useState(false);
-    const [captions, setCaptions] = useState(false);
-    const [describeImages, setDescribeImages] = useState(false);
+    const { prefs, updatePrefs } = useAccessibility();
+    const update = (patch: Partial<AccessibilityPrefs>) => updatePrefs(patch);
 
     const sizes: { key: TextSize; label: string }[] = [
         { key: 'small', label: 'Pequeño' },
@@ -61,7 +60,6 @@ export default function AccessibilityScreen({ onBack }: Props) {
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Text size */}
                 <Text style={styles.sectionLabel}>Texto</Text>
                 <View style={styles.segmentWrapper}>
                     <Text style={styles.segmentTitle}>Tamaño de texto</Text>
@@ -69,11 +67,11 @@ export default function AccessibilityScreen({ onBack }: Props) {
                         {sizes.map(({ key, label }) => (
                             <TouchableOpacity
                                 key={key}
-                                style={[styles.segmentBtn, textSize === key && styles.segmentBtnActive]}
+                                style={[styles.segmentBtn, prefs.textSize === key && styles.segmentBtnActive]}
                                 activeOpacity={0.75}
-                                onPress={() => setTextSize(key)}
+                                onPress={() => update({ textSize: key })}
                             >
-                                <Text style={[styles.segmentText, textSize === key && styles.segmentTextActive]}>
+                                <Text style={[styles.segmentText, prefs.textSize === key && styles.segmentTextActive]}>
                                     {label}
                                 </Text>
                             </TouchableOpacity>
@@ -81,41 +79,24 @@ export default function AccessibilityScreen({ onBack }: Props) {
                     </View>
                 </View>
 
-                {/* Visual */}
                 <Text style={styles.sectionLabel}>Visual</Text>
                 <View style={styles.sectionCard}>
                     <ToggleRow
                         label="Alto contraste"
                         sub="Aumenta el contraste de colores en la interfaz"
-                        value={highContrast}
-                        onChange={setHighContrast}
+                        value={prefs.highContrast}
+                        onChange={v => update({ highContrast: v })}
                     />
                     <ToggleRow
                         label="Reducir animaciones"
                         sub="Desactiva transiciones y efectos de movimiento"
-                        value={reduceMotion}
-                        onChange={setReduceMotion}
+                        value={prefs.reduceMotion}
+                        onChange={v => update({ reduceMotion: v })}
                         last
                     />
+
                 </View>
 
-                {/* Reading */}
-                <Text style={styles.sectionLabel}>Lectura</Text>
-                <View style={styles.sectionCard}>
-                    <ToggleRow
-                        label="Subtítulos de audio"
-                        sub="Muestra transcripción de mensajes de voz"
-                        value={captions}
-                        onChange={setCaptions}
-                    />
-                    <ToggleRow
-                        label="Describir imágenes"
-                        sub="Lee el contenido de imágenes automáticamente"
-                        value={describeImages}
-                        onChange={setDescribeImages}
-                        last
-                    />
-                </View>
             </ScrollView>
         </View>
     );
