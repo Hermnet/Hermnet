@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -15,14 +15,21 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.HermnetMobile"
+      "bundleIdentifier": "com.anonymous.HermnetMobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Hermnet usa Face ID para bloquear el acceso a tus mensajes."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.HermnetMobile"
+      "package": "com.anonymous.HermnetMobile",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +39,8 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-font",
-      "expo-router"
+      "expo-router",
+      "expo-local-authentication"
     ]
   }
 }

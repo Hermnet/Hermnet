@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
-import { ArrowLeft, Fingerprint, Lock, Users, ChevronRight } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar, Alert } from 'react-native';
+import { ArrowLeft, Fingerprint, Users } from 'lucide-react-native';
+// expo-local-authentication requiere un development build; en Expo Go se degrada sin biometría
+let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
+try { LocalAuthentication = require('expo-local-authentication'); } catch { /* Expo Go */ }
 import { styles } from '../../styles/settingsStyles';
+import { prefsService, SecurityPrefs } from '../../services/PrefsService';
+import { useAuthStore } from '../../store/authStore';
 
 interface Props {
     onBack: () => void;
@@ -9,20 +14,22 @@ interface Props {
 
 // ── Toggle row ─────────────────────────────────────────────────────────────────
 function ToggleRow({
-    label, sub, value, onChange, last = false,
+    label, sub, value, onChange, disabled = false, last = false,
 }: {
-    label: string; sub?: string; value: boolean; onChange: (v: boolean) => void; last?: boolean;
+    label: string; sub?: string; value: boolean; onChange: (v: boolean) => void;
+    disabled?: boolean; last?: boolean;
 }) {
     return (
         <>
             <View style={styles.toggleRow}>
                 <View style={styles.toggleInfo}>
-                    <Text style={styles.toggleLabel}>{label}</Text>
+                    <Text style={[styles.toggleLabel, disabled && { color: '#4a5568' }]}>{label}</Text>
                     {sub && <Text style={styles.toggleSub}>{sub}</Text>}
                 </View>
                 <Switch
                     value={value}
                     onValueChange={onChange}
+                    disabled={disabled}
                     trackColor={{ false: '#1e2d4a', true: '#3b82f6' }}
                     thumbColor="#ffffff"
                     ios_backgroundColor="#1e2d4a"
@@ -33,28 +40,85 @@ function ToggleRow({
     );
 }
 
-// ── Nav row ────────────────────────────────────────────────────────────────────
-function NavRow({
-    icon, label, iconBg = '#1e2d4a', onPress, last = false,
-}: {
-    icon: React.ReactNode; label: string; iconBg?: string; onPress?: () => void; last?: boolean;
-}) {
-    return (
-        <>
-            <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={onPress}>
-                <View style={[styles.rowIconWrap, { backgroundColor: iconBg }]}>{icon}</View>
-                <Text style={styles.rowLabel}>{label}</Text>
-                <ChevronRight size={16} color="#4a5568" />
-            </TouchableOpacity>
-            {!last && <View style={styles.rowSeparator} />}
-        </>
-    );
+// ── Decodifica el JTI del JWT actual ──────────────────────────────────────────
+function extractJti(token: string | null): string {
+    if (!token) return '—';
+    try {
+        const payload = token.split('.')[1];
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const json = atob(base64);
+        const parsed = JSON.parse(json);
+        return parsed.jti ?? '—';
+    } catch {
+        return '—';
+    }
 }
 
 // ── SecurityScreen ─────────────────────────────────────────────────────────────
 export default function SecurityScreen({ onBack }: Props) {
-    const [biometric, setBiometric] = useState(false);
-    const [screenLock, setScreenLock] = useState(true);
+    const jwt = useAuthStore((s) => s.jwt);
+    const [prefs, setPrefs] = useState<SecurityPrefs>({ biometric: false, screenLock: false });
+    const [biometricAvailable, setBiometricAvailable] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const init = async () => {
+            const loaded = await prefsService.getSecurityPrefs();
+            let available = false;
+            if (LocalAuthentication) {
+                const [hasHardware, isEnrolled] = await Promise.all([
+                    LocalAuthentication.hasHardwareAsync(),
+                    LocalAuthentication.isEnrolledAsync(),
+                ]);
+                available = hasHardware && isEnrolled;
+            }
+            setPrefs(loaded);
+            setBiometricAvailable(available);
+            setLoading(false);
+        };
+        init();
+    }, []);
+
+    const updatePrefs = async (next: SecurityPrefs) => {
+        const prev = prefs;
+        setPrefs(next);
+        try {
+            await prefsService.setSecurityPrefs(next);
+        } catch {
+            setPrefs(prev);
+        }
+    };
+
+    const handleBiometricChange = async (enabled: boolean) => {
+        if (!enabled) {
+            await updatePrefs({ ...prefs, biometric: false });
+            return;
+        }
+        if (!LocalAuthentication) {
+            Alert.alert('No disponible', 'La biometría requiere un build nativo de la app.');
+            return;
+        }
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: 'Confirma tu identidad para activar la biometría',
+            cancelLabel: 'Cancelar',
+        });
+        if (result.success) {
+            await updatePrefs({ ...prefs, biometric: true, screenLock: true });
+        } else {
+            Alert.alert('No autenticado', 'La biometría no se activó.');
+        }
+    };
+
+    const handleScreenLockChange = async (enabled: boolean) => {
+        const next: SecurityPrefs = enabled
+            ? { ...prefs, screenLock: true }
+            : { biometric: false, screenLock: false };
+        await updatePrefs(next);
+    };
+
+    const jti = extractJti(jwt);
+
+    if (loading) return <View style={styles.container} />;
 
     return (
         <View style={styles.container}>
@@ -71,33 +135,50 @@ export default function SecurityScreen({ onBack }: Props) {
                 <Text style={styles.sectionLabel}>Autenticación</Text>
                 <View style={styles.sectionCard}>
                     <ToggleRow
-                        label="Biometría"
-                        sub="Usar huella o Face ID para desbloquear"
-                        value={biometric}
-                        onChange={setBiometric}
+                        label="Bloqueo de pantalla"
+                        sub="Requiere autenticación al volver a la app"
+                        value={prefs.screenLock}
+                        onChange={handleScreenLockChange}
                     />
                     <ToggleRow
-                        label="Bloqueo de pantalla"
-                        sub="Requiere autenticación al abrir la app"
-                        value={screenLock}
-                        onChange={setScreenLock}
+                        label="Biometría"
+                        sub={
+                            biometricAvailable
+                                ? 'Usar huella o Face ID para desbloquear'
+                                : 'No hay biometría configurada en este dispositivo'
+                        }
+                        value={prefs.biometric}
+                        onChange={handleBiometricChange}
+                        disabled={!biometricAvailable || !prefs.screenLock}
                         last
                     />
                 </View>
 
-                <Text style={styles.sectionLabel}>Avanzado</Text>
+                <Text style={styles.sectionLabel}>Sesión actual</Text>
                 <View style={styles.sectionCard}>
-                    <NavRow
-                        icon={<Users size={17} color="#60a5fa" />}
-                        label="Sesiones activas"
-                        iconBg="#1e2d4a"
-                    />
-                    <NavRow
-                        icon={<Lock size={17} color="#34d399" />}
-                        label="Contraseña de respaldo"
-                        iconBg="#1a3a2d"
-                        last
-                    />
+                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[styles.rowIconWrap, { backgroundColor: '#1e2d4a' }]}>
+                            <Users size={17} color="#60a5fa" />
+                        </View>
+                        <View style={styles.toggleInfo}>
+                            <Text style={styles.toggleLabel}>ID de sesión (JTI)</Text>
+                            <Text style={[styles.toggleSub, { fontFamily: 'monospace', fontSize: 11 }]} selectable>
+                                {jti}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.rowSeparator} />
+                    <View style={[styles.toggleRow, { paddingVertical: 12 }]}>
+                        <View style={[styles.rowIconWrap, { backgroundColor: '#1e2d4a' }]}>
+                            <Fingerprint size={17} color="#34d399" />
+                        </View>
+                        <View style={styles.toggleInfo}>
+                            <Text style={styles.toggleLabel}>Clave privada</Text>
+                            <Text style={styles.toggleSub}>
+                                Almacenada cifrada en este dispositivo. Compártela mediante QR si cambias de móvil.
+                            </Text>
+                        </View>
+                    </View>
                 </View>
             </ScrollView>
         </View>

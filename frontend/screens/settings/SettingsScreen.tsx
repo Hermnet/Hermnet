@@ -13,6 +13,9 @@ import { styles } from '../../styles/settingsStyles';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
 import { authFlowService } from '../../services/AuthFlowService';
 import { useAuthStore } from '../../store/authStore';
+import { authSessionService } from '../../services/AuthSessionService';
+import { databaseService } from '../../services/DatabaseService';
+import { prefsService } from '../../services/PrefsService';
 import SecurityScreen from './SecurityScreen';
 import NotificationsScreen from './NotificationsScreen';
 import PrivacyScreen from './PrivacyScreen';
@@ -27,7 +30,6 @@ type SubScreen = 'security' | 'notifications' | 'privacy' | 'help' | 'terms' | '
 
 interface Props {
     onBack: () => void;
-    hashId?: string;
 }
 
 // ─── Row helper ────────────────────────────────────────────────────────────────
@@ -51,11 +53,13 @@ const SettingRow = React.memo(function SettingRow({
 });
 
 // ─── SettingsScreen ────────────────────────────────────────────────────────────
-export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props) {
+export default function SettingsScreen({ onBack }: Props) {
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
     const [activeSub, setActiveSub] = useState<SubScreen>(null);
     const subSlide = useSlideAnim(300);
+    const identity = useAuthStore((s) => s.identity);
     const storeLogout = useAuthStore((s) => s.logout);
+    const hashId = identity?.id ?? 'HNET-?????';
 
     const openSub = (screen: SubScreen) => {
         setActiveSub(screen);
@@ -77,10 +81,16 @@ export default function SettingsScreen({ onBack, hashId = 'HNET-?????' }: Props)
         await storeLogout();
     };
 
-    const confirmDeleteAccount = () => {
+    const confirmDeleteAccount = async () => {
         setConfirmModal(null);
-        // TODO: delete account on backend and clear local data
-        Alert.alert('Cuenta eliminada', 'Tu cuenta ha sido eliminada.');
+        try {
+            await databaseService.clearAllData();
+        } catch { /* continuar aunque falle el borrado de la DB */ }
+        try {
+            await prefsService.clearAll();
+            await authSessionService.clearAllIdentityData();
+        } catch { /* continuar aunque falle SecureStore */ }
+        await storeLogout();
     };
 
     return (
