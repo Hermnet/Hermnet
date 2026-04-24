@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, ShieldCheck, Eye, Database, Trash2 } from 'lucide-react-native';
 import { styles } from '../../styles/settingsStyles';
 import { databaseService } from '../../services/DatabaseService';
@@ -10,12 +11,14 @@ interface Props {
 
 // ── PrivacyScreen ──────────────────────────────────────────────────────────────
 export default function PrivacyScreen({ onBack }: Props) {
+    const { showModal, modalNode } = useAppModal();
 
     const handleClearHistory = () => {
-        Alert.alert(
-            'Borrar historial',
-            'Se eliminarán todos los mensajes guardados en este dispositivo. Esta acción no se puede deshacer.',
-            [
+        showModal({
+            type: 'warning',
+            title: 'Borrar historial',
+            message: 'Se eliminarán todos los mensajes guardados en este dispositivo. Esta acción no se puede deshacer.',
+            buttons: [
                 { text: 'Cancelar', style: 'cancel' },
                 {
                     text: 'Borrar',
@@ -23,14 +26,14 @@ export default function PrivacyScreen({ onBack }: Props) {
                     onPress: async () => {
                         try {
                             await databaseService.clearAllData();
-                            Alert.alert('Hecho', 'El historial local ha sido eliminado.');
+                            showModal({ type: 'success', title: 'Hecho', message: 'El historial local ha sido eliminado.' });
                         } catch {
-                            Alert.alert('Error', 'No se pudo borrar el historial.');
+                            showModal({ type: 'error', title: 'Error', message: 'No se pudo borrar el historial.' });
                         }
                     },
                 },
-            ]
-        );
+            ],
+        });
     };
 
     return (
@@ -96,6 +99,7 @@ export default function PrivacyScreen({ onBack }: Props) {
                 </TouchableOpacity>
 
             </ScrollView>
+            {modalNode}
         </View>
     );
 }

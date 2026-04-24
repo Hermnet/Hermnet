@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Lock, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
@@ -35,6 +36,7 @@ export default function ChatsScreen() {
     const { identity } = useAuthStore();
     const networkStatus = useNetworkStatus();
     const { fontScale } = useAccessibility();
+    const { showModal, modalNode } = useAppModal();
     const insets = useSafeAreaInsets();
 
     const chatSlide     = useSlideAnim();
@@ -109,17 +111,17 @@ export default function ChatsScreen() {
     const handleScannedQR = useCallback(async (data: string) => {
         try {
             if (identity && data.includes(identity.id)) {
-                Alert.alert('QR no válido', 'No puedes añadirte a ti mismo como contacto.');
+                showModal({ type: 'warning', title: 'QR no válido', message: 'No puedes añadirte a ti mismo como contacto.' });
                 handleCloseQR();
                 return;
             }
             const contact = await contactsService.saveContactFromQR(data);
             await refreshContacts();
             handleCloseQR();
-            Alert.alert('Contacto añadido', `${contact.contactHash} se guardó correctamente.`);
+            showModal({ type: 'success', title: 'Contacto añadido', message: `${contact.contactHash} se guardó correctamente.` });
         } catch (err: any) {
             handleCloseQR();
-            Alert.alert('Error', err?.message ?? 'No se pudo añadir el contacto.');
+            showModal({ type: 'error', title: 'Error', message: err?.message ?? 'No se pudo añadir el contacto.' });
         }
     }, [identity, handleCloseQR, refreshContacts]);
 
@@ -307,6 +309,7 @@ export default function ChatsScreen() {
             >
                 {showShowQR && <ShowQRScreen onClose={handleCloseShowQR} />}
             </Animated.View>
+            {modalNode}
         </KeyboardAvoidingView>
     );
 }

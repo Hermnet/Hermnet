@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, Download, Upload, ShieldCheck } from 'lucide-react-native';
 import { styles } from '../../styles/settingsStyles';
 
@@ -9,14 +10,16 @@ interface Props {
 
 // ── TransferScreen ─────────────────────────────────────────────────────────────
 export default function TransferScreen({ onBack }: Props) {
+    const { showModal, modalNode } = useAppModal();
+
     const handleExport = () => {
         // TODO: generate and share encrypted .hnet backup file
-        Alert.alert('Exportar respaldo', 'Funcionalidad próximamente disponible.');
+        showModal({ type: 'info', title: 'Exportar respaldo', message: 'Funcionalidad próximamente disponible.' });
     };
 
     const handleImport = () => {
         // TODO: pick file and restore from .hnet backup
-        Alert.alert('Importar respaldo', 'Funcionalidad próximamente disponible.');
+        showModal({ type: 'info', title: 'Importar respaldo', message: 'Funcionalidad próximamente disponible.' });
     };
 
     return (
@@ -56,6 +59,7 @@ export default function TransferScreen({ onBack }: Props) {
                     </View>
                 </View>
             </ScrollView>
+            {modalNode}
         </View>
     );
 }

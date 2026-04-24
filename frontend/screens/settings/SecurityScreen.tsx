@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, Fingerprint, Users } from 'lucide-react-native';
 // expo-local-authentication requiere un development build; en Expo Go se degrada sin biometría
 let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
@@ -60,6 +61,7 @@ export default function SecurityScreen({ onBack }: Props) {
     const [prefs, setPrefs] = useState<SecurityPrefs>({ biometric: false, screenLock: false });
     const [biometricAvailable, setBiometricAvailable] = useState(false);
     const [loading, setLoading] = useState(true);
+    const { showModal, modalNode } = useAppModal();
 
     useEffect(() => {
         const init = async () => {
@@ -95,7 +97,7 @@ export default function SecurityScreen({ onBack }: Props) {
             return;
         }
         if (!LocalAuthentication) {
-            Alert.alert('No disponible', 'La biometría requiere un build nativo de la app.');
+            showModal({ type: 'info', title: 'No disponible', message: 'La biometría requiere un build nativo de la app.' });
             return;
         }
         const result = await LocalAuthentication.authenticateAsync({
@@ -105,7 +107,7 @@ export default function SecurityScreen({ onBack }: Props) {
         if (result.success) {
             await updatePrefs({ ...prefs, biometric: true, screenLock: true });
         } else {
-            Alert.alert('No autenticado', 'La biometría no se activó.');
+            showModal({ type: 'error', title: 'No autenticado', message: 'La biometría no se activó.' });
         }
     };
 
@@ -181,6 +183,7 @@ export default function SecurityScreen({ onBack }: Props) {
                     </View>
                 </View>
             </ScrollView>
+            {modalNode}
         </View>
     );
 }

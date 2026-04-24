@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder,
-    StatusBar, Alert,
+    StatusBar,
 } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send } from 'lucide-react-native';
 import { styles, sh } from '../../styles/chatRoomStyles';
 import { messageFlowService } from '../../services/MessageFlowService';
@@ -315,6 +316,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     const [isSending, setIsSending] = useState(false);
     const [contactName, setContactName] = useState<string>(chatId.slice(5, 17));
     const { fontScale, prefs: { highContrast } } = useAccessibility();
+    const { showModal, modalNode } = useAppModal();
 
     const allMessagesRef = useRef(allMessages);
     const scrollPxAnim = useRef(new Animated.Value(0)).current;
@@ -392,7 +394,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
 
         setIsSending(true);
         messageFlowService.sendMessage({ recipientId: chatId, plaintext: text })
-            .catch(() => Alert.alert('Error al enviar', 'El mensaje no se pudo entregar.'))
+            .catch(() => showModal({ type: 'error', title: 'Error al enviar', message: 'El mensaje no se pudo entregar.' }))
             .finally(() => setIsSending(false));
     }, [newMessage, replyingTo, scrollPxAnim, chatId, isSending]);
 
@@ -464,6 +466,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                 />
 
                 <FullMessageModal msg={fullTextMsg} contactName={contactName} onClose={closeModal} />
+                {modalNode}
 
             </View>
         </KeyboardAvoidingView>

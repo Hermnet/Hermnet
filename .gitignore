@@ -14,4 +14,5 @@ backend/src/main/resources/*firebase-adminsdk-*.json
 .DS_Store
 .idea/
 .vscode/
+CLAUDE.md
 
