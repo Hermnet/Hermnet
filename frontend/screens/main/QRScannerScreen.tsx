@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    StatusBar, Alert, Dimensions, Animated,
+    StatusBar, Dimensions, Animated,
 } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X, ScanLine, FlashlightOff, Flashlight } from 'lucide-react-native';
 import { sh, FRAME_SIZE } from '../../styles/qrScannerStyles';
@@ -20,6 +21,7 @@ export default function QRScannerScreen({ onClose, onScanned }: Props) {
     const [scanned, setScanned] = useState(false);
     const [torch, setTorch] = useState(false);
     const scanLineAnim = useRef(new Animated.Value(0)).current;
+    const { showModal, modalNode } = useAppModal();
 
     // Animate scan line looping
     React.useEffect(() => {
@@ -52,14 +54,15 @@ export default function QRScannerScreen({ onClose, onScanned }: Props) {
         if (onScanned) {
             onScanned(data);
         } else {
-            Alert.alert(
-                'QR Escaneado',
-                `Hash ID: ${data}`,
-                [
+            showModal({
+                type: 'info',
+                title: 'QR Escaneado',
+                message: `Hash ID: ${data}`,
+                buttons: [
                     { text: 'Escanear otro', onPress: () => setScanned(false) },
-                    { text: 'Cerrar', onPress: onClose },
-                ]
-            );
+                    { text: 'Cerrar', style: 'cancel', onPress: onClose },
+                ],
+            });
         }
     };
 
@@ -160,6 +163,7 @@ export default function QRScannerScreen({ onClose, onScanned }: Props) {
                     </TouchableOpacity>
                 )}
             </View>
+            {modalNode}
         </View>
     );
 }
