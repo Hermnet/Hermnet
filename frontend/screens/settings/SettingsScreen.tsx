@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Modal,
-    KeyboardAvoidingView, Platform, Alert, Animated, StyleSheet,
+    KeyboardAvoidingView, Platform, Animated, StyleSheet,
 } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import {
     ArrowLeft, User, Bell, Shield, HelpCircle, FileText,
     Download, LogOut, Trash2, ChevronRight,
@@ -56,6 +57,7 @@ const SettingRow = React.memo(function SettingRow({
 export default function SettingsScreen({ onBack }: Props) {
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
     const [activeSub, setActiveSub] = useState<SubScreen>(null);
+    const { showModal, modalNode } = useAppModal();
     const subSlide = useSlideAnim(300);
     const identity = useAuthStore((s) => s.identity);
     const storeLogout = useAuthStore((s) => s.logout);
@@ -72,7 +74,7 @@ export default function SettingsScreen({ onBack }: Props) {
 
     const handleCopyId = async () => {
         await Clipboard.setStringAsync(hashId);
-        Alert.alert('Copiado', 'Tu Hash ID fue copiado al portapapeles.');
+        showModal({ type: 'success', title: 'Copiado', message: 'Tu Hash ID fue copiado al portapapeles.' });
     };
 
     const confirmLogout = async () => {
@@ -298,6 +300,8 @@ export default function SettingsScreen({ onBack }: Props) {
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            {modalNode}
 
             {/* ── Sub-screen slide overlay ── */}
             <Animated.View

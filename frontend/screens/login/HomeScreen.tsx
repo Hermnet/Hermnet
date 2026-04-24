@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, Alert, ActivityIndicator } from 'react-native';
+import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator } from 'react-native';
+import { useAppModal } from '../../components/AppModal';
 import QuickCrypto from 'react-native-quick-crypto';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
@@ -21,6 +22,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
     const [isLoading, setIsLoading] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
     const [loginLoading, setLoginLoading] = useState(false);
+    const { showModal, modalNode } = useAppModal();
 
     const bootstrapPromiseRef = useRef<Promise<LoginFlowResult> | null>(null);
     const pinRef = useRef<string>('');
@@ -56,20 +58,21 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
     };
 
     const handleRestoreClick = () => {
-        Alert.alert(
-            'Restaurar Identidad',
-            'Aquí se abrirá el explorador de archivos para seleccionar tu Bóveda de Respaldo (.hnet). Tras seleccionarlo, te pediremos tu contraseña de cifrado.',
-            [
+        showModal({
+            type: 'warning',
+            title: 'Restaurar Identidad',
+            message: 'Aquí se abrirá el explorador de archivos para seleccionar tu Bóveda de Respaldo (.hnet). Tras seleccionarlo, te pediremos tu contraseña de cifrado.',
+            buttons: [
                 { text: 'Cancelar', style: 'cancel' },
                 {
                     text: 'Simular Selección',
                     onPress: () => {
                         setIsRestoring(true);
                         animateToPinScreen();
-                    }
-                }
-            ]
-        );
+                    },
+                },
+            ],
+        });
     };
 
     const handlePinComplete = (pin: string) => {
@@ -88,15 +91,16 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
             await authStoreLogin(result.identity, result.jwtToken);
             if (onAuthSuccess) onAuthSuccess();
         } catch {
-            Alert.alert(
-                'Error de conexión',
-                'No se pudo conectar al servidor. ¿Reintentar?',
-                [
+            showModal({
+                type: 'error',
+                title: 'Error de conexión',
+                message: 'No se pudo conectar al servidor. ¿Reintentar?',
+                buttons: [
                     {
                         text: 'Reintentar',
                         onPress: () => {
                             bootstrapPromiseRef.current = authFlowService.bootstrapLogin();
-                        }
+                        },
                     },
                     {
                         text: 'Cancelar',
@@ -104,12 +108,12 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                         onPress: () => {
                             Animated.timing(slideLoadingAnim, { toValue: height, duration: 300, useNativeDriver: true })
                                 .start(() => setIsLoading(false));
-                        }
+                        },
                     },
-                ]
-            );
+                ],
+            });
         }
-    }, [authStoreLogin, onAuthSuccess, slideLoadingAnim]);
+    }, [authStoreLogin, onAuthSuccess, showModal, slideLoadingAnim]);
 
     const handleLoginComplete = useCallback(async (pin: string) => {
         setLoginLoading(true);
@@ -125,18 +129,18 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
             ]);
             if (cachedIdentity && cachedJwt && storedHash) {
                 if (hashPin(pin, cachedIdentity.id) !== storedHash) {
-                    Alert.alert('PIN incorrecto', 'No se pudo acceder a tu bóveda local.');
+                    showModal({ type: 'error', title: 'PIN incorrecto', message: 'No se pudo acceder a tu bóveda local.' });
                     return;
                 }
                 await authStoreLogin(cachedIdentity, cachedJwt);
                 if (onAuthSuccess) onAuthSuccess();
             } else {
-                Alert.alert('Error de autenticación', 'No se pudo verificar tu identidad. Comprueba la conexión.');
+                showModal({ type: 'error', title: 'Error de autenticación', message: 'No se pudo verificar tu identidad. Comprueba la conexión.' });
             }
         } finally {
             setLoginLoading(false);
         }
-    }, [authStoreLogin, onAuthSuccess]);
+    }, [authStoreLogin, onAuthSuccess, showModal]);
 
     if (hasAccount === null) {
         return <View style={{ flex: 1, backgroundColor: '#0d111b' }} />;
@@ -227,6 +231,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                     <Text style={{ color: '#a0aec0', marginTop: 12, fontSize: 14 }}>Autenticando...</Text>
                 </View>
             )}
+            {modalNode}
         </View>
     );
 }
