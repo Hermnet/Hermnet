@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Animated } from 'react-native';
 import { ArrowLeft, AlertTriangle, User } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+
 import QRCode from 'react-native-qrcode-svg';
 import { styles } from '../../styles/showQRStyles';
 import { useAuthStore } from '../../store/authStore';
@@ -145,6 +147,16 @@ export default function ShowQRScreen({ onClose, hashId }: Props) {
                 <Text style={styles.hint}>
                     Muestra este código a otro usuario{'\n'}para conectar de forma segura
                 </Text>
+
+                {__DEV__ && qrPayload ? (
+                    <TouchableOpacity
+                        style={{ marginTop: 24, backgroundColor: '#7c3aed', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 }}
+                        activeOpacity={0.8}
+                        onPress={() => Clipboard.setStringAsync(qrPayload)}
+                    >
+                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>🐛 Copiar datos QR</Text>
+                    </TouchableOpacity>
+                ) : null}
             </View>
         </View>
     );

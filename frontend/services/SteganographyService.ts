@@ -58,25 +58,22 @@ export class SteganographyService {
     const bits = this.bytesToBits(stream);
 
     let bitIndex = 0;
-    for (let pixelIndex = 0; pixelIndex < output.length && bitIndex < bits.length; pixelIndex++) {
-      if (this.isAlphaChannel(pixelIndex)) {
-        continue;
+    let pixelIndex = 0;
+    while (pixelIndex < output.length && bitIndex < bits.length) {
+      if (!this.isAlphaChannel(pixelIndex)) {
+        output[pixelIndex] = (output[pixelIndex] & 0xfe) | bits[bitIndex];
+        bitIndex++;
       }
-
-      output[pixelIndex] = (output[pixelIndex] & 0xfe) | bits[bitIndex];
-      bitIndex++;
+      pixelIndex++;
     }
 
     if (options.addNoisePadding) {
-      for (let pixelIndex = 0; pixelIndex < output.length; pixelIndex++) {
-        if (this.isAlphaChannel(pixelIndex)) {
-          continue;
-        }
-
-        if (bitIndex < this.getUsableChannels(output.length)) {
+      // Continúa desde donde acabó el payload para no sobreescribir lo recién embebido
+      while (pixelIndex < output.length) {
+        if (!this.isAlphaChannel(pixelIndex)) {
           output[pixelIndex] = (output[pixelIndex] & 0xfe) | this.randomBit();
-          bitIndex++;
         }
+        pixelIndex++;
       }
     }
 

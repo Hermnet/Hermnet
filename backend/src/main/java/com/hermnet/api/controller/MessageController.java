@@ -69,6 +69,7 @@ public class MessageController {
      * @return List of stego images (as byte arrays/Base64 strings).
      */
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<List<byte[]>> getMessages(@RequestParam String myId) {
         List<Message> messages = messageRepository.findByRecipientHashOrderByCreatedAtDesc(myId);
 

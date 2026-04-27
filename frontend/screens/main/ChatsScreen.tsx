@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Lock, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
+import { User, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
 import { styles } from '../../styles/chatsStyles';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
 import ChatRoomScreen from './ChatRoomScreen';
@@ -12,14 +12,16 @@ import ShowQRScreen from './ShowQRScreen';
 import { useAuthStore } from '../../store/authStore';
 import { contactsService } from '../../services/ContactsService';
 import { messageFlowService } from '../../services/MessageFlowService';
+import { databaseService } from '../../services/DatabaseService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { WARNING_BG, WARNING_MAIN, WARNING_LIGHT, DANGER_BG, DANGER_TEXT } from '../../styles/theme';
+import * as Clipboard from 'expo-clipboard';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 type Chat = {
     id: string;
     name: string;
-    hasUnread?: boolean;
+    unreadCount: number;
 };
 
 export default function ChatsScreen() {
@@ -32,6 +34,12 @@ export default function ChatsScreen() {
     const [chats, setChats] = useState<Chat[]>([]);
     const [serverError, setServerError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [pendingQRData, setPendingQRData] = useState<string | null>(null);
+    const [aliasInput, setAliasInput] = useState('');
+    // Cola de contactos entrantes a los que se debe pedir alias (alguien nos ha añadido)
+    const [incomingContactQueue, setIncomingContactQueue] = useState<string[]>([]);
+    const [incomingAliasInput, setIncomingAliasInput] = useState('');
 
     const { identity } = useAuthStore();
     const networkStatus = useNetworkStatus();
@@ -50,28 +58,60 @@ export default function ChatsScreen() {
     const btn1TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
     const btn2TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
 
+    const loadChats = useCallback(async () => {
+        if (!identity) return;
+        // syncInbox primero: puede añadir contactos nuevos (handshake); getAllContacts después los incluye
+        let syncOk = true;
+        const result = await messageFlowService.syncInbox(identity.id, identity.privateKey).catch(() => {
+            syncOk = false;
+            setServerError(true);
+            return { senders: [] as string[], newContacts: [] as string[] };
+        });
+        if (syncOk) setServerError(false);
+        // Si alguien nos ha añadido (handshake o primer mensaje), encolarlo para pedir alias
+        if (result.newContacts.length > 0) {
+            setIncomingContactQueue(prev => {
+                const seen = new Set(prev);
+                const additions = result.newContacts.filter(c => !seen.has(c));
+                return additions.length > 0 ? [...prev, ...additions] : prev;
+            });
+        }
+        const contacts = await contactsService.getAllContacts();
+        const newSet = new Set(result.senders);
+        const chatsWithCounts = await Promise.all(contacts.map(async c => ({
+            id: c.contactHash,
+            name: c.alias ?? c.contactHash.slice(5, 17),
+            unreadCount: newSet.has(c.contactHash)
+                ? await databaseService.getUnreadCount(c.contactHash)
+                : 0,
+        })));
+        setChats(chatsWithCounts);
+    }, [identity]);
+
     useEffect(() => {
         if (!identity) return;
         setIsLoading(true);
-        const load = async () => {
-            const [contacts, newFrom] = await Promise.all([
-                contactsService.getAllContacts(),
-                messageFlowService.syncInbox(identity.id, identity.privateKey).catch(() => {
-                    setServerError(true);
-                    return [] as string[];
-                }),
-            ]);
-            const unreadSet = new Set(newFrom ?? []);
-            setChats(contacts.map(c => ({
-                id: c.contactHash,
-                name: c.alias ?? c.contactHash.slice(5, 17),
-                hasUnread: unreadSet.has(c.contactHash),
-            })));
-        };
-        load()
+        loadChats()
             .catch(() => setServerError(true))
             .finally(() => setIsLoading(false));
     }, [identity?.id]);
+
+    useEffect(() => {
+        if (!identity) return;
+        // Polling cada 3s: compromiso entre snappiness y carga de servidor
+        const id = setInterval(() => {
+            loadChats().catch(() => {});
+        }, 3000);
+        return () => clearInterval(id);
+    }, [loadChats]);
+
+    const handleRefresh = useCallback(async () => {
+        if (!identity) return;
+        setRefreshing(true);
+        setServerError(false);
+        await loadChats().catch(() => setServerError(true));
+        setRefreshing(false);
+    }, [loadChats, identity]);
 
     const filteredChats = chats.filter(chat =>
         chat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -80,7 +120,8 @@ export default function ChatsScreen() {
     const handleChatPress = useCallback((id: string) => {
         setActiveChatId(id);
         chatSlide.open();
-        setChats(prev => prev.map(c => c.id === id ? { ...c, hasUnread: false } : c));
+        setChats(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c));
+        databaseService.markAsRead(id).catch(() => {});
     }, [chatSlide]);
 
     const handleBack = useCallback(() => {
@@ -105,6 +146,7 @@ export default function ChatsScreen() {
         setChats(contacts.map(c => ({
             id: c.contactHash,
             name: c.alias ?? c.contactHash.slice(5, 17),
+            unreadCount: 0,
         })));
     }, []);
 
@@ -115,15 +157,59 @@ export default function ChatsScreen() {
                 handleCloseQR();
                 return;
             }
-            const contact = await contactsService.saveContactFromQR(data);
-            await refreshContacts();
+            // Validate before showing alias modal
+            JSON.parse(data); // throws if invalid JSON
             handleCloseQR();
-            showModal({ type: 'success', title: 'Contacto añadido', message: `${contact.contactHash} se guardó correctamente.` });
+            setPendingQRData(data);
+            setAliasInput('');
         } catch (err: any) {
             handleCloseQR();
             showModal({ type: 'error', title: 'Error', message: err?.message ?? 'No se pudo añadir el contacto.' });
         }
-    }, [identity, handleCloseQR, refreshContacts]);
+    }, [identity, handleCloseQR, showModal]);
+
+    const handleSaveContact = useCallback(async (alias?: string) => {
+        if (!pendingQRData) return;
+        const data = pendingQRData;
+        setPendingQRData(null);
+        try {
+            const contact = await contactsService.saveContactFromQR(data, alias?.trim() || undefined);
+            await refreshContacts();
+            // Notificar al otro lado para que nos añada como contacto automáticamente
+            messageFlowService.sendHandshake(contact.contactHash).catch((err) => {
+                console.warn('[handshake] failed:', err);
+            });
+            // Abrir el chat directamente
+            setActiveChatId(contact.contactHash);
+            chatSlide.open();
+        } catch (err: any) {
+            showModal({ type: 'error', title: 'Error', message: err?.message ?? 'No se pudo añadir el contacto.' });
+        }
+    }, [pendingQRData, refreshContacts, showModal, chatSlide]);
+
+    // Cuando alguien nos añade (vía handshake o primer mensaje), procesamos la cola
+    // un contacto cada vez: pedimos alias para el primero, al guardar/omitir pasamos al siguiente.
+    const handleSaveIncomingAlias = useCallback(async (alias?: string) => {
+        const target = incomingContactQueue[0];
+        if (!target) return;
+        setIncomingContactQueue(prev => prev.slice(1));
+        setIncomingAliasInput('');
+        const trimmed = alias?.trim();
+        if (!trimmed) {
+            await refreshContacts();
+            return;
+        }
+        try {
+            const contacts = await contactsService.getAllContacts();
+            const existing = contacts.find(c => c.contactHash === target);
+            if (existing) {
+                await contactsService.saveContact(target, existing.publicKey, trimmed);
+            }
+            await refreshContacts();
+        } catch (err: any) {
+            showModal({ type: 'error', title: 'Error', message: err?.message ?? 'No se pudo guardar el alias.' });
+        }
+    }, [incomingContactQueue, refreshContacts, showModal]);
 
     const closeFabMenu = useCallback(() => {
         setFabOpen(false);
@@ -165,12 +251,14 @@ export default function ChatsScreen() {
             accessibilityLabel={`Abrir chat con ${item.name}`}
         >
             <View style={styles.avatarContainer}>
-                <User size={20} color="#bd2b2b" />
+                <User size={20} color="#60a5fa" />
             </View>
             <Text style={[styles.chatName, { fontSize: Math.round(16 * fontScale) }]}>{item.name}</Text>
-            {item.hasUnread && (
-                <View style={styles.unreadBadge}>
-                    <Lock size={10} color="#ffffff" />
+            {item.unreadCount > 0 && (
+                <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5 }]}>
+                    <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
+                        {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                    </Text>
                 </View>
             )}
         </TouchableOpacity>
@@ -214,14 +302,46 @@ export default function ChatsScreen() {
                     </View>
                 )}
 
+                {__DEV__ && (
+                    <TouchableOpacity
+                        style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, alignItems: 'center' }}
+                        activeOpacity={0.8}
+                        onPress={async () => {
+                            const text = await Clipboard.getStringAsync();
+                            if (text) handleScannedQR(text);
+                        }}
+                    >
+                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>🐛 Pegar QR del portapapeles</Text>
+                    </TouchableOpacity>
+                )}
+
                 {isLoading
                     ? <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 40 }} />
                     : <FlatList
                         data={filteredChats}
                         keyExtractor={(item) => item.id}
                         renderItem={renderItem}
-                        contentContainerStyle={styles.listContainer}
+                        contentContainerStyle={[styles.listContainer, filteredChats.length === 0 && { flex: 1 }]}
                         showsVerticalScrollIndicator={false}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" colors={['#3b82f6']} />}
+                        ListEmptyComponent={
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40, gap: 16 }}>
+                                <Text style={{ color: '#4a5568', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+                                    {searchQuery
+                                        ? 'No hay contactos que coincidan con tu búsqueda.'
+                                        : 'Aún no tienes contactos.\nEscanea el QR de alguien para empezar.'}
+                                </Text>
+                                {!searchQuery && (
+                                    <TouchableOpacity
+                                        style={{ backgroundColor: '#354d8b', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+                                        activeOpacity={0.8}
+                                        onPress={handleOpenScanQR}
+                                    >
+                                        <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Escanear QR</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        }
                     />
                 }
 
@@ -309,6 +429,110 @@ export default function ChatsScreen() {
             >
                 {showShowQR && <ShowQRScreen onClose={handleCloseShowQR} />}
             </Animated.View>
+            {/* ── Modal: Alias de contacto ── */}
+            <Modal
+                visible={!!pendingQRData}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={() => handleSaveContact()}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
+                    activeOpacity={1}
+                    onPress={() => handleSaveContact()}
+                >
+                    <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: '#141927', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} onPress={() => {}}>
+                        <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '700', marginBottom: 6 }}>Nombrar contacto</Text>
+                        <Text style={{ color: '#a0aec0', fontSize: 13, marginBottom: 18 }}>Ponle un nombre para identificarlo fácilmente. Puedes omitirlo.</Text>
+                        <TextInput
+                            style={{ backgroundColor: '#1e2d4a', color: '#ffffff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, marginBottom: 20 }}
+                            placeholder="Ej: Fran, trabajo, mamá..."
+                            placeholderTextColor="#4a5568"
+                            value={aliasInput}
+                            onChangeText={setAliasInput}
+                            autoFocus
+                            maxLength={40}
+                            returnKeyType="done"
+                            onSubmitEditing={() => handleSaveContact(aliasInput)}
+                        />
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: '#1e2d4a', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                                activeOpacity={0.8}
+                                onPress={() => handleSaveContact()}
+                            >
+                                <Text style={{ color: '#a0aec0', fontWeight: '600', fontSize: 15 }}>Omitir</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: '#354d8b', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                                activeOpacity={0.8}
+                                onPress={() => handleSaveContact(aliasInput)}
+                            >
+                                <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 15 }}>Guardar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* ── Modal: Alguien te ha añadido ── */}
+            <Modal
+                visible={incomingContactQueue.length > 0 && !pendingQRData}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={() => handleSaveIncomingAlias()}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
+                    activeOpacity={1}
+                    onPress={() => handleSaveIncomingAlias()}
+                >
+                    <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: '#141927', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} onPress={() => {}}>
+                        <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 8, letterSpacing: 0.6 }}>
+                            NUEVO CONTACTO
+                        </Text>
+                        <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '700', marginBottom: 6 }}>
+                            Alguien te ha añadido
+                        </Text>
+                        <Text style={{ color: '#a0aec0', fontSize: 13, marginBottom: 6 }}>
+                            ¿Qué nombre quieres ponerle? Puedes omitirlo y editarlo más tarde.
+                        </Text>
+                        <Text style={{ color: '#4a5568', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginBottom: 18 }}>
+                            {incomingContactQueue[0] ?? ''}
+                        </Text>
+                        <TextInput
+                            style={{ backgroundColor: '#1e2d4a', color: '#ffffff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, marginBottom: 20 }}
+                            placeholder="Ej: Fran, trabajo, mamá..."
+                            placeholderTextColor="#4a5568"
+                            value={incomingAliasInput}
+                            onChangeText={setIncomingAliasInput}
+                            autoFocus
+                            maxLength={40}
+                            returnKeyType="done"
+                            onSubmitEditing={() => handleSaveIncomingAlias(incomingAliasInput)}
+                        />
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: '#1e2d4a', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                                activeOpacity={0.8}
+                                onPress={() => handleSaveIncomingAlias()}
+                            >
+                                <Text style={{ color: '#a0aec0', fontWeight: '600', fontSize: 15 }}>Omitir</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: '#354d8b', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                                activeOpacity={0.8}
+                                onPress={() => handleSaveIncomingAlias(incomingAliasInput)}
+                            >
+                                <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 15 }}>Guardar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+
             {modalNode}
         </KeyboardAvoidingView>
     );
