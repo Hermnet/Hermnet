@@ -14,12 +14,8 @@ export interface QRPayload {
 
 export class ContactsService {
     async getAllContacts(): Promise<Contact[]> {
-        const db = databaseService.getDatabase();
-        if (!db) return [];
-        const rows = await (db as any).getAllAsync(
-            'SELECT contact_hash, public_key, alias_local FROM contacts_vault;'
-        );
-        return (rows ?? []).map((r: any) => ({
+        const rows = await databaseService.getAllContactsRaw();
+        return rows.map((r) => ({
             contactHash: r.contact_hash,
             publicKey: r.public_key,
             alias: r.alias_local ?? null,
@@ -27,14 +23,7 @@ export class ContactsService {
     }
 
     async saveContact(contactHash: string, publicKey: string, alias?: string): Promise<void> {
-        const db = databaseService.getDatabase();
-        if (!db) throw new Error('Database not initialised');
-        await (db as any).runAsync(
-            `INSERT INTO contacts_vault (contact_hash, public_key, alias_local)
-             VALUES (?, ?, ?)
-             ON CONFLICT(contact_hash) DO UPDATE SET public_key = excluded.public_key, alias_local = excluded.alias_local;`,
-            [contactHash, publicKey, alias ?? null]
-        );
+        await databaseService.upsertContact(contactHash, publicKey, alias ?? null);
     }
 
     /** Parses the raw string from QR scanner and saves the contact. */
