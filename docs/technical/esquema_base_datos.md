@@ -42,7 +42,7 @@ erDiagram
     mailbox {
         BIGSERIAL message_id PK
         VARCHAR(64) recipient_hash FK
-        LONGBLOB stego_packet 
+        LONGBLOB payload 
         TIMESTAMP created_at
     }
 
@@ -90,18 +90,18 @@ Lista negra para invalidar sesiones antes de tiempo.
 | `revoked_reason` | VARCHAR(20) | Nullable | 'LOGOUT', 'SECURITY'. |
 | `expires_at` | TIMESTAMP | Not Null | Fecha fin del token original. |
 
-### D. Tabla `mailbox` (Buzón de Paquetes Esteganográficos)
-Almacena los "contenedores" (imágenes predefinidas con datos inyectados).
+### D. Tabla `mailbox` (Buzón de Payloads Cifrados)
+Almacena los blobs binarios cifrados extremo a extremo. El servidor nunca decodifica su contenido.
 
 | Columna | Tipo SQL | Restricciones | Para qué sirve (Lógica) |
 | :--- | :--- | :--- | :--- |
 | `message_id` | BIGSERIAL | PK | ID del paquete. |
 | `recipient_hash` | VARCHAR(64) | Indexado | Destinatario del paquete. Crear Índice B-Tree. |
-| `stego_packet` | LONGBLOB | Not Null | La imagen PNG estandarizada (Payload). |
+| `payload` | LONGBLOB | Not Null | Payload cifrado híbrido AES-256-GCM + RSA-OAEP. Opaco para el servidor. |
 | `created_at` | TIMESTAMP | Default NOW() | Fecha de recepción. |
 
 **Control de Integridad de Payloads:**
-*   El controlador de ingestión de mensajes implementa validaciones estrictas a nivel de byte. Se rechazan peticiones que no cumplan con la firma de archivo PNG y el tamaño exacto predefinido por el protocolo de esteganografía, mitigando ataques de denegación de servicio o inyección de archivos maliciosos.
+*   El DTO `SendMessageRequest` valida que el `payload` no sea nulo ni vacío (`@NotNull`, `@Size(min=1)`). El servidor no inspecciona el contenido — el cliente garantiza la integridad criptográfica con AES-GCM y desecha en recepción cualquier payload que no autentique correctamente.
 
 ### E. Tabla `rate_limit_buckets` (Defensa Anti-Abuso)
 Control de tráfico para usuarios anónimos.
@@ -117,11 +117,10 @@ Control de tráfico para usuarios anónimos.
 Instrucciones para que el programador blinde el código ante ataques comunes.
 
 ### Escenario 1: Intento de subir "Archivos Basura"
-*   **Situación:** Un atacante intenta usar la API para subir una película o un virus `.exe` renombrado a `.png`.
-*   **Control (Magic Numbers):** El servidor no se fía de la extensión. Lee los primeros bytes del archivo (Cabecera).
-    *   Si no empieza por `89 50 4E 47` (Firma PNG), rechaza la petición.
-*   **Control (Tamaño Estricto):** Como usamos imágenes predefinidas normalizadas, sabemos que el peso siempre debe ser X.
-    *   Si `file.size > LIMIT_SIZE` -> Error 413 (Payload Too Large).
+*   **Situación:** Un atacante intenta inundar el buzón con payloads enormes para agotar el disco.
+*   **Control (Tamaño máximo):** Spring Boot aplica el límite `spring.servlet.multipart.max-request-size` y la validación Jakarta `@Size` a nivel DTO.
+    *   Si `payload.length > LIMIT` → respuesta 413 (Payload Too Large) o 400 según la capa.
+*   **Control de autenticidad:** Aunque el servidor acepta el blob, el receptor descartará silenciosamente cualquier paquete cuyo `authTag` AES-GCM no valide; el atacante solo logra ocupar espacio temporal hasta el siguiente `ack`.
 
 ### Escenario 2: Ataque de Inundación (Mailbox Flooding)
 *   **Situación:** Alguien envía 500 mensajes seguidos a un usuario para llenarle el buzón y colapsar el disco del servidor.
@@ -142,7 +141,7 @@ Instrucciones para que el programador blinde el código ante ataques comunes.
 *   **Solución:** La tabla `auth_challenges` debe tener una restricción UNIQUE sobre el `nonce`, pero permitir múltiples filas por usuario. El Garbage Collector limpiará las viejas.
 
 ## 4. Instrucciones de Despliegue (DevOps)
-*   **Sin Logs de Payload:** Configurar el servidor para que NUNCA escriba en los logs el contenido del `stego_packet` ni su tamaño. Solo "Message received for HNET-X".
+*   **Sin Logs de Payload:** Configurar el servidor para que NUNCA escriba en los logs el contenido del `payload` ni su tamaño. Solo "Message received for HNET-X".
 *   **Base de Datos Efímera:** Considerar que la tabla `mailbox` es de alto tráfico de escritura/borrado. Se recomienda ejecutar un `VACUUM` (en PostgreSQL) o `OPTIMIZE TABLE` (en MySQL) periódicamente para recuperar espacio en disco.
 
 </div>

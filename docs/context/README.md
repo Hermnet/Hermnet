@@ -9,7 +9,7 @@
 | `backend.md` | Endpoints REST, modelo BD, filters, seguridad |
 | `frontend.md` | Estructura Expo Router, services, screens, store |
 | `auth_flow.md` | Registro, challenge, login JWT |
-| `messaging_flow.md` | Envío/recepción mensaje con esteganografía |
+| `messaging_flow.md` | Envío/recepción de mensajes con cifrado híbrido |
 | `crypto.md` | Primitivas crypto y libs usadas |
 | `dev_setup.md` | Cómo arrancar back/front, IPs, puertos |
 | `conventions.md` | Commits, idioma, workflow git |
