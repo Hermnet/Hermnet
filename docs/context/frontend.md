@@ -22,9 +22,8 @@
 | `AuthSessionService.ts` | SecureStore: identity, JWT, PIN hash |
 | `IdentityService.ts` | generación par de claves, firma nonce |
 | `MessageApiService.ts` | llamadas a `/api/messages` |
-| `MessageCryptoService.ts` | cifrado híbrido AES-GCM + ECDH |
+| `MessageCryptoService.ts` | cifrado híbrido AES-256-GCM + RSA-OAEP-SHA256 |
 | `MessageFlowService.ts` | orquesta envío/recepción completa |
-| `SteganographyService.ts` | LSB PNG encode/decode |
 | `ContactsService.ts` | vault local de contactos |
 | `DatabaseService.ts` | init SQLite, migraciones, queries |
 

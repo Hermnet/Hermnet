@@ -3,32 +3,34 @@ import { Buffer } from 'buffer';
 
 interface SendMessageRequestDto {
   recipientId: string;
-  stegoImage: string;
+  payload: string;
 }
 
 /**
- * API adapter for secure message transport endpoints.
+ * API adapter for the secure message transport endpoints. The payload is an opaque
+ * encrypted blob (RSA-OAEP wrapped AES-256-GCM ciphertext) — the server never sees
+ * its contents nor knows what shape it has.
  */
 export class MessageApiService {
   /**
-   * Sends a steganographic packet to a recipient mailbox.
+   * Sends an encrypted payload to a recipient mailbox.
    */
-  async sendMessage(recipientId: string, stegoImage: Uint8Array | Uint8ClampedArray): Promise<void> {
-    const payload: SendMessageRequestDto = {
+  async sendMessage(recipientId: string, payload: Uint8Array): Promise<void> {
+    const body: SendMessageRequestDto = {
       recipientId,
-      stegoImage: Buffer.from(stegoImage).toString('base64'),
+      payload: Buffer.from(payload).toString('base64'),
     };
 
     await apiClient.request<void>({
       path: '/api/messages',
       method: 'POST',
-      body: payload,
+      body,
     });
   }
 
   /**
-   * Acknowledges (y elimina) los mensajes del buzón del servidor.
-   * Si se proporciona cutoff, solo se borran los mensajes anteriores a esa marca de tiempo.
+   * Acknowledges (and deletes) the messages currently in the user's mailbox.
+   * If `cutoff` is provided, only entries with `createdAt <= cutoff` are removed.
    */
   async ackMessages(cutoff?: string): Promise<void> {
     await apiClient.request<void>({
@@ -39,7 +41,7 @@ export class MessageApiService {
   }
 
   /**
-   * Retrieves steganographic packets for the provided user identifier.
+   * Retrieves encrypted payloads addressed to the given user identifier.
    */
   async getMessages(myId: string): Promise<Uint8Array[]> {
     const response = await apiClient.request<unknown>({
@@ -51,16 +53,16 @@ export class MessageApiService {
       throw new Error('Invalid /api/messages response format');
     }
 
-    return response.map((item) => this.decodePacket(item));
+    return response.map((item) => this.decodePayload(item));
   }
 
-  private decodePacket(packet: unknown): Uint8Array {
-    if (Array.isArray(packet)) {
-      return new Uint8Array(packet as number[]);
+  private decodePayload(payload: unknown): Uint8Array {
+    if (Array.isArray(payload)) {
+      return new Uint8Array(payload as number[]);
     }
 
-    if (typeof packet === 'string') {
-      const binary = atob(packet);
+    if (typeof payload === 'string') {
+      const binary = atob(payload);
       const bytes = new Uint8Array(binary.length);
 
       for (let i = 0; i < binary.length; i++) {
@@ -70,7 +72,7 @@ export class MessageApiService {
       return bytes;
     }
 
-    throw new Error('Invalid stego packet format in /api/messages response');
+    throw new Error('Invalid payload format in /api/messages response');
   }
 }
 

@@ -24,8 +24,7 @@
 ## Pendiente / por verificar
 - [x] ~~**ACK de mensajes**~~ → añadido `POST /api/messages/ack` (cutoff opcional). Falta cliente: que `MessageFlowService` lo invoque tras procesar.
 - [x] ~~**Refresh token / rotación**~~ → backend listo (`POST /api/auth/refresh`). Falta cliente: silent refresh periódico antes de expirar.
-- [ ] **Chat flow real** en `ChatRoomScreen`: verificar wiring con `MessageFlowService` (envío+recepción stego end-to-end).
-- [ ] **Cover images**: seed de PNGs cover en el dispositivo (`cover_images` SQLite).
+- [x] **Chat flow real** en `ChatRoomScreen`: integración E2E con `MessageFlowService` (envío + recepción + dedup + estados pending/sent/failed + reintento).
 - [ ] **Recovery file .hnet**: flujo de exportar/importar bóveda (hoy `HomeScreen.handleRestoreClick` está simulado con `Alert`).
 - [ ] **Auto-destrucción tras N PIN fallidos**: no implementado todavía.
 - [ ] **The Bridge (PC P2P)**: documentado, no iniciado.

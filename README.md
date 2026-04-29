@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" />
 </p> 
 
-<h3 align="center"><em>Privacidad por Diseño y Esteganografía Avanzada</em></h3>
+<h3 align="center"><em>Privacidad por Diseño y Cifrado de Extremo a Extremo</em></h3>
 
 <p align="center">  
   <a href="./docs/anteproyecto.md"><strong>[Leer el Anteproyecto Completo]</strong></a>
@@ -29,13 +29,12 @@
 | **[Protocolo de Autenticación](./docs/technical/protocolo_autenticacion.md)** | Protocolo Challenge-Response Zero-Knowledge. |
 | **[Intercambio de Claves P2P](./docs/technical/intercambio_claves_p2p.md)** | Vinculación segura mediante códigos QR y Deep Links. |
 | **[Esquema de Base de Datos](./docs/technical/esquema_base_datos.md)** | Estructura relacional del servidor y persistencia efímera. |
-| **[Cifrado Híbrido (E2EE)](./docs/technical/cifrado_hibrido_e2ee.md)** | Motor criptográfico híbrido (AES-256 + ECC). |
-| **[Algoritmo de Esteganografía](./docs/technical/algoritmo_esteganografia.md)** | Algoritmo LSB para inyección invisible de datos en PNGs. |
+| **[Cifrado Híbrido (E2EE)](./docs/technical/cifrado_hibrido_e2ee.md)** | Motor criptográfico híbrido (AES-256-GCM + RSA-OAEP). |
 | **[Arquitectura Backend API](./docs/technical/arquitectura_backend_api.md)** | Especificación de la API REST y políticas de privacidad. |
 
 <div style="text-align: justify; text-indent: 20px;">
 
-**Hermnet** es una aplicación de mensajería instantánea desarrollada con un enfoque prioritario en la seguridad y la privacidad del usuario. A diferencia de las plataformas convencionales, Hermnet implementa una arquitectura de "Conocimiento Cero" y utiliza técnicas de esteganografía para ocultar la existencia misma de los mensajes.
+**Hermnet** es una aplicación de mensajería instantánea desarrollada con un enfoque prioritario en la seguridad y la privacidad del usuario. A diferencia de las plataformas convencionales, Hermnet implementa una arquitectura de "Conocimiento Cero" en la que el servidor solo transporta blobs binarios cifrados sin poder leerlos.
 
 ### Origen del Nombre
 
@@ -50,8 +49,8 @@ En conjunto, **Hermnet** representa una red de mensajería protegida, diseñada 
 
 La premisa fundamental de Hermnet es que la privacidad no debe depender de la confianza en un tercero, sino de la solidez matemática y tecnológica.
 
-1. **Esteganografía**: Los mensajes cifrados se incrustan dentro de archivos de imagen, haciéndolos imperceptibles para análisis de tráfico convencionales.
-2. **Identidad Soberana**: El sistema no requiere datos personales (teléfono o correo). La identidad se basa exclusivamente en pares de claves criptográficas generadas en el dispositivo del usuario.
+1. **Cifrado Híbrido E2EE**: Cada mensaje se cifra extremo a extremo combinando AES-256-GCM (contenido) y RSA-OAEP-SHA256 (clave de sesión). El servidor sólo ve un blob binario opaco.
+2. **Identidad Soberana**: El sistema no requiere datos personales (teléfono o correo). La identidad se basa exclusivamente en un par de claves RSA generadas en el dispositivo del usuario; el HNET-id es el fingerprint SHA-256 de la clave pública, verificable en cada intercambio.
 3. **Arquitectura "Zero Knowledge"**: El servidor actúa únicamente como un canal de transmisión ciego. No almacena historiales de chat, listas de contactos ni claves privadas.
 
 ### Objetivo del Proyecto

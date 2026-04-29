@@ -112,48 +112,34 @@ Almacenamiento temporal. Se borra tras la entrega.
 
 ---
 
-## 5. El Cifrado Híbrido (Antes de esconderlo)
-Sistema de dos capas:
-1.  **Cifrado Simétrico (AES-256):** Ciframos el mensaje con una clave aleatoria.
-2.  **Cifrado Asimétrico (ECC):** Ciframos esa clave aleatoria con la Clave Pública del receptor.
-*   **Resultado:** Un "paquete" binario que solo el receptor puede abrir.
+## 5. El Cifrado Híbrido (Capa de confidencialidad)
+Sistema de dos capas que combina velocidad y simplicidad de gestión de claves:
+1.  **Cifrado Simétrico (AES-256-GCM):** Cada mensaje se cifra con una clave aleatoria de 32 bytes y un IV único de 12 bytes. El modo GCM produce un tag de autenticación de 16 bytes que detecta cualquier manipulación.
+2.  **Encapsulado Asimétrico (RSA-OAEP-SHA256):** La clave AES efímera (32 B) se cifra con la clave pública RSA-2048 del receptor. RSA solo se aplica a esos 32 B; el contenido completo va en AES.
+*   **Resultado:** Un blob binario `[2B longitud RSA][RSA(AES-key)][12B IV][16B tag][ciphertext]` que solo el receptor con la clave privada correcta puede abrir.
+*   **Detalle completo:** ver `cifrado_hibrido_e2ee.md`.
 
 ---
 
-## 6. Algoritmo de Esteganografía
-Usamos la técnica LSB (Least Significant Bit) en imágenes **PNG**.
-*   **Lógica:** Cambiamos el último bit de cada canal RGB.
-*   **Invisibilidad:** El ojo humano no distingue entre el valor 200 y 201 en un color.
-*   **Formato:** PNG obligatorio (Lossless). JPG destruiría los datos.
+## 6. Flujo de Trabajo en el Móvil
+1.  **Composición del sobre JSON:** `{from, pk, text, ts}`.
+2.  **Cifrado híbrido:** AES-GCM al sobre + RSA-OAEP a la clave AES.
+3.  **Empaquetado:** concatenación de los componentes en `Uint8Array`.
+4.  **Codificación base64** para el JSON HTTP.
+5.  **POST `/api/messages`** con `{recipientId, payload}`.
 
 ---
 
-## 7. Flujo de Trabajo en el Móvil
-1.  **Selección de Imagen:** La app elige una imagen de cobertura.
-2.  **Preparación:** El mensaje cifrado se convierte en bits.
-3.  **Inyección:** Se sustituyen los bits LSB de los píxeles.
-4.  **Delimitador:** Se añade una secuencia de fin.
-5.  **Guardado:** Se genera el nuevo PNG.
-
----
-
-## 8. El Papel del Servidor
+## 7. El Papel del Servidor
 Arquitectura Zero-Knowledge:
-*   Recibe POST con `MultipartFile`.
-*   Guarda en `mailbox`.
-*   **Limpieza:** Puede borrar metadatos EXIF, pero **nunca** comprimir o redimensionar.
+*   Recibe `POST /api/messages` con un payload binario opaco.
+*   Guarda en `mailbox.payload` indexado por `recipient_hash`.
+*   Dispara push silenciosa FCM al `push_token` del receptor (si tiene uno registrado).
+*   **No inspecciona el payload** — para él es un blob binario sin estructura conocida.
 
 ---
 
-## 9. Escudo de Imágenes Sintéticas
-Para evitar *fingerprinting* del dispositivo:
-*   El sistema genera o provee imágenes neutrales.
-*   Evita metadatos personales del usuario.
-*   Optimización: Imágenes pre-descargadas para evitar latencia.
-
----
-
-## 10. Anonimización de la IP (Escudo Ciego)
+## 8. Anonimización de la IP (Escudo Ciego)
 1.  **Filtrado de Aplicación:** Se intercepta la petición.
 2.  **Hashing Diario:** `SHA-256(IP + Salt_Diario)`.
     *   Permite Rate Limiting diario pero impide rastreo histórico.
@@ -161,32 +147,33 @@ Para evitar *fingerprinting* del dispositivo:
 
 ---
 
-## 11. Tráfico Uniforme
-Para evitar análisis de tráfico por tamaño de paquete:
-*   **Normalización:** Todas las imágenes se rellenan con ruido hasta pesar lo mismo (ej. 1.5MB).
+## 9. Tráfico Uniforme
+Para mitigar análisis de tráfico por tamaño:
+*   **Tamaño constante por mensaje:** todos los payloads cifrados pesan ~800 B independientemente del texto, gracias a que el sobre incluye siempre la `pk` del emisor (de tamaño fijo). La diferencia entre un texto corto y uno largo es marginal frente al overhead criptográfico.
+*   Para mensajes muy grandes (no contemplados en el alcance actual), habría que aplicar padding hasta cuantizar el tamaño en bloques fijos.
 
 ---
 
-## 12. Gestión de Tokens (Seguridad de Sesión)
+## 10. Gestión de Tokens (Seguridad de Sesión)
 *   **JTI:** ID único en cada JWT.
 *   **Blacklist:** Revocación inmediata en cierre de sesión o rotación.
 *   **Silent Refresh:** Renovación automática cada pocos minutos para reducir la ventana de ataque.
 
 ---
 
-## 13. Notificaciones Push Anonimizadas (Blind Push)
-1.  **Registro:** El token FCM/APNs se asocia al `id_hash`.
-2.  **Envío "Ciego":** El servidor envía un JSON vacío `{"action": "sync_new_msg"}`.
+## 11. Notificaciones Push Anonimizadas (Blind Push)
+1.  **Registro:** El token FCM/APNs se asocia al `id_hash` en `users.push_token`.
+2.  **Envío "Ciego":** El servidor envía un JSON vacío `{"action": "SYNC_REQUIRED"}`.
 3.  **Recepción:**
     *   La app despierta en segundo plano.
-    *   Descarga la imagen.
-    *   Descifra localmente.
+    *   Llama `GET /api/messages?myId=…` y descarga los payloads cifrados pendientes.
+    *   Descifra localmente con la clave privada.
     *   Muestra notificación: "Nuevo mensaje".
     *   Google/Apple nunca ven el contenido ni el emisor.
 
 ---
 
-## 14. Persistencia Local (SQLite - Offline First)
+## 12. Persistencia Local (SQLite - Offline First)
 
 ### A. Tabla `key_store` (El Búnker)
 | Columna | Tipo | Descripción |
@@ -212,12 +199,9 @@ Para evitar análisis de tráfico por tamaño de paquete:
 ### D. Tabla `sync_queue`
 Cola de tareas para funcionamiento sin internet.
 
-### E. Tabla `cover_images`
-Caché de imágenes base para esteganografía.
-
 ---
 
-## 15. Archivo de Respaldo (.hnet) (Único Método de Recuperación)
+## 13. Archivo de Respaldo (.hnet) (Único Método de Recuperación)
 Como no hay nube ni contraseñas, ni usamos frases de 12 palabras, la exportación local es vital:
 1.  **Empaquetado:** Volcado de la BD SQLite completa en un fichero.
 2.  **KDF:** Derivación de clave desde una Contraseña de Respaldo definida por el usuario.
@@ -226,7 +210,7 @@ Como no hay nube ni contraseñas, ni usamos frases de 12 palabras, la exportaci�
 
 ---
 
-## 16. Sincronización PC (The Bridge)
+## 14. Sincronización PC (The Bridge)
 *   Túnel P2P local (vía QR).
 *   Transferencia de Clave Privada cifrada.
 *   El PC actúa como un espejo independiente.

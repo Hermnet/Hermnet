@@ -56,7 +56,7 @@ flowchart TD
 
 ## Descripción de Actores
 
-*   **Usuario Móvil**: El cliente final que utiliza la aplicación Hermnet. Posee las claves privadas necesarias para descifrar los paquetes esteganográficos.
+*   **Usuario Móvil**: El cliente final que utiliza la aplicación Hermnet. Posee la clave privada RSA necesaria para descifrar los payloads cifrados extremo a extremo dirigidos a su HNET-id.
 *   **Servidor FCM/APNs**: Servicios externos de notificación (Firebase / Apple) que reciben alertas de "Nuevo Mensaje" sin contenido sensible, solo para despertar la aplicación del destinatario.
 *   **Scheduler Sistema (CronJob)**: Un proceso interno del servidor que se ejecuta periódicamente para mantener la higiene y seguridad de la base de datos.
 

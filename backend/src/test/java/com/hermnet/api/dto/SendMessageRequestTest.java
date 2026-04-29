@@ -46,18 +46,18 @@ class SendMessageRequestTest {
     }
 
     @Test
-    void shouldFailValidation_WhenStegoImageIsNull() {
+    void shouldFailValidation_WhenPayloadIsNull() {
         SendMessageRequest request = new SendMessageRequest("recipient-123", null);
         Set<ConstraintViolation<SendMessageRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty(), "Null stego image should fail validation");
-        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Stego image is required")));
+        assertFalse(violations.isEmpty(), "Null payload should fail validation");
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Payload is required")));
     }
 
     @Test
-    void shouldFailValidation_WhenStegoImageIsEmpty() {
+    void shouldFailValidation_WhenPayloadIsEmpty() {
         SendMessageRequest request = new SendMessageRequest("recipient-123", new byte[] {});
         Set<ConstraintViolation<SendMessageRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty(), "Empty stego image should fail validation");
-        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Stego image cannot be empty")));
+        assertFalse(violations.isEmpty(), "Empty payload should fail validation");
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Payload cannot be empty")));
     }
 }

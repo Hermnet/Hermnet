@@ -14,6 +14,7 @@ import { contactsService } from '../../services/ContactsService';
 import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { WARNING_BG, WARNING_MAIN, WARNING_LIGHT, DANGER_BG, DANGER_TEXT } from '../../styles/theme';
 import * as Clipboard from 'expo-clipboard';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
@@ -43,6 +44,7 @@ export default function ChatsScreen() {
 
     const { identity } = useAuthStore();
     const networkStatus = useNetworkStatus();
+    const isAppActive = useIsAppActive();
     const { fontScale } = useAccessibility();
     const { showModal, modalNode } = useAppModal();
     const insets = useSafeAreaInsets();
@@ -97,13 +99,26 @@ export default function ChatsScreen() {
     }, [identity?.id]);
 
     useEffect(() => {
-        if (!identity) return;
-        // Polling cada 3s: compromiso entre snappiness y carga de servidor
+        if (!identity || !isAppActive) return;
+        // Polling fijo cada 2s mientras la app está en primer plano. Sin backoff: el chat
+        // tiene que sentirse vivo. La fix definitiva es push silenciosa (FCM/Expo) que el
+        // backend ya soporta; mientras tanto, polling rápido.
+        // Al volver de background o al cambiar identity, dispara una recarga inmediata.
+        loadChats().catch(() => {});
         const id = setInterval(() => {
             loadChats().catch(() => {});
-        }, 3000);
+        }, 2000);
         return () => clearInterval(id);
-    }, [loadChats]);
+    }, [loadChats, isAppActive]);
+
+    // Recarga inmediata si cambia algo en contactos (alias renombrado, contacto añadido, etc.)
+    useEffect(() => {
+        if (!identity) return;
+        const unsubscribe = contactsService.subscribe(() => {
+            loadChats().catch(() => {});
+        });
+        return unsubscribe;
+    }, [identity?.id, loadChats]);
 
     const handleRefresh = useCallback(async () => {
         if (!identity) return;
@@ -141,13 +156,24 @@ export default function ChatsScreen() {
         qrSlide.close(() => setShowQR(false));
     }, [qrSlide]);
 
+    /**
+     * Recarga la lista de contactos sin perder los unreadCount que ya teníamos.
+     * Para los contactos nuevos (que no estaban antes), se pone unreadCount=0; el
+     * siguiente poll de loadChats lo recalculará si tienen mensajes no leídos.
+     */
     const refreshContacts = useCallback(async () => {
         const contacts = await contactsService.getAllContacts();
-        setChats(contacts.map(c => ({
-            id: c.contactHash,
-            name: c.alias ?? c.contactHash.slice(5, 17),
-            unreadCount: 0,
-        })));
+        setChats(prev => {
+            const prevByHash = new Map(prev.map(c => [c.id, c]));
+            return contacts.map(c => {
+                const existing = prevByHash.get(c.contactHash);
+                return {
+                    id: c.contactHash,
+                    name: c.alias ?? c.contactHash.slice(5, 17),
+                    unreadCount: existing?.unreadCount ?? 0,
+                };
+            });
+        });
     }, []);
 
     const handleScannedQR = useCallback(async (data: string) => {

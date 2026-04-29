@@ -9,22 +9,22 @@ import static org.junit.jupiter.api.Assertions.*;
  * 
  * Verifies builder functionality, lifecycle callbacks, and edge cases.
  * Updated to match the current entity structure (messageId, recipientHash,
- * stegoPacket).
+ * payload).
  */
 public class MessageTest {
 
     @Test
     public void testBuilder() {
         String recipientHash = "abcefg123hash-recipient";
-        byte[] stegoPacket = new byte[] { 1, 2, 3, 4, 5 };
+        byte[] payload = new byte[] { 1, 2, 3, 4, 5 };
 
         Message message = Message.builder()
                 .recipientHash(recipientHash)
-                .stegoPacket(stegoPacket)
+                .payload(payload)
                 .build();
 
         assertEquals(recipientHash, message.getRecipientHash());
-        assertArrayEquals(stegoPacket, message.getStegoPacket());
+        assertArrayEquals(payload, message.getPayload());
         assertNull(message.getMessageId(), "ID should be null before persistence");
     }
 
@@ -44,21 +44,21 @@ public class MessageTest {
 
         assertNotNull(msg);
         assertNull(msg.getRecipientHash());
-        assertNull(msg.getStegoPacket());
+        assertNull(msg.getPayload());
     }
 
     @Test
     public void testAllArgsConstructor() {
         Long id = 1L;
         String recipientHash = "recipient-hash-123";
-        byte[] stegoPacket = new byte[] { 10, 20, 30 };
+        byte[] payload = new byte[] { 10, 20, 30 };
         LocalDateTime now = LocalDateTime.now();
 
-        Message msg = new Message(id, recipientHash, stegoPacket, now);
+        Message msg = new Message(id, recipientHash, payload, now);
 
         assertEquals(id, msg.getMessageId());
         assertEquals(recipientHash, msg.getRecipientHash());
-        assertArrayEquals(stegoPacket, msg.getStegoPacket());
+        assertArrayEquals(payload, msg.getPayload());
         assertEquals(now, msg.getCreatedAt());
     }
 
@@ -70,10 +70,10 @@ public class MessageTest {
 
         msg.setMessageId(100L);
         msg.setRecipientHash(recipientHash);
-        msg.setStegoPacket(packet);
+        msg.setPayload(packet);
 
         assertEquals(100L, msg.getMessageId());
         assertEquals(recipientHash, msg.getRecipientHash());
-        assertArrayEquals(packet, msg.getStegoPacket());
+        assertArrayEquals(packet, msg.getPayload());
     }
 }

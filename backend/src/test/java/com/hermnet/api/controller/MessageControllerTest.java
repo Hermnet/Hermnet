@@ -88,7 +88,7 @@ public class MessageControllerTest {
     }
 
     @Test
-    public void sendMessage_ShouldReturn400_WhenStegoImageIsEmpty() throws Exception {
+    public void sendMessage_ShouldReturn400_WhenPayloadIsEmpty() throws Exception {
         SendMessageRequest request = new SendMessageRequest("HNET-VALID", new byte[] {});
 
         mockMvc.perform(post("/api/messages")
@@ -98,7 +98,7 @@ public class MessageControllerTest {
     }
 
     @Test
-    public void sendMessage_ShouldReturn400_WhenStegoImageIsNull() throws Exception {
+    public void sendMessage_ShouldReturn400_WhenPayloadIsNull() throws Exception {
         SendMessageRequest request = new SendMessageRequest("HNET-VALID", null);
 
         mockMvc.perform(post("/api/messages")
@@ -152,8 +152,8 @@ public class MessageControllerTest {
     @Test
     public void getMessages_ShouldReturnList_WhenUserHasMessages() throws Exception {
         String myId = "HNET-VALID";
-        Message msg1 = Message.builder().stegoPacket(new byte[] { 1 }).createdAt(LocalDateTime.now()).build();
-        Message msg2 = Message.builder().stegoPacket(new byte[] { 2 }).createdAt(LocalDateTime.now()).build();
+        Message msg1 = Message.builder().payload(new byte[] { 1 }).createdAt(LocalDateTime.now()).build();
+        Message msg2 = Message.builder().payload(new byte[] { 2 }).createdAt(LocalDateTime.now()).build();
 
         when(messageRepository.findByRecipientHashOrderByCreatedAtDesc(myId))
                 .thenReturn(List.of(msg1, msg2));

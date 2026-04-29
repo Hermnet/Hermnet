@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * Controller for secure message exchange.
  *
  * Handles storing encrypted messages for recipients and retrieving them.
- * Messages are treated as opaque steganographic packets.
+ * Messages are treated as opaque encrypted payloads.
  */
 @RestController
 @RequestMapping("/api/messages")
@@ -35,19 +35,18 @@ public class MessageController {
     /**
      * Sends a secure message to a recipient.
      *
-     * Stores the encrypted steganographic image in the recipient's mailbox.
-     * The server does not know the sender or the content.
-     * Triggers a silent "Data-Only" push notification (FCM) to the recipient
-     * to initiate background synchronization.
+     * Stores the encrypted payload in the recipient's mailbox. The server does
+     * not know the sender or the content. Triggers a silent "Data-Only" push
+     * notification (FCM) to the recipient to initiate background sync.
      *
-     * @param request The message request containing recipient ID and stego image.
+     * @param request The message request containing recipient ID and encrypted payload.
      * @return 202 Accepted if the message is successfully queued/stored.
      */
     @PostMapping
     public ResponseEntity<Void> sendMessage(@Valid @RequestBody SendMessageRequest request) {
         Message message = Message.builder()
                 .recipientHash(request.recipientId())
-                .stegoPacket(request.stegoImage())
+                .payload(request.payload())
                 .build();
 
         messageRepository.save(message);
@@ -62,22 +61,22 @@ public class MessageController {
     /**
      * Retrieves messages for a user.
      *
-     * Returns a list of steganographic images intended for the user,
-     * ordered by arrival time (newest first).
+     * Returns a list of encrypted payloads intended for the user, ordered by
+     * arrival time (newest first).
      *
      * @param myId The user's ID hash to retrieve messages for.
-     * @return List of stego images (as byte arrays/Base64 strings).
+     * @return List of encrypted payloads (as byte arrays / Base64 strings).
      */
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<List<byte[]>> getMessages(@RequestParam String myId) {
         List<Message> messages = messageRepository.findByRecipientHashOrderByCreatedAtDesc(myId);
 
-        List<byte[]> images = messages.stream()
-                .map(Message::getStegoPacket)
+        List<byte[]> payloads = messages.stream()
+                .map(Message::getPayload)
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(images);
+        return ResponseEntity.ok(payloads);
     }
 
     /**

@@ -1,26 +1,29 @@
 # Flujo de mensajería
 
-Orquestado en `MessageFlowService` (frontend). Servidor es opaco: `byte[]` in / `byte[]` out.
+Orquestado en `MessageFlowService` (frontend). Servidor opaco: `byte[]` in / `byte[]` out.
 
 ## Envío
 1. Usuario escribe mensaje en `ChatRoomScreen`.
-2. `MessageCryptoService` genera clave efímera AES-256-GCM y cifra el texto.
-3. Cifra la clave efímera con la `publicKey` del receptor (ECDH X25519 → KDF).
-4. Construye payload: `{cipherText, encryptedKey, nonce, senderId, ...}`.
-5. `SteganographyService.embedInPng()` inserta el "churro binario" en los LSB de un PNG cover:
-   - Cabecera 4B tamaño | payload | delimitador | padding ruido aleatorio → total ~1.5 MB.
-6. `MessageApiService.send()` → `POST /api/messages` con `{recipientId, stegoImage}`.
-7. Backend guarda en `mailbox` y dispara push FCM vacío (`NotificationService.sendSyncNotification`).
+2. `MessageFlowService.sendMessage()` construye un sobre JSON: `{from, pk, text, ts}`.
+3. `MessageCryptoService.encryptForRecipient()` aplica cifrado híbrido:
+   - Genera clave AES-256 efímera + IV.
+   - Cifra el sobre con AES-256-GCM (incluye tag de autenticación de 16 B).
+   - Cifra la clave AES (32 B) con RSA-OAEP-SHA256 usando la `publicKey` del receptor.
+   - Empaqueta `[2B longitud RSA][RSA(AES-key)][12B IV][16B tag][ciphertext]`.
+4. `MessageApiService.sendMessage()` → `POST /api/messages` con `{recipientId, payload}` (payload base64).
+5. Backend guarda en `mailbox.payload` y dispara push silenciosa FCM (`NotificationService.sendSyncNotification`).
+6. El emisor guarda el mensaje en su SQLite local con `created_at = ts` (mismo timestamp que el receptor).
 
 ## Recepción
-1. Push silencioso despierta la app → `MessageFlowService.sync()`.
-2. `GET /api/messages?myId=...` → lista de PNG (byte[] Base64).
-3. Para cada imagen: `SteganographyService.extractFromPng()` lee LSB hasta el delimitador.
-4. `MessageCryptoService.decrypt()` con la privateKey local.
-5. Se guarda en `messages_history` (SQLite local cifrada).
-6. (Pendiente verificar) `POST /api/messages/ack` para borrado inmediato — hoy el backend no tiene este endpoint, borra por scheduler.
+1. Polling cada 2 s (o push silenciosa) → `MessageFlowService.syncInbox()`.
+2. `GET /api/messages?myId=...` → lista de payloads (base64 → `Uint8Array`).
+3. `MessageCryptoService.decryptWithPrivateKey()` con la clave privada local: descifra la clave AES con RSA y luego el ciphertext con AES-GCM (verifica tag).
+4. Parsea el sobre JSON. Si trae `pk`, verifica que el `HNET-id` corresponda al fingerprint SHA-256 de esa pk (anti-spoofing). Si no cuadra, descarta.
+5. Auto-añade el contacto si era desconocido y notifica a la UI vía la cola `newContacts`.
+6. Guarda en `messages_history` con `created_at = envelope.ts`.
+7. `POST /api/messages/ack` para que el servidor borre el buzón consumido.
 
 ## Notas
-- Backend no valida el contenido del PNG, solo persiste y reenvía.
-- Capacidad ~375 KB por PNG 1024×1024.
-- Algoritmo detallado: `docs/technical/algoritmo_esteganografia.md`, `cifrado_hibrido_e2ee.md`.
+- Cada paquete enviado pesa ~800 B (la pk del emisor inflada por base64), constante para todos los mensajes y handshakes.
+- El servidor nunca decodifica el `payload` — para él es un blob opaco.
+- Detalle criptográfico: `docs/technical/cifrado_hibrido_e2ee.md`.

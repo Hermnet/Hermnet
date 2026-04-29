@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
-    KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder,
-    StatusBar,
+    KeyboardAvoidingView, Platform, StatusBar, FlatList, PanResponder, ListRenderItemInfo,
 } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
-import { X, ChevronsDown, ArrowLeft, User, CornerUpLeft, Send, Copy, Reply, RefreshCw, Pencil } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+    X, ArrowLeft, User, CornerUpLeft, Send, Copy, Reply, RefreshCw, Pencil,
+    Check, Clock, AlertCircle, RotateCw, ChevronsDown, MoreVertical, Trash2, Eraser,
+} from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { styles, sh } from '../../styles/chatRoomStyles';
 import { messageFlowService } from '../../services/MessageFlowService';
@@ -13,14 +16,11 @@ import { databaseService } from '../../services/DatabaseService';
 import { contactsService } from '../../services/ContactsService';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 import { useAuthStore } from '../../store/authStore';
-
-const { height: SCREEN_H } = Dimensions.get('window');
-const HEADER_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 74 : 119;
-const INPUT_H = Platform.OS === 'ios' ? 110 : 95;
-const AVAIL_H = SCREEN_H - HEADER_H - INPUT_H;
-const SLOT_PX = 92;
+import { useIsAppActive } from '../../hooks/useIsAppActive';
 
 const TRUNCATE_AT = 200;
+const MAX_LENGTH = 500;
+const COUNTER_THRESHOLD = 400;
 
 const formatTime = (ts?: number): string => {
     if (!ts) return '';
@@ -31,53 +31,28 @@ const formatTime = (ts?: number): string => {
 const getDynamicTextProps = (text: string, hasReply: boolean, fontScale = 1.0) => {
     const fontSize = Math.round((text.length <= 80 ? 15 : 13) * fontScale);
     const lineHeight = Math.round((text.length <= 80 ? 22 : 18) * fontScale);
-    const maxLines = hasReply ? 2 : 3;
-    const approximateLines = (text.match(/\n/g) || []).length + Math.floor(text.length / 32) + 1;
-    const needsTruncation = text.length > TRUNCATE_AT || approximateLines > maxLines;
+    const maxLines = hasReply ? 4 : 6;
+    const needsTruncation = text.length > TRUNCATE_AT;
     return { fontSize, lineHeight, maxLines, needsTruncation };
 };
 
-const _S = SLOT_PX;
-const Z_INPUT = [-_S * 2, -_S, 0, _S, _S * 2, _S * 3, _S * 4, _S * 5, _S * 6];
-const TY_OUT = [
-    _S * 2,
-    _S,
-    0,
-    -(AVAIL_H * 0.28),
-    -(AVAIL_H * 0.50),
-    -(AVAIL_H * 0.67),
-    -(AVAIL_H * 0.78),
-    -(AVAIL_H * 0.86),
-    -(AVAIL_H * 0.86),
-];
-const SCALE_OUT = [1.0, 1.0, 1.0, 0.88, 0.75, 0.62, 0.50, 0.42, 0.42];
-const OPAC_OUT  = [1.0, 1.0, 1.0, 0.82, 0.58, 0.32, 0.12, 0.0,  0.0];
-
-const RENDER_WINDOW = 16;
-const RENDER_BUFFER = 6;
-
 // ─── Types ─────────────────────────────────────────────────────────────────────
+export type MsgStatus = 'pending' | 'sent' | 'failed';
+
 type MsgData = {
     id: string;
     text: string;
     isMine: boolean;
     createdAt?: number;
     replyTo?: { id: string; text: string; isMine: boolean } | null;
+    status?: MsgStatus;
 };
-
-const INITIAL_MSGS: MsgData[] = [];
 
 // ─── Full Text Modal ───────────────────────────────────────────────────────────
 const FullMessageModal = React.memo(({
     msg, contactName, onClose,
 }: { msg: MsgData | null; contactName: string; onClose: () => void }) => (
-    <Modal
-        visible={!!msg}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={onClose}
-    >
+    <Modal visible={!!msg} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
         <TouchableOpacity style={sh.modalOverlay} activeOpacity={1} onPress={onClose}>
             <TouchableOpacity activeOpacity={1} onPress={() => { }}>
                 <View style={sh.modalSheet}>
@@ -98,8 +73,14 @@ const FullMessageModal = React.memo(({
 ));
 
 // ─── Message Action Sheet ──────────────────────────────────────────────────────
-type ActionSheetProps = { msg: MsgData | null; contactName: string; onReply: (msg: MsgData) => void; onClose: () => void };
-const MessageActionSheet = React.memo(({ msg, contactName, onReply, onClose }: ActionSheetProps) => {
+type ActionSheetProps = {
+    msg: MsgData | null;
+    contactName: string;
+    onReply: (msg: MsgData) => void;
+    onRetry: (msg: MsgData) => void;
+    onClose: () => void;
+};
+const MessageActionSheet = React.memo(({ msg, contactName, onReply, onRetry, onClose }: ActionSheetProps) => {
     const handleCopy = async () => {
         if (!msg) return;
         await Clipboard.setStringAsync(msg.text);
@@ -110,6 +91,14 @@ const MessageActionSheet = React.memo(({ msg, contactName, onReply, onClose }: A
         onReply(msg);
         onClose();
     };
+    const handleRetry = () => {
+        if (!msg) return;
+        onRetry(msg);
+        onClose();
+    };
+    const isFailed = msg?.status === 'failed';
+    const canReply = !isFailed && msg?.status !== 'pending';
+
     return (
         <Modal visible={!!msg} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
             <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={onClose}>
@@ -120,14 +109,29 @@ const MessageActionSheet = React.memo(({ msg, contactName, onReply, onClose }: A
                             {msg?.isMine ? 'Tú' : contactName}
                         </Text>
                         <Text style={{ color: '#a0aec0', fontSize: 13, marginBottom: 20 }} numberOfLines={2}>{msg?.text}</Text>
-                        <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
-                            activeOpacity={0.7}
-                            onPress={handleReply}
-                        >
-                            <Reply size={20} color="#60a5fa" />
-                            <Text style={{ color: '#ffffff', fontSize: 15 }}>Responder</Text>
-                        </TouchableOpacity>
+
+                        {isFailed && (
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                activeOpacity={0.7}
+                                onPress={handleRetry}
+                            >
+                                <RotateCw size={20} color="#fca5a5" />
+                                <Text style={{ color: '#ffffff', fontSize: 15 }}>Reintentar envío</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {canReply && (
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                activeOpacity={0.7}
+                                onPress={handleReply}
+                            >
+                                <Reply size={20} color="#60a5fa" />
+                                <Text style={{ color: '#ffffff', fontSize: 15 }}>Responder</Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
                             activeOpacity={0.7}
@@ -143,75 +147,50 @@ const MessageActionSheet = React.memo(({ msg, contactName, onReply, onClose }: A
     );
 });
 
+// ─── Status Icon ───────────────────────────────────────────────────────────────
+const StatusIcon = ({ status, color }: { status?: MsgStatus; color: string }) => {
+    if (!status || status === 'sent') return <Check size={11} color={color} />;
+    if (status === 'pending') return <Clock size={11} color={color} />;
+    if (status === 'failed') return <AlertCircle size={11} color="#fca5a5" />;
+    return null;
+};
+
+// ─── Message Bubble ────────────────────────────────────────────────────────────
 type BubbleProps = {
     msg: MsgData;
-    yIndex: number;
-    scrollPxAnim: Animated.Value;
     contactName: string;
     onLongPress: (msg: MsgData) => void;
     onReadMore: (msg: MsgData) => void;
     fontScale: number;
     highContrast: boolean;
 };
-
-const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, contactName, onLongPress, onReadMore, fontScale, highContrast }: BubbleProps) => {
+const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, fontScale, highContrast }: BubbleProps) => {
     const { fontSize, lineHeight, maxLines, needsTruncation } = useMemo(
         () => getDynamicTextProps(msg.text, !!msg.replyTo, fontScale),
         [msg.text, msg.replyTo, fontScale]
     );
 
     const hcBubbleStyle = highContrast
-        ? (msg.isMine
-            ? { backgroundColor: '#dbeafe' }
-            : { backgroundColor: '#dcfce7' })
+        ? (msg.isMine ? { backgroundColor: '#dbeafe' } : { backgroundColor: '#dcfce7' })
         : null;
-    const hcTextColor = highContrast
-        ? (msg.isMine ? '#1e3a8a' : '#14532d')
-        : '#ffffff';
-
-    const yAnim = useRef(new Animated.Value(yIndex)).current;
-    useEffect(() => {
-        Animated.spring(yAnim, { toValue: yIndex, friction: 9, tension: 55, useNativeDriver: true }).start();
-    }, [yIndex]);
-
-    const bottomDist = Animated.subtract(yAnim, scrollPxAnim);
-
-    const translateY = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: TY_OUT, extrapolate: 'clamp' })).current;
-    const scale = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: SCALE_OUT, extrapolate: 'clamp' })).current;
-    const opacity = useRef(bottomDist.interpolate({ inputRange: Z_INPUT, outputRange: OPAC_OUT, extrapolate: 'clamp' })).current;
-
-    const pressScale = useRef(new Animated.Value(1)).current;
-    const handlePressIn = () => Animated.spring(pressScale, { toValue: 0.94, friction: 5, useNativeDriver: true }).start();
-    const handlePressOut = () => Animated.spring(pressScale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
-    const handleLongPress = () => {
-        Animated.sequence([
-            Animated.spring(pressScale, { toValue: 0.90, friction: 5, useNativeDriver: true }),
-            Animated.spring(pressScale, { toValue: 1, friction: 5, useNativeDriver: true }),
-        ]).start();
-        onLongPress(msg);
-    };
+    const hcTextColor = highContrast ? (msg.isMine ? '#1e3a8a' : '#14532d') : '#ffffff';
 
     return (
-        <Animated.View style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
+        <View style={{
+            paddingHorizontal: 14, paddingVertical: 3,
             alignItems: msg.isMine ? 'flex-end' : 'flex-start',
-            paddingHorizontal: 20,
-            opacity,
-            transform: [{ translateY }, { scale }],
-            zIndex: 10000 - Math.round(yIndex),
+            opacity: msg.status === 'pending' ? 0.7 : 1,
         }}>
             <TouchableOpacity
                 activeOpacity={0.85}
-                delayLongPress={400}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                onLongPress={handleLongPress}
+                delayLongPress={350}
+                onLongPress={() => onLongPress(msg)}
             >
-                <Animated.View style={[
+                <View style={[
                     styles.messageBubble,
                     msg.isMine ? styles.messageBubbleRight : styles.messageBubbleLeft,
                     hcBubbleStyle,
-                    { overflow: 'hidden', maxWidth: '82%', transform: [{ scale: pressScale }] },
+                    { maxWidth: 280 },
                 ]}>
                     {msg.replyTo && (
                         <View style={{
@@ -232,7 +211,7 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, contactName, onL
                     <Text
                         style={[styles.messageText, { fontSize, lineHeight, color: hcTextColor }]}
                         numberOfLines={maxLines}
-                        ellipsizeMode={maxLines ? 'tail' : undefined}
+                        ellipsizeMode="tail"
                     >
                         {msg.text}
                     </Text>
@@ -248,20 +227,28 @@ const CarouselBubble = React.memo(({ msg, yIndex, scrollPxAnim, contactName, onL
                             </Text>
                         </TouchableOpacity>
                     )}
-                    {!!msg.createdAt && (
-                        <Text style={{ color: hcTextColor, opacity: 0.45, fontSize: 10, marginTop: 4, textAlign: 'right' }}>
-                            {formatTime(msg.createdAt)}
-                        </Text>
-                    )}
-                </Animated.View>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
+                        {!!msg.createdAt && (
+                            <Text style={{ color: hcTextColor, opacity: 0.55, fontSize: 10 }}>
+                                {formatTime(msg.createdAt)}
+                            </Text>
+                        )}
+                        {msg.isMine && (
+                            <StatusIcon status={msg.status} color={hcTextColor} />
+                        )}
+                    </View>
+                </View>
             </TouchableOpacity>
-        </Animated.View>
+        </View>
     );
 }, (prev, next) =>
-    prev.yIndex === next.yIndex && prev.msg === next.msg &&
+    prev.msg === next.msg &&
     prev.contactName === next.contactName &&
-    prev.fontScale === next.fontScale && prev.highContrast === next.highContrast &&
-    prev.onLongPress === next.onLongPress && prev.onReadMore === next.onReadMore
+    prev.fontScale === next.fontScale &&
+    prev.highContrast === next.highContrast &&
+    prev.onLongPress === next.onLongPress &&
+    prev.onReadMore === next.onReadMore
 );
 
 // ─── Reply Banner ──────────────────────────────────────────────────────────────
@@ -283,9 +270,6 @@ const ReplyBanner = React.memo(({ msg, contactName, onJumpTo, onCancel }: ReplyB
 ));
 
 // ─── Message Input Bar ─────────────────────────────────────────────────────────
-const MAX_LENGTH = 500;
-const COUNTER_THRESHOLD = 400;
-
 type InputBarProps = {
     value: string;
     onChangeText: (t: string) => void;
@@ -295,14 +279,15 @@ type InputBarProps = {
     onJumpToReply: () => void;
     onCancelReply: () => void;
     isSending: boolean;
+    bottomInset: number;
 };
-const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending }: InputBarProps) => {
+const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending, bottomInset }: InputBarProps) => {
     const remaining = MAX_LENGTH - value.length;
     const showCounter = value.length >= COUNTER_THRESHOLD;
     const counterColor = remaining <= 20 ? '#fca5a5' : '#a0aabf';
 
     return (
-        <View style={[styles.inputContainer, { position: 'absolute', bottom: 0, width: '100%', zIndex: 20 }]}>
+        <View style={[styles.inputContainer, { paddingBottom: Math.max(bottomInset, 12) + 8 }]}>
             {replyingTo && (
                 <ReplyBanner msg={replyingTo} contactName={contactName} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
             )}
@@ -329,165 +314,181 @@ const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, c
     );
 });
 
-// ─── Message Carousel Area ─────────────────────────────────────────────────────
-type MessageCarouselProps = {
-    visibleMessages: Array<{ msg: MsgData; y: number }>;
-    scrollPxAnim: Animated.Value;
-    scrolledBack: boolean;
-    contactName: string;
-    panHandlers: object;
-    onLongPress: (msg: MsgData) => void;
-    onReadMore: (msg: MsgData) => void;
-    onGoToLatest: () => void;
-    fontScale: number;
-    highContrast: boolean;
-};
-const MessageCarousel = React.memo(({ visibleMessages, scrollPxAnim, scrolledBack, contactName, panHandlers, onLongPress, onReadMore, onGoToLatest, fontScale, highContrast }: MessageCarouselProps) => (
-    <View style={{ position: 'absolute', top: HEADER_H, bottom: INPUT_H, left: 0, right: 0, overflow: 'hidden' }} {...panHandlers}>
-        {visibleMessages.length === 0 && (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
-                <Text style={{ color: '#4a5568', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
-                    Aún no hay mensajes.{'\n'}Comienza la conversación.
-                </Text>
-            </View>
-        )}
-        {visibleMessages.map(({ msg, y }) => (
-            <CarouselBubble
-                key={msg.id}
-                msg={msg}
-                yIndex={y}
-                scrollPxAnim={scrollPxAnim}
-                contactName={contactName}
-                onLongPress={onLongPress}
-                onReadMore={onReadMore}
-                fontScale={fontScale}
-                highContrast={highContrast}
-            />
-        ))}
-        {scrolledBack && (
-            <TouchableOpacity
-                onPress={onGoToLatest}
-                activeOpacity={0.85}
-                accessibilityLabel="Ir al último mensaje"
-                style={{
-                    position: 'absolute', bottom: 14,
-                    alignSelf: 'center', zIndex: 20,
-                    backgroundColor: '#d97706',
-                    borderRadius: 20, paddingHorizontal: 18, paddingVertical: 9,
-                    flexDirection: 'row', alignItems: 'center', gap: 7,
-                    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
-                    shadowOpacity: 0.30, shadowRadius: 6, elevation: 6,
-                }}
-            >
-                <ChevronsDown size={15} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Último mensaje</Text>
-            </TouchableOpacity>
-        )}
-    </View>
-));
-
 // ─── ChatRoomScreen ────────────────────────────────────────────────────────────
 export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void; chatId: string }) {
-    const [allMessages, setAllMessages] = useState<MsgData[]>(INITIAL_MSGS);
+    // dbMessages: persistido en SQLite (autoritativo, status = 'sent').
+    // pendingSends: enviados aún no confirmados en BD (encriptado/red en curso).
+    const [dbMessages, setDbMessages] = useState<MsgData[]>([]);
+    const [pendingSends, setPendingSends] = useState<MsgData[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [replyingTo, setReplyingTo] = useState<MsgData | null>(null);
     const [fullTextMsg, setFullTextMsg] = useState<MsgData | null>(null);
     const [actionSheetMsg, setActionSheetMsg] = useState<MsgData | null>(null);
-    const [scrolledBack, setScrolledBack] = useState(false);
-    const [renderOffset, setRenderOffset] = useState(0);
     const [isSending, setIsSending] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [contactName, setContactName] = useState<string>(chatId.slice(5, 17));
     const [editingAlias, setEditingAlias] = useState(false);
     const [aliasInput, setAliasInput] = useState('');
+    const [hasMore, setHasMore] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    // Si el usuario está leyendo mensajes antiguos (no en el fondo), no le interrumpimos
+    // con un auto-scroll cuando llegue un mensaje nuevo: mostramos un chip "↓ Mensajes nuevos".
+    const [isAtBottom, setIsAtBottom] = useState(true);
+    const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
+    const [showChatMenu, setShowChatMenu] = useState(false);
+    const PAGE_SIZE = 50;
     const { fontScale, prefs: { highContrast } } = useAccessibility();
     const { showModal, modalNode } = useAppModal();
     const { identity } = useAuthStore();
+    const insets = useSafeAreaInsets();
+    const isAppActive = useIsAppActive();
+    const flatListRef = useRef<FlatList<MsgData>>(null);
 
-    const allMessagesRef = useRef(allMessages);
-    const scrollPxAnim = useRef(new Animated.Value(0)).current;
-    const currentPx = useRef(0);
+    // Lista combinada para render: pending (más recientes) + histórico, dedup por (text, isMine, createdAt).
+    // FlatList está invertida → primer elemento = más reciente abajo.
+    const allMessages = useMemo<MsgData[]>(() => {
+        if (pendingSends.length === 0) return dbMessages.map(m => ({ ...m, status: m.status ?? 'sent' }));
+        const dbKeys = new Set(dbMessages.map(m => `${m.isMine ? 1 : 0}|${m.text}|${m.createdAt ?? 0}`));
+        const stillPending = pendingSends.filter(p => !dbKeys.has(`${p.isMine ? 1 : 0}|${p.text}|${p.createdAt ?? 0}`));
+        return [
+            ...stillPending,
+            ...dbMessages.map(m => ({ ...m, status: m.status ?? 'sent' as MsgStatus })),
+        ];
+    }, [dbMessages, pendingSends]);
 
-    useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
-
+    // Carga inicial + alias
     useEffect(() => {
         contactsService.getAllContacts()
             .then(contacts => {
                 const contact = contacts.find(c => c.contactHash === chatId);
                 setContactName(contact?.alias ?? chatId.slice(5, 17));
             })
-            .catch(() => { /* mantiene el valor por defecto */ });
-    }, [chatId]);
-
-    useEffect(() => {
-        databaseService.getMessagesByContact(chatId)
-            .then(history => {
-                if (history.length > 0) setAllMessages(history);
-            })
             .catch(() => {});
     }, [chatId]);
 
-    // Refresco automático del chat abierto: relee la BD cada 2s para que los mensajes que
-    // ChatsScreen haya descargado en su poll aparezcan inmediatamente sin tocar refresh.
     useEffect(() => {
+        // Carga inicial paginada: solo los N más recientes
+        databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE })
+            .then(history => {
+                if (history.length > 0) setDbMessages(history);
+                setHasMore(history.length === PAGE_SIZE);
+            })
+            .catch(() => {});
+        databaseService.markAsRead(chatId).catch(() => {});
+
+        // Sync inmediato al abrir el chat: si hay mensajes pendientes en el servidor que aún
+        // no hemos descargado, los traemos ya — sin esperar al siguiente tick del polling.
+        if (identity) {
+            messageFlowService.syncInbox(identity.id, identity.privateKey)
+                .then(() => databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE }))
+                .then(history => {
+                    if (!isMountedRef.current) return;
+                    if (history.length > 0) setDbMessages(history);
+                })
+                .catch(() => {});
+        }
+    }, [chatId, identity]);
+
+    // Cargar más mensajes antiguos cuando el usuario llega al final (= scroll arriba en inverted)
+    const handleLoadMore = useCallback(async () => {
+        if (isLoadingMore || !hasMore || dbMessages.length === 0) return;
+        const oldest = dbMessages[dbMessages.length - 1];
+        const oldestMsgId = parseInt(oldest.id, 10);
+        if (!Number.isFinite(oldestMsgId)) return;
+        setIsLoadingMore(true);
+        try {
+            const older = await databaseService.getMessagesByContact(chatId, {
+                limit: PAGE_SIZE,
+                beforeMsgId: oldestMsgId,
+            });
+            if (older.length > 0) {
+                setDbMessages(prev => [...prev, ...older]);
+            }
+            setHasMore(older.length === PAGE_SIZE);
+        } catch { /* silencioso */ } finally {
+            setIsLoadingMore(false);
+        }
+    }, [chatId, dbMessages, hasMore, isLoadingMore]);
+
+    // Limpieza automática de pendings ya confirmados en BD
+    useEffect(() => {
+        if (pendingSends.length === 0) return;
+        const dbKeys = new Set(dbMessages.map(m => `${m.isMine ? 1 : 0}|${m.text}|${m.createdAt ?? 0}`));
+        const stillPending = pendingSends.filter(p => !dbKeys.has(`${p.isMine ? 1 : 0}|${p.text}|${p.createdAt ?? 0}`));
+        if (stillPending.length !== pendingSends.length) setPendingSends(stillPending);
+    }, [dbMessages, pendingSends]);
+
+    // Auto-refresh: relee solo los N más recientes cada 2s y mergea con los antiguos paginados.
+    // Solo corre cuando la app está activa para no consumir batería en background.
+    useEffect(() => {
+        if (!isAppActive) return;
         const interval = setInterval(async () => {
             try {
-                const history = await databaseService.getMessagesByContact(chatId);
-                setAllMessages(prev => {
-                    if (history.length === prev.length) {
-                        // Comparación rápida: si el primer (más reciente) mensaje no ha cambiado, no rerender
-                        if (history.length === 0) return prev;
-                        if (prev[0]?.id === history[0].id && prev[0]?.text === history[0].text) return prev;
+                const recent = await databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE });
+                let receivedNew = false;
+                setDbMessages(prev => {
+                    // Si no hay más cargado que la primera página, podemos reemplazar directamente
+                    if (prev.length <= PAGE_SIZE) {
+                        if (recent.length === prev.length && recent.length > 0
+                            && prev[0]?.text === recent[0].text
+                            && prev[0]?.isMine === recent[0].isMine
+                            && prev[0]?.createdAt === recent[0].createdAt) {
+                            return prev; // sin cambios
+                        }
+                        // Detectar si entre los nuevos hay alguno entrante (no nuestro)
+                        const prevTopTs = prev[0]?.createdAt ?? 0;
+                        receivedNew = recent.some(m => !m.isMine && (m.createdAt ?? 0) > prevTopTs);
+                        return recent;
                     }
-                    return history;
+                    // El usuario ha paginado hacia atrás: conservar los más antiguos.
+                    if (recent.length === 0) return prev;
+                    const oldestRecentMsgId = parseInt(recent[recent.length - 1].id, 10);
+                    const olderThanRecent = prev.filter(m => {
+                        const id = parseInt(m.id, 10);
+                        return Number.isFinite(id) && id < oldestRecentMsgId;
+                    });
+                    const prevTopTs = prev[0]?.createdAt ?? 0;
+                    receivedNew = recent.some(m => !m.isMine && (m.createdAt ?? 0) > prevTopTs);
+                    return [...recent, ...olderThanRecent];
                 });
-                // Marcar como leídos los mensajes recibidos mientras el chat está abierto
+                if (receivedNew) {
+                    if (isAtBottomRef.current) {
+                        // Usuario en el fondo → scroll suave al nuevo mensaje
+                        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                    } else {
+                        // Usuario leyendo arriba → mostrar chip "↓ mensajes nuevos"
+                        setHasUnreadBelow(true);
+                    }
+                }
                 databaseService.markAsRead(chatId).catch(() => {});
-            } catch {
-                /* silencioso */
-            }
-        }, 2000);
+            } catch { /* silencioso */ }
+        }, 1000);
         return () => clearInterval(interval);
-    }, [chatId]);
+    }, [chatId, isAppActive]);
 
-    const messageLayouts = useMemo(() => {
-        return allMessages.map((msg, i) => ({ msg, y: i * SLOT_PX, idx: i }));
-    }, [allMessages]);
-
-    const visibleMessages = useMemo(() => {
-        const start = Math.max(0, renderOffset - RENDER_BUFFER);
-        const end = Math.min(messageLayouts.length, renderOffset + RENDER_WINDOW);
-        return messageLayouts.slice(start, end);
-    }, [messageLayouts, renderOffset]);
-
-    const jumpToY = useCallback((yPix: number, relativeIndex: number) => {
-        currentPx.current = yPix;
-        setScrolledBack(relativeIndex > 0);
-        setRenderOffset(relativeIndex);
-        Animated.spring(scrollPxAnim, { toValue: yPix, friction: 9, tension: 55, useNativeDriver: true }).start();
-    }, [scrollPxAnim]);
-
-    const jumpToReply = useCallback(() => {
-        if (!replyingTo) return;
-        const target = messageLayouts.find(m => m.msg.id === replyingTo.id);
-        if (target) jumpToY(target.y, target.idx);
-    }, [replyingTo, messageLayouts, jumpToY]);
-
-    const goToLatest = useCallback(() => jumpToY(0, 0), [jumpToY]);
     const handleLongPress = useCallback((msg: MsgData) => setActionSheetMsg(msg), []);
     const handleCloseActionSheet = useCallback(() => setActionSheetMsg(null), []);
     const handleReply = useCallback((msg: MsgData) => setReplyingTo(msg), []);
     const handleReadMore = useCallback((msg: MsgData) => setFullTextMsg(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
-    const closeModal = useCallback(() => setFullTextMsg(null), []);
+    const closeFullText = useCallback(() => setFullTextMsg(null), []);
+
+    const jumpToReply = useCallback(() => {
+        if (!replyingTo) return;
+        const idx = allMessages.findIndex(m => m.id === replyingTo.id);
+        if (idx >= 0) {
+            flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+        }
+    }, [replyingTo, allMessages]);
 
     const handleRefresh = useCallback(async () => {
         if (!identity || isRefreshing) return;
         setIsRefreshing(true);
         try {
             await messageFlowService.syncInbox(identity.id, identity.privateKey);
-            const history = await databaseService.getMessagesByContact(chatId);
-            if (history.length > 0) setAllMessages(history);
+            const history = await databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE });
+            if (history.length > 0) setDbMessages(history);
+            setHasMore(history.length === PAGE_SIZE);
         } catch { /* silencioso */ } finally {
             setIsRefreshing(false);
         }
@@ -503,93 +504,251 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         setEditingAlias(false);
         if (!trimmed || trimmed === contactName) return;
         try {
-            const publicKey = await contactsService.getAllContacts()
-                .then(cs => cs.find(c => c.contactHash === chatId)?.publicKey ?? '');
-            await contactsService.saveContact(chatId, publicKey, trimmed);
+            const contacts = await contactsService.getAllContacts();
+            const contact = contacts.find(c => c.contactHash === chatId);
+            // Si el contacto no existe (caso límite: borrado mientras estaba abierto el chat),
+            // NO guardar con publicKey vacía: rompería futuros sendMessage para este chatId.
+            if (!contact || !contact.publicKey) {
+                showModal({ type: 'error', title: 'Error', message: 'Este contacto ya no existe.' });
+                return;
+            }
+            await contactsService.saveContact(chatId, contact.publicKey, trimmed);
             setContactName(trimmed);
         } catch {
             showModal({ type: 'error', title: 'Error', message: 'No se pudo guardar el nombre.' });
         }
     }, [aliasInput, contactName, chatId, showModal]);
 
-    const handleSend = useCallback(() => {
-        const text = newMessage.trim();
-        if (!text || isSending) return;
-        const newMsg: MsgData = {
-            id: `m${Date.now()}`,
-            text,
-            isMine: true,
-            createdAt: Date.now(),
-            replyTo: replyingTo ? { id: replyingTo.id, text: replyingTo.text, isMine: replyingTo.isMine } : null,
-        };
-        setAllMessages(prev => {
-            const updated = [newMsg, ...prev];
-            allMessagesRef.current = updated;
-            if (currentPx.current > 0) {
-                currentPx.current += SLOT_PX;
-                scrollPxAnim.setValue(currentPx.current);
-                setRenderOffset(prevOffset => prevOffset + 1);
-            }
-            return updated;
-        });
-        setNewMessage('');
-        setReplyingTo(null);
+    // Ref de cancelación: si el componente se desmonta, no llamar setState desde promesas pendientes
+    const isMountedRef = useRef(true);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
+    // Guard síncrono contra double-tap. Necesario porque isSending (state) sólo se actualiza
+    // en el siguiente render: dos clicks rápidos en el mismo tick de evento ven isSending=false
+    // y disparan dos envíos con el mismo timestamp → mensajes duplicados con misma `key`.
+    const isSendingRef = useRef(false);
+    // Contador para garantizar IDs únicos incluso si dos pendings se crean en el mismo ms
+    const pendingSeqRef = useRef(0);
+    // Ref espejo de isAtBottom para que el setInterval (callback estable) lea el valor actual
+    const isAtBottomRef = useRef(true);
+    useEffect(() => { isAtBottomRef.current = isAtBottom; }, [isAtBottom]);
+
+    const sendInternal = useCallback((text: string, sentAt: number, tempId: string, replyToCtx: MsgData['replyTo']) => {
+        isSendingRef.current = true;
         setIsSending(true);
-        messageFlowService.sendMessage({ recipientId: chatId, plaintext: text })
+        messageFlowService.sendMessage({ recipientId: chatId, plaintext: text, sentAt })
+            .then(async () => {
+                if (!isMountedRef.current) return;
+                try {
+                    const recent = await databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE });
+                    if (!isMountedRef.current) return;
+                    setDbMessages(prev => {
+                        if (prev.length <= PAGE_SIZE) return recent;
+                        const oldestRecentMsgId = parseInt(recent[recent.length - 1]?.id ?? '0', 10);
+                        const olderThanRecent = prev.filter(m => {
+                            const id = parseInt(m.id, 10);
+                            return Number.isFinite(id) && id < oldestRecentMsgId;
+                        });
+                        return [...recent, ...olderThanRecent];
+                    });
+                } catch { /* silencioso */ }
+            })
             .catch((err) => {
+                if (!isMountedRef.current) return;
                 console.warn('[sendMessage] failed:', err);
+                // Marcar el pending como fallido para que el usuario vea ⚠ y pueda reintentarlo
+                setPendingSends(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed', replyTo: replyToCtx } : m));
                 const detail = err?.message ? `\n\n${String(err.message).slice(0, 200)}` : '';
                 showModal({ type: 'error', title: 'Error al enviar', message: `El mensaje no se pudo entregar.${detail}` });
             })
-            .finally(() => setIsSending(false));
-    }, [newMessage, replyingTo, scrollPxAnim, chatId, isSending]);
+            .finally(() => {
+                isSendingRef.current = false;
+                if (isMountedRef.current) setIsSending(false);
+            });
+    }, [chatId, showModal]);
 
-    const msgPan = useRef(PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
-        onPanResponderMove: (_, g) => {
-            const raw = currentPx.current - g.dy;
-            const maxPx = (allMessagesRef.current.length - 1) * SLOT_PX;
-            scrollPxAnim.setValue(Math.max(-200, Math.min(maxPx + 200, raw)));
-        },
-        onPanResponderRelease: (_, g) => {
-            const maxPx = (allMessagesRef.current.length - 1) * SLOT_PX;
-            const raw = currentPx.current - g.dy * 1.8;
-            const clamped = Math.max(0, Math.min(maxPx, raw));
-            const snappedIndex = Math.round(clamped / SLOT_PX);
-            const snappedY = snappedIndex * SLOT_PX;
-            currentPx.current = snappedY;
-            setScrolledBack(snappedIndex > 0);
-            setRenderOffset(snappedIndex);
-            Animated.spring(scrollPxAnim, { toValue: snappedY, friction: 9, tension: 55, useNativeDriver: true }).start();
-        },
-    })).current;
+    const handleSend = useCallback(() => {
+        const text = newMessage.trim();
+        if (!text || isSendingRef.current) return;
+        const sentAt = Date.now();
+        const seq = pendingSeqRef.current++;
+        const replyToCtx = replyingTo ? { id: replyingTo.id, text: replyingTo.text, isMine: replyingTo.isMine } : null;
+        const tempMsg: MsgData = {
+            // ID único garantizado incluso si dos sends caen en el mismo milisegundo
+            id: `pending-${sentAt}-${seq}`,
+            text,
+            isMine: true,
+            createdAt: sentAt,
+            replyTo: replyToCtx,
+            status: 'pending',
+        };
+        setPendingSends(prev => [tempMsg, ...prev]);
+        setNewMessage('');
+        setReplyingTo(null);
+        setTimeout(() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }), 50);
+        sendInternal(text, sentAt, tempMsg.id, replyToCtx);
+    }, [newMessage, replyingTo, sendInternal]);
 
+    /** Reintento manual para mensajes que fallaron. Marca como pending y vuelve a enviar. */
+    const handleRetry = useCallback((failedMsg: MsgData) => {
+        if (failedMsg.status !== 'failed' || isSendingRef.current) return;
+        setPendingSends(prev => prev.map(m => m.id === failedMsg.id ? { ...m, status: 'pending' } : m));
+        sendInternal(failedMsg.text, failedMsg.createdAt ?? Date.now(), failedMsg.id, failedMsg.replyTo ?? null);
+    }, [sendInternal]);
+
+    // Swipe horizontal para volver atrás
     const globalSwipe = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, g) => g.dx > 30 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
         onPanResponderRelease: (_, g) => { if (g.dx > 80) onBack(); },
     })).current;
 
-    return (
-        <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={[styles.container, { overflow: 'hidden' }]} {...globalSwipe.panHandlers}>
+    const renderItem = useCallback(({ item }: ListRenderItemInfo<MsgData>) => (
+        <MessageBubble
+            msg={item}
+            contactName={contactName}
+            onLongPress={handleLongPress}
+            onReadMore={handleReadMore}
+            fontScale={fontScale}
+            highContrast={highContrast}
+        />
+    ), [contactName, handleLongPress, handleReadMore, fontScale, highContrast]);
 
-                <MessageCarousel
-                    visibleMessages={visibleMessages}
-                    scrollPxAnim={scrollPxAnim}
-                    scrolledBack={scrolledBack}
-                    contactName={contactName}
-                    panHandlers={msgPan.panHandlers}
-                    onLongPress={handleLongPress}
-                    onReadMore={handleReadMore}
-                    onGoToLatest={goToLatest}
-                    fontScale={fontScale}
-                    highContrast={highContrast}
+    /**
+     * En FlatList invertida, offset 0 = mensaje más reciente abajo. Consideramos "en el fondo"
+     * si el offset Y es ≤80px desde 0 (margen para que el chip no aparezca por roces minúsculos).
+     */
+    const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+        const atBottom = e.nativeEvent.contentOffset.y <= 80;
+        if (atBottom !== isAtBottomRef.current) {
+            setIsAtBottom(atBottom);
+            if (atBottom) setHasUnreadBelow(false);
+        }
+    }, []);
+
+    const handleScrollToBottom = useCallback(() => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        setHasUnreadBelow(false);
+    }, []);
+
+    const handleClearHistory = useCallback(() => {
+        setShowChatMenu(false);
+        showModal({
+            type: 'warning',
+            title: 'Vaciar conversación',
+            message: '¿Borrar todos los mensajes de este chat? El contacto se mantiene.',
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Vaciar', style: 'destructive', onPress: async () => {
+                        try {
+                            await contactsService.clearChatHistory(chatId);
+                            setDbMessages([]);
+                            setPendingSends([]);
+                            setHasMore(false);
+                        } catch {
+                            showModal({ type: 'error', title: 'Error', message: 'No se pudo vaciar la conversación.' });
+                        }
+                    }
+                },
+            ],
+        });
+    }, [chatId, showModal]);
+
+    const handleDeleteContact = useCallback(() => {
+        setShowChatMenu(false);
+        showModal({
+            type: 'warning',
+            title: 'Eliminar contacto',
+            message: 'Se borrarán el contacto y todo su historial de mensajes. Esta acción no se puede deshacer.',
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar', style: 'destructive', onPress: async () => {
+                        try {
+                            await contactsService.deleteContact(chatId);
+                            onBack();
+                        } catch {
+                            showModal({ type: 'error', title: 'Error', message: 'No se pudo eliminar el contacto.' });
+                        }
+                    }
+                },
+            ],
+        });
+    }, [chatId, showModal, onBack]);
+
+    const headerTopPad = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : Math.max(insets.top, 12) + 4;
+    const headerHeight = headerTopPad + 50;
+
+    return (
+        <KeyboardAvoidingView
+            style={styles.safeArea}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
+            <View style={styles.container} {...globalSwipe.panHandlers}>
+                <FlatList
+                    ref={flatListRef}
+                    inverted
+                    data={allMessages}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={{ paddingTop: 12, paddingBottom: headerHeight + 8, flexGrow: 1, justifyContent: allMessages.length === 0 ? 'center' : 'flex-end' }}
+                    ListEmptyComponent={
+                        <View style={{ alignItems: 'center', paddingHorizontal: 40, transform: [{ scaleY: -1 }] }}>
+                            <Text style={{ color: '#4a5568', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+                                Aún no hay mensajes.{'\n'}Comienza la conversación.
+                            </Text>
+                        </View>
+                    }
+                    ListFooterComponent={
+                        // En FlatList invertida, el footer aparece arriba (mensajes más antiguos)
+                        isLoadingMore ? (
+                            <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                                <Text style={{ color: '#4a5568', fontSize: 12 }}>Cargando más...</Text>
+                            </View>
+                        ) : null
+                    }
+                    onEndReached={handleLoadMore}
+                    onEndReachedThreshold={0.5}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={100}
+                    keyboardShouldPersistTaps="handled"
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={20}
+                    windowSize={11}
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    onScrollToIndexFailed={(info) => {
+                        setTimeout(() => {
+                            flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+                        }, 100);
+                    }}
                 />
 
-                <View style={sh.headerContainer}>
+                {hasUnreadBelow && !isAtBottom && (
+                    <TouchableOpacity
+                        onPress={handleScrollToBottom}
+                        activeOpacity={0.85}
+                        accessibilityLabel="Ir al último mensaje"
+                        style={{
+                            position: 'absolute', bottom: insets.bottom + 90, alignSelf: 'center',
+                            backgroundColor: '#3b82f6', borderRadius: 20,
+                            paddingHorizontal: 16, paddingVertical: 8,
+                            flexDirection: 'row', alignItems: 'center', gap: 6,
+                            shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+                            shadowOpacity: 0.3, shadowRadius: 6, elevation: 6,
+                            zIndex: 10,
+                        }}
+                    >
+                        <ChevronsDown size={14} color="#fff" />
+                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>Mensajes nuevos</Text>
+                    </TouchableOpacity>
+                )}
+
+                <View style={[sh.headerContainer, { paddingTop: headerTopPad }]}>
                     <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6} accessibilityLabel="Volver atrás">
                         <ArrowLeft size={28} color="#ffffff" />
                     </TouchableOpacity>
@@ -600,8 +759,11 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                         <Text style={styles.headerName} numberOfLines={1}>{contactName}</Text>
                         <Pencil size={14} color="#a0aabf" style={{ marginLeft: 8, opacity: 0.7 }} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={handleRefresh} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Recibir mensajes nuevos">
+                    <TouchableOpacity onPress={handleRefresh} style={{ padding: 5, marginRight: 4 }} activeOpacity={0.6} accessibilityLabel="Recibir mensajes nuevos">
                         <RefreshCw size={20} color={isRefreshing ? '#3b82f6' : '#6b7280'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
+                        <MoreVertical size={20} color="#a0aabf" />
                     </TouchableOpacity>
                 </View>
 
@@ -614,6 +776,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     onJumpToReply={jumpToReply}
                     onCancelReply={handleCancelReply}
                     isSending={isSending}
+                    bottomInset={insets.bottom}
                 />
 
                 {/* ── Modal: Editar alias ── */}
@@ -663,8 +826,39 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     </TouchableOpacity>
                 </Modal>
 
-                <MessageActionSheet msg={actionSheetMsg} contactName={contactName} onReply={handleReply} onClose={handleCloseActionSheet} />
-                <FullMessageModal msg={fullTextMsg} contactName={contactName} onClose={closeModal} />
+                <MessageActionSheet msg={actionSheetMsg} contactName={contactName} onReply={handleReply} onRetry={handleRetry} onClose={handleCloseActionSheet} />
+                <FullMessageModal msg={fullTextMsg} contactName={contactName} onClose={closeFullText} />
+
+                {/* ── Sheet: opciones del chat (vaciar / eliminar) ── */}
+                <Modal visible={showChatMenu} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setShowChatMenu(false)}>
+                    <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowChatMenu(false)}>
+                        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+                            <View style={{ backgroundColor: '#141927', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20 }}>
+                                <View style={{ width: 36, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+                                <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 4 }}>{contactName}</Text>
+                                <Text style={{ color: '#4a5568', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginBottom: 16 }}>{chatId}</Text>
+
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                    activeOpacity={0.7}
+                                    onPress={handleClearHistory}
+                                >
+                                    <Eraser size={20} color="#fbbf24" />
+                                    <Text style={{ color: '#ffffff', fontSize: 15 }}>Vaciar conversación</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                    activeOpacity={0.7}
+                                    onPress={handleDeleteContact}
+                                >
+                                    <Trash2 size={20} color="#fca5a5" />
+                                    <Text style={{ color: '#ffffff', fontSize: 15 }}>Eliminar contacto</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
+
                 {modalNode}
 
             </View>

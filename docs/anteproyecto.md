@@ -62,17 +62,13 @@ El servidor actúa como un nodo de paso ciego, diseñado para ser rápido y no d
 
 ### Seguridad, Criptografía y Red
 
-El corazón técnico de Hermnet que garantiza la invisibilidad.
+El corazón técnico de Hermnet que garantiza la confidencialidad extremo a extremo.
 
-*   **Criptografía de Curva Elíptica (ECC - Ed25519)**: Usada para generar identidades soberanas y firmas digitales rápidas y ultra seguras.
-*   **AES-256-GCM**: El estándar de cifrado simétrico más avanzado para proteger el contenido de los mensajes y los archivos de respaldo.
-*   **Esteganografía LSB (Least Significant Bit)**: Técnica para inyectar bits de datos en los píxeles de imágenes PNG sin alterar su apariencia visual.
-*   **Protocolo de Notificaciones "Blind Push"**: Uso de Firebase (FCM) para enviar avisos vacíos que despiertan la app sin revelar metadatos a Google o Apple.
-
-### Activos de Imagen
-
-*   **PNG (Portable Network Graphics)**: Formato de imagen *lossless* (sin pérdida). Es esencial para la esteganografía, ya que otros formatos como JPG comprimen la imagen y destruirían el mensaje oculto.
-*   **Normalización de Carga Útil**: Todas las imágenes se estandarizan a una resolución fija (ej. $1024 \times 1024$ píxeles) para que el tráfico de red sea uniforme e indistinguible.
+*   **RSA-2048 + OAEP-SHA256**: Criptografía asimétrica usada para generar la identidad del usuario (par de claves local), firmar challenges de autenticación y encapsular las claves de sesión.
+*   **AES-256-GCM**: Estándar de cifrado simétrico autenticado. Cifra el contenido de cada mensaje con una clave efímera y produce un tag de integridad que detecta cualquier manipulación.
+*   **Cifrado híbrido (AES + RSA)**: Combina la velocidad de AES con la gestión de claves de RSA. AES cifra el sobre completo, RSA cifra solo la clave AES de 32 bytes — el único lugar donde la limitación de tamaño de RSA-OAEP no es un problema.
+*   **Verificación de fingerprint del HNET-id**: Cada identidad es `SHA-256(public_key)[0:16]`; al recibir una clave por QR o por handshake, el receptor recalcula y verifica el fingerprint, bloqueando intentos de suplantación.
+*   **Protocolo de Notificaciones "Blind Push"**: Uso de Firebase (FCM) para enviar avisos vacíos que despiertan la app sin revelar metadatos sensibles a Google o Apple.
 
 
 ## 3. Estructura de las Bases de Datos
@@ -163,11 +159,6 @@ Hemos diseñado una arquitectura de Persistencia Dual basada en el principio de 
       <td><strong>sync_queue</strong></td>
       <td><code>task_payload</code></td>
       <td>Cola de tareas "Offline-First". Guarda mensajes para enviarlos cuando recuperes la cobertura.</td>
-    </tr>
-    <tr>
-      <td><strong>cover_images</strong></td>
-      <td><code>local_uri</code></td>
-      <td>Biblioteca de imágenes "limpias" precargadas, listas para ser usadas en la esteganografía.</td>
     </tr>
     <tr>
       <td><strong>app_settings</strong></td>
