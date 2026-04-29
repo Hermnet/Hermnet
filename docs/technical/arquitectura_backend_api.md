@@ -77,13 +77,13 @@ El reto es avisar sin revelar nada a Google/Apple.
 *   **Efecto en el Móvil:**
     *   La notificación no muestra nada en pantalla.
     *   Despierta a la app en segundo plano (Background Task).
-    *   La app descarga la imagen, extrae el mensaje y lo descifra localmente.
+    *   La app descarga el payload cifrado y lo descifra localmente con la clave privada.
     *   Solo entonces la app lanza una notificación local: "Tienes un nuevo mensaje cifrado".
 
 ## 4. Política de Privacidad Técnica (Data Sanitization)
 
 El servidor implementa medidas activas para minimizar la huella de datos:
-*   **Limpieza de Metadatos (EXIF Stripping):** Procesamiento automático de imágenes entrantes para eliminar metadatos técnicos (geoetiquetas, make/model, timestamps) antes del almacenamiento.
-*   **Integridad de Byte:** Garantía de inmutabilidad del payload de imagen para preservar la información esteganográfica (Bit-exact storage).
+*   **Cero Inspección del Payload:** El servidor jamás decodifica el campo `payload` cifrado; lo persiste y reenvía como un blob binario opaco. Cualquier intento de inspección sería estéril (AES-GCM produce ciphertext indistinguible de ruido aleatorio).
+*   **Integridad de Byte:** Garantía de inmutabilidad del payload — se devuelve byte-exact al receptor para que la verificación de `authTag` GCM tenga éxito.
 
 </div>

@@ -39,11 +39,6 @@ describe('DatabaseService', () => {
     expect(executedSql).toContain('task_type TEXT NOT NULL');
     expect(executedSql).toContain('task_payload BLOB NOT NULL');
     expect(executedSql).toContain('created_at INTEGER NOT NULL');
-
-    expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS cover_images');
-    expect(executedSql).toContain('image_id INTEGER PRIMARY KEY NOT NULL');
-    expect(executedSql).toContain('local_uri TEXT NOT NULL UNIQUE');
-    expect(executedSql).toContain('checksum TEXT');
   });
 
   it('should return contact public key when it exists', async () => {

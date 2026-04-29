@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 
  * Verifies storing, retrieving encrypted messages, and custom ordering by
  * creation time.
- * Updated to reflect schema changes: recipientHash, stegoPacket.
+ * Updated to reflect schema changes: recipientHash, payload.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -27,7 +27,7 @@ public class MessageRepositoryTest {
     private MessageRepository messageRepository;
 
     private static final String RECIPIENT_HASH = "HNET-TEST-RECIPIENT-HASH";
-    private static final byte[] STEGO_DATA = new byte[] { 1, 2, 3, 4, 5 };
+    private static final byte[] PAYLOAD_DATA = new byte[] { 1, 2, 3, 4, 5 };
 
     @BeforeEach
     public void setUp() {
@@ -39,7 +39,7 @@ public class MessageRepositoryTest {
 
         Message msg = Message.builder()
                 .recipientHash(RECIPIENT_HASH)
-                .stegoPacket(STEGO_DATA)
+                .payload(PAYLOAD_DATA)
 
                 .build();
 
@@ -53,7 +53,7 @@ public class MessageRepositoryTest {
         List<Message> allMessages = messageRepository.findAll();
         assertEquals(1, allMessages.size());
         assertEquals(RECIPIENT_HASH, allMessages.get(0).getRecipientHash());
-        assertArrayEquals(STEGO_DATA, allMessages.get(0).getStegoPacket());
+        assertArrayEquals(PAYLOAD_DATA, allMessages.get(0).getPayload());
     }
 
     @Test
@@ -75,7 +75,7 @@ public class MessageRepositoryTest {
 
         Message oldMsg = Message.builder()
                 .recipientHash(RECIPIENT_HASH)
-                .stegoPacket(new byte[] { 1 })
+                .payload(new byte[] { 1 })
                 .build();
         messageRepository.save(oldMsg);
 
@@ -87,14 +87,14 @@ public class MessageRepositoryTest {
 
         Message newMsg = Message.builder()
                 .recipientHash(RECIPIENT_HASH)
-                .stegoPacket(new byte[] { 2 })
+                .payload(new byte[] { 2 })
                 .build();
         messageRepository.save(newMsg);
 
 
         messageRepository.save(Message.builder()
                 .recipientHash("OTHER-USER-HASH")
-                .stegoPacket(new byte[] { 3 })
+                .payload(new byte[] { 3 })
                 .build());
 
 
@@ -114,8 +114,8 @@ public class MessageRepositoryTest {
 
 
 
-        assertArrayEquals(newMsg.getStegoPacket(), found.get(0).getStegoPacket(), "Newest message should be first");
-        assertArrayEquals(oldMsg.getStegoPacket(), found.get(1).getStegoPacket(), "Older message should be second");
+        assertArrayEquals(newMsg.getPayload(), found.get(0).getPayload(), "Newest message should be first");
+        assertArrayEquals(oldMsg.getPayload(), found.get(1).getPayload(), "Older message should be second");
     }
 
     @Test
@@ -123,7 +123,7 @@ public class MessageRepositoryTest {
 
         Message msg = Message.builder()
                 .recipientHash(RECIPIENT_HASH)
-                .stegoPacket(STEGO_DATA)
+                .payload(PAYLOAD_DATA)
                 .build();
         msg = messageRepository.save(msg);
 

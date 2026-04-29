@@ -17,8 +17,8 @@
 | POST | `/api/auth/login` | No | Verifica firma Ed25519 → JWT |
 | POST | `/api/auth/refresh` | Bearer | Revoca token actual (jti) y devuelve uno nuevo |
 | POST | `/api/auth/logout` | Bearer | Revoca token actual (idempotente) |
-| POST | `/api/messages` | JWT | Envía mensaje stego al buzón del receptor |
-| GET  | `/api/messages?myId=...` | JWT | Lista mensajes del receptor (byte[] list) |
+| POST | `/api/messages` | JWT | Envía un payload cifrado al buzón del receptor |
+| GET  | `/api/messages?myId=...` | JWT | Lista los payloads cifrados del receptor (byte[] list) |
 | POST | `/api/messages/ack` | JWT | Borra los mensajes del usuario autenticado (opcional `cutoff` ISO-8601) |
 
 ## Seguridad
