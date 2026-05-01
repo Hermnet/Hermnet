@@ -99,32 +99,6 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Detecta si el handle nativo está colgado (típico tras Fast Refresh):
-   * NullPointerException dentro del puente nativo.
-   */
-  private isStaleHandleError(err: unknown): boolean {
-    const msg = (err as any)?.message ?? String(err);
-    return /NullPointerException|prepareAsync|database is closed|NativeDatabase/i.test(msg);
-  }
-
-  /**
-   * Garantiza un handle vivo y reintenta una vez si detecta que el nativo se ha colgado.
-   */
-  private async withDb<T>(op: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
-    if (!this.db) await this.initDB();
-    try {
-      return await op(this.db!);
-    } catch (err) {
-      if (!this.isStaleHandleError(err)) throw err;
-      console.warn('[DatabaseService] handle nativo caído, reabriendo BD…');
-      this.db = null;
-      this.initPromise = null;
-      await this.initDB();
-      return await op(this.db!);
-    }
-  }
-
   getDatabase() {
     return this.db;
   }
