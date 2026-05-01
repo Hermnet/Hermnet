@@ -7,6 +7,7 @@ import { databaseService } from '../services/DatabaseService';
 import { authFlowService } from '../services/AuthFlowService';
 import { configureUnauthorizedHandler } from '../services/ApiClient';
 import { AccessibilityProvider } from '../contexts/AccessibilityContext';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { BG_PRIMARY, ACCENT_PRIMARY, DANGER_TEXT, TEXT_PRIMARY, TEXT_SECONDARY } from '../styles/theme';
 
 type DbStatus = 'loading' | 'ready' | 'error';
@@ -79,9 +80,20 @@ export default function RootLayout() {
   }
 
   return (
-    <AccessibilityProvider>
+    <ThemeProvider>
+      <AccessibilityProvider>
+        <ThemedApp />
+      </AccessibilityProvider>
+    </ThemeProvider>
+  );
+}
+
+function ThemedApp() {
+  const { colors } = useTheme();
+  return (
+    <>
       <Slot />
-      <StatusBar style="light" />
-    </AccessibilityProvider>
+      <StatusBar style={colors.statusBarStyle === 'light' ? 'light' : 'dark'} />
+    </>
   );
 }

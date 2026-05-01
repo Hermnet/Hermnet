@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar, Linking } from 'react-native';
 import { ArrowLeft, Mail, ChevronRight } from 'lucide-react-native';
-import { styles } from '../../styles/settingsStyles';
+import { createStyles } from '../../styles/settingsStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Props {
     onBack: () => void;
@@ -28,50 +29,52 @@ const FAQ = [
     },
 ];
 
-// ── HelpScreen ─────────────────────────────────────────────────────────────────
 export default function HelpScreen({ onBack }: Props) {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
+
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.6}>
-                    <ArrowLeft size={26} color="#ffffff" />
+        <View style={s.container}>
+            <StatusBar barStyle={colors.statusBarStyle === 'light' ? 'light-content' : 'dark-content'} />
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.6}>
+                    <ArrowLeft size={26} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Ayuda y Soporte</Text>
-                <View style={styles.headerSpacer} />
+                <Text style={s.headerTitle}>Ayuda y Soporte</Text>
+                <View style={s.headerSpacer} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <Text style={styles.sectionLabel}>Preguntas frecuentes</Text>
-                <View style={styles.sectionCard}>
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                <Text style={s.sectionLabel}>Preguntas frecuentes</Text>
+                <View style={s.sectionCard}>
                     {FAQ.map((item, i) => (
                         <View key={i}>
-                            <View style={styles.faqItem}>
-                                <Text style={styles.faqQ}>{item.q}</Text>
-                                <Text style={styles.faqA}>{item.a}</Text>
+                            <View style={s.faqItem}>
+                                <Text style={s.faqQ}>{item.q}</Text>
+                                <Text style={s.faqA}>{item.a}</Text>
                             </View>
-                            {i < FAQ.length - 1 && <View style={styles.rowSeparator} />}
+                            {i < FAQ.length - 1 && <View style={s.rowSeparator} />}
                         </View>
                     ))}
                 </View>
 
-                <Text style={styles.sectionLabel}>Contacto</Text>
-                <View style={styles.sectionCard}>
+                <Text style={s.sectionLabel}>Contacto</Text>
+                <View style={s.sectionCard}>
                     <TouchableOpacity
-                        style={styles.row}
+                        style={s.row}
                         activeOpacity={0.7}
                         onPress={() => Linking.openURL('mailto:soporte@hermnet.app')}
                     >
-                        <View style={[styles.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
                             <Mail size={17} color="#fbbf24" />
                         </View>
-                        <Text style={styles.rowLabel}>soporte@hermnet.app</Text>
-                        <ChevronRight size={16} color="#4a5568" />
+                        <Text style={s.rowLabel}>soporte@hermnet.app</Text>
+                        <ChevronRight size={16} color={colors.textFaint} />
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.versionWrap}>
-                    <Text style={styles.versionText}>Hermnet v{APP_VERSION}</Text>
+                <View style={s.versionWrap}>
+                    <Text style={s.versionText}>Hermnet v{APP_VERSION}</Text>
                 </View>
             </ScrollView>
         </View>

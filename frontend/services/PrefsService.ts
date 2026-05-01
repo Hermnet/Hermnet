@@ -3,6 +3,13 @@ import * as SecureStore from 'expo-secure-store';
 const KEY_SECURITY = 'hermnet.prefs.security';
 const KEY_NOTIFICATIONS = 'hermnet.prefs.notifications';
 const KEY_ACCESSIBILITY = 'hermnet.prefs.accessibility';
+const KEY_THEME = 'hermnet.prefs.theme';
+
+export type ThemeMode = 'auto' | 'light' | 'dark';
+
+export interface ThemePrefs {
+    mode: ThemeMode;
+}
 
 export interface SecurityPrefs {
     biometric: boolean;
@@ -52,11 +59,15 @@ class PrefsService {
     getAccessibilityPrefs = () => load<AccessibilityPrefs>(KEY_ACCESSIBILITY, DEFAULT_ACCESSIBILITY);
     setAccessibilityPrefs = (prefs: AccessibilityPrefs) => save(KEY_ACCESSIBILITY, prefs);
 
+    getThemePrefs = () => load<ThemePrefs>(KEY_THEME, { mode: 'auto' });
+    setThemePrefs = (prefs: ThemePrefs) => save(KEY_THEME, prefs);
+
     async clearAll(): Promise<void> {
         await Promise.all([
             SecureStore.deleteItemAsync(KEY_SECURITY),
             SecureStore.deleteItemAsync(KEY_NOTIFICATIONS),
             SecureStore.deleteItemAsync(KEY_ACCESSIBILITY),
+            SecureStore.deleteItemAsync(KEY_THEME),
         ]);
     }
 }

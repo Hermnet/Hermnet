@@ -1,41 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
-import { styles } from '../../styles/settingsStyles';
+import { createStyles } from '../../styles/settingsStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { prefsService, NotificationPrefs } from '../../services/PrefsService';
 
 interface Props {
     onBack: () => void;
 }
 
-// ── Toggle row ─────────────────────────────────────────────────────────────────
-function ToggleRow({
-    label, sub, value, onChange, last = false,
-}: {
-    label: string; sub?: string; value: boolean; onChange: (v: boolean) => void; last?: boolean;
-}) {
-    return (
-        <>
-            <View style={styles.toggleRow}>
-                <View style={styles.toggleInfo}>
-                    <Text style={styles.toggleLabel}>{label}</Text>
-                    {sub && <Text style={styles.toggleSub}>{sub}</Text>}
-                </View>
-                <Switch
-                    value={value}
-                    onValueChange={onChange}
-                    trackColor={{ false: '#1e2d4a', true: '#3b82f6' }}
-                    thumbColor="#ffffff"
-                    ios_backgroundColor="#1e2d4a"
-                />
-            </View>
-            {!last && <View style={styles.rowSeparator} />}
-        </>
-    );
-}
-
-// ── NotificationsScreen ────────────────────────────────────────────────────────
 export default function NotificationsScreen({ onBack }: Props) {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
     const [prefs, setPrefs] = useState<NotificationPrefs>({
         pushEnabled: true, preview: false, sound: true, vibration: true,
     });
@@ -54,22 +30,45 @@ export default function NotificationsScreen({ onBack }: Props) {
         await prefsService.setNotificationPrefs(next);
     };
 
-    if (!loaded) return <View style={styles.container} />;
+    const ToggleRow = ({
+        label, sub, value, onChange, last = false,
+    }: {
+        label: string; sub?: string; value: boolean; onChange: (v: boolean) => void; last?: boolean;
+    }) => (
+        <>
+            <View style={s.toggleRow}>
+                <View style={s.toggleInfo}>
+                    <Text style={s.toggleLabel}>{label}</Text>
+                    {sub && <Text style={s.toggleSub}>{sub}</Text>}
+                </View>
+                <Switch
+                    value={value}
+                    onValueChange={onChange}
+                    trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+                    thumbColor={colors.switchThumb}
+                    ios_backgroundColor={colors.switchTrackOff}
+                />
+            </View>
+            {!last && <View style={s.rowSeparator} />}
+        </>
+    );
+
+    if (!loaded) return <View style={s.container} />;
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.6}>
-                    <ArrowLeft size={26} color="#ffffff" />
+        <View style={s.container}>
+            <StatusBar barStyle={colors.statusBarStyle === 'light' ? 'light-content' : 'dark-content'} />
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.6}>
+                    <ArrowLeft size={26} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Notificaciones</Text>
-                <View style={styles.headerSpacer} />
+                <Text style={s.headerTitle}>Notificaciones</Text>
+                <View style={s.headerSpacer} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <Text style={styles.sectionLabel}>Mensajes</Text>
-                <View style={styles.sectionCard}>
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                <Text style={s.sectionLabel}>Mensajes</Text>
+                <View style={s.sectionCard}>
                     <ToggleRow
                         label="Notificaciones push"
                         sub="Recibir alertas cuando lleguen mensajes nuevos"
@@ -85,8 +84,8 @@ export default function NotificationsScreen({ onBack }: Props) {
                     />
                 </View>
 
-                <Text style={styles.sectionLabel}>Sonido y vibración</Text>
-                <View style={styles.sectionCard}>
+                <Text style={s.sectionLabel}>Sonido y vibración</Text>
+                <View style={s.sectionCard}>
                     <ToggleRow
                         label="Sonido"
                         sub="Reproducir tono al recibir mensajes"

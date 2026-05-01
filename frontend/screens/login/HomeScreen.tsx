@@ -1,11 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import QuickCrypto from 'react-native-quick-crypto';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
 import PinScreen from './PinScreen';
-import { styles as loginStyles } from '../../styles/loginStyles';
+import { createStyles as createLoginStyles } from '../../styles/loginStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { authFlowService, LoginFlowResult } from '../../services/AuthFlowService';
 import { authSessionService } from '../../services/AuthSessionService';
 import { useAuthStore } from '../../store/authStore';
@@ -17,6 +18,8 @@ function hashPin(pin: string, salt: string): string {
 }
 
 export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
+    const { colors } = useTheme();
+    const loginStyles = useMemo(() => createLoginStyles(colors), [colors]);
     const [hasAccount, setHasAccount] = useState<boolean | null>(null);
     const [showPin, setShowPin] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -143,11 +146,11 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
     }, [authStoreLogin, onAuthSuccess, showModal]);
 
     if (hasAccount === null) {
-        return <View style={{ flex: 1, backgroundColor: '#0d111b' }} />;
+        return <View style={{ flex: 1, backgroundColor: colors.bgPrimary }} />;
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#0d111b' }}>
+        <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
             {!hasAccount && (
                 <Animated.View style={[loginStyles.container, StyleSheet.absoluteFill, { opacity: fadeHomeAnim, transform: [{ translateY: translateYHomeAnim }] }]}>
                     <View style={loginStyles.content}>
@@ -192,7 +195,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                             transform: hasAccount ? [] : [{ translateY: translateYPinAnim }],
                             zIndex: 5,
                             elevation: 5,
-                            backgroundColor: '#0d111b'
+                            backgroundColor: colors.bgPrimary
                         }
                     ]}
                 >
@@ -218,7 +221,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                 <Animated.View
                     style={[
                         StyleSheet.absoluteFill,
-                        { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' }
+                        { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary }
                     ]}
                 >
                     <LoadingScreen onFinish={handleLoadingFinish} />
@@ -226,9 +229,9 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
             )}
 
             {loginLoading && (
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0d111b', zIndex: 30, elevation: 30, alignItems: 'center', justifyContent: 'center' }]}>
-                    <ActivityIndicator size="large" color="#3b82f6" />
-                    <Text style={{ color: '#a0aec0', marginTop: 12, fontSize: 14 }}>Autenticando...</Text>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgPrimary, zIndex: 30, elevation: 30, alignItems: 'center', justifyContent: 'center' }]}>
+                    <ActivityIndicator size="large" color={colors.accentPrimary} />
+                    <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 14 }}>Autenticando...</Text>
                 </View>
             )}
             {modalNode}
