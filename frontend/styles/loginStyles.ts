@@ -1,8 +1,10 @@
-import { StyleSheet } from 'react-native';
-import { SCREEN_WIDTH } from '../constants/layout';
+import { StyleSheet, Dimensions } from 'react-native';
 import { ThemeColors, darkColors } from './theme';
 
 export function createStyles(c: ThemeColors) {
+    const { width, height } = Dimensions.get('window');
+    const isShort = height < 680;
+
     return StyleSheet.create({
         container: {
             flex: 1,
@@ -16,40 +18,40 @@ export function createStyles(c: ThemeColors) {
             alignItems: 'center',
         },
         logo: {
-            width: SCREEN_WIDTH * 0.7,
+            width: width * (isShort ? 0.55 : 0.7),
             height: undefined,
             aspectRatio: 1.05,
             marginBottom: 4,
-            marginTop: 80,
+            marginTop: isShort ? 40 : 80,
         },
         title: {
-            fontSize: 34,
+            fontSize: isShort ? 28 : 34,
             letterSpacing: 8,
             fontWeight: '300',
             color: c.textMuted,
         },
         button: {
             backgroundColor: c.surfaceLight,
-            paddingVertical: 22,
+            paddingVertical: isShort ? 16 : 22,
             paddingHorizontal: 40,
             borderRadius: 40,
             width: '90%',
             alignItems: 'center',
-            marginBottom: 60,
+            marginBottom: isShort ? 30 : 60,
         },
         buttonText: {
             color: c.textDark,
-            fontSize: 20,
+            fontSize: isShort ? 17 : 20,
             fontWeight: '600',
         },
         secondaryButton: {
-            marginBottom: 15,
+            marginBottom: isShort ? 10 : 15,
             paddingVertical: 10,
             paddingHorizontal: 20,
         },
         secondaryButtonText: {
             color: c.textHint,
-            fontSize: 15,
+            fontSize: isShort ? 13 : 15,
             fontWeight: '500',
             textDecorationLine: 'underline',
         },

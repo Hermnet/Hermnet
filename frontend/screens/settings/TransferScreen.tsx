@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, TextInput, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, TextInput, ActivityIndicator, Modal, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, Download, Upload, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
 import { createStyles } from '../../styles/settingsStyles';
@@ -148,44 +148,46 @@ export default function TransferScreen({ onBack }: Props) {
 
             {/* ─── Password Input Modal ─── */}
             <Modal visible={passwordModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={closePasswordModal}>
-                <TouchableOpacity style={localSh.overlay} activeOpacity={1} onPress={closePasswordModal}>
-                    <TouchableOpacity activeOpacity={1} style={[localSh.card, { backgroundColor: colors.bgSurface, borderColor: colors.borderLight }]} onPress={() => {}}>
-                        <Text style={[localSh.title, { color: colors.textPrimary }]}>
-                            {isExport ? 'Cifrar respaldo' : 'Descifrar respaldo'}
-                        </Text>
-                        <Text style={[localSh.subtitle, { color: colors.textMuted }]}>
-                            {isExport
-                                ? 'Elige una contraseña para proteger tu archivo .hnet. No la olvides.'
-                                : 'Introduce la contraseña con la que cifraste este respaldo.'}
-                        </Text>
-                        <View style={[localSh.inputRow, { backgroundColor: colors.inputFieldBg, borderColor: colors.borderSubtle }]}>
-                            <TextInput
-                                style={[localSh.input, { color: colors.textPrimary }]}
-                                placeholder="Contraseña"
-                                placeholderTextColor={colors.textHint}
-                                secureTextEntry={!showPassword}
-                                value={password}
-                                onChangeText={setPassword}
-                                autoFocus
-                            />
-                            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={localSh.eyeBtn}>
-                                {showPassword
-                                    ? <EyeOff size={20} color={colors.textMuted} />
-                                    : <Eye size={20} color={colors.textMuted} />}
-                            </TouchableOpacity>
-                        </View>
-                        <View style={localSh.btnRow}>
-                            <TouchableOpacity style={[localSh.btn, { backgroundColor: colors.bgElevated }]} onPress={closePasswordModal}>
-                                <Text style={[localSh.btnText, { color: colors.textPrimary }]}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[localSh.btn, { backgroundColor: colors.accentPrimary }]} onPress={handlePasswordConfirm}>
-                                <Text style={[localSh.btnText, { color: '#fff' }]}>
-                                    {isExport ? 'Exportar' : 'Restaurar'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                    <TouchableOpacity style={localSh.overlay} activeOpacity={1} onPress={closePasswordModal}>
+                        <TouchableOpacity activeOpacity={1} style={[localSh.card, { backgroundColor: colors.bgSurface, borderColor: colors.borderLight }]} onPress={() => {}}>
+                            <Text style={[localSh.title, { color: colors.textPrimary }]}>
+                                {isExport ? 'Cifrar respaldo' : 'Descifrar respaldo'}
+                            </Text>
+                            <Text style={[localSh.subtitle, { color: colors.textMuted }]}>
+                                {isExport
+                                    ? 'Elige una contraseña para proteger tu archivo .hnet. No la olvides.'
+                                    : 'Introduce la contraseña con la que cifraste este respaldo.'}
+                            </Text>
+                            <View style={[localSh.inputRow, { backgroundColor: colors.inputFieldBg, borderColor: colors.borderSubtle }]}>
+                                <TextInput
+                                    style={[localSh.input, { color: colors.textPrimary }]}
+                                    placeholder="Contraseña"
+                                    placeholderTextColor={colors.textHint}
+                                    secureTextEntry={!showPassword}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    autoFocus
+                                />
+                                <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={localSh.eyeBtn}>
+                                    {showPassword
+                                        ? <EyeOff size={20} color={colors.textMuted} />
+                                        : <Eye size={20} color={colors.textMuted} />}
+                                </TouchableOpacity>
+                            </View>
+                            <View style={localSh.btnRow}>
+                                <TouchableOpacity style={[localSh.btn, { backgroundColor: colors.bgElevated }]} onPress={closePasswordModal}>
+                                    <Text style={[localSh.btnText, { color: colors.textPrimary }]}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[localSh.btn, { backgroundColor: colors.accentPrimary }]} onPress={handlePasswordConfirm}>
+                                    <Text style={[localSh.btnText, { color: '#fff' }]}>
+                                        {isExport ? 'Exportar' : 'Restaurar'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableOpacity>
                     </TouchableOpacity>
-                </TouchableOpacity>
+                </KeyboardAvoidingView>
             </Modal>
 
             {modalNode}

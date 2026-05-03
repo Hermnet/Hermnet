@@ -6,7 +6,7 @@ export function createChatRoomStyles(c: ThemeColors) {
         headerContainer: {
             position: 'absolute', top: 0, width: '100%', zIndex: 100,
             backgroundColor: c.bgPrimary,
-            paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : 60,
+            // paddingTop se aplica dinámicamente con insets en el componente
             paddingBottom: 15, paddingHorizontal: 16,
             flexDirection: 'row', alignItems: 'center',
             borderBottomWidth: 1, borderBottomColor: c.borderSubtle,
@@ -120,7 +120,6 @@ export function createStyles(c: ThemeColors) {
             width: '100%',
             paddingHorizontal: 20,
             paddingTop: 10,
-            paddingBottom: Platform.OS === 'ios' ? 35 : 20,
             backgroundColor: 'transparent',
             zIndex: 10,
         },

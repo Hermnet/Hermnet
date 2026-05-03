@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Animated, Vibration } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, Vibration, ScrollView } from 'react-native';
 import { Delete } from 'lucide-react-native';
 import { createStyles } from '../../styles/pinStyles';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -108,58 +108,65 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
 
     return (
         <View style={s.container}>
-            <View style={s.header}>
-                <Text style={s.title}>
-                    {step === 'create' ? 'CREA TU PIN DE SEGURIDAD' : step === 'confirm' ? 'CONFIRMA TU PIN' : step === 'restore' ? 'CONTRASEÑA DE RESPALDO' : 'DESBLOQUEA TU BÓVEDA'}
-                </Text>
-                <Text style={s.subtitle}>
-                    {step === 'create'
-                        ? 'Este PIN blindará tu clave local. Si lo olvidas, perderás tu identidad.'
-                        : step === 'confirm'
-                            ? 'Introduce el PIN nuevamente para confirmar tu bóveda.'
-                            : step === 'restore'
-                                ? 'Introduce la contraseña con la que cifraste tu archivo de respaldo (.hnet).'
-                                : 'Introduce tu PIN de seguridad para acceder a tu identidad local.'}
-                </Text>
-            </View>
+            <ScrollView
+                contentContainerStyle={s.scrollContent}
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={s.header}>
+                    <Text style={s.title}>
+                        {step === 'create' ? 'CREA TU PIN DE SEGURIDAD' : step === 'confirm' ? 'CONFIRMA TU PIN' : step === 'restore' ? 'CONTRASEÑA DE RESPALDO' : 'DESBLOQUEA TU BÓVEDA'}
+                    </Text>
+                    <Text style={s.subtitle}>
+                        {step === 'create'
+                            ? 'Este PIN blindará tu clave local. Si lo olvidas, perderás tu identidad.'
+                            : step === 'confirm'
+                                ? 'Introduce el PIN nuevamente para confirmar tu bóveda.'
+                                : step === 'restore'
+                                    ? 'Introduce la contraseña con la que cifraste tu archivo de respaldo (.hnet).'
+                                    : 'Introduce tu PIN de seguridad para acceder a tu identidad local.'}
+                    </Text>
+                </View>
 
-            <Animated.View style={[s.dotsContainer, { transform: [{ translateX: shakeAnimation }] }]}>
-                {renderDots()}
-            </Animated.View>
+                <Animated.View style={[s.dotsContainer, { transform: [{ translateX: shakeAnimation }] }]}>
+                    {renderDots()}
+                </Animated.View>
 
-            <View style={s.padBox}>
-                <View style={s.padContainer}>
-                    {KEYPAD.flat().map((key, idx) => {
-                        if (key === '') {
-                            return <View key={idx} style={s.keyEmpty} />;
-                        }
-                        if (key === 'delete') {
+                <View style={s.padBox}>
+                    <View style={s.padContainer}>
+                        {KEYPAD.flat().map((key, idx) => {
+                            if (key === '') {
+                                return <View key={idx} style={s.keyEmpty} />;
+                            }
+                            if (key === 'delete') {
+                                return (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={s.key}
+                                        onPress={handleDelete}
+                                        activeOpacity={0.6}
+                                        accessibilityLabel="Borrar dígito"
+                                    >
+                                        <Delete size={26} color={colors.textMuted} />
+                                    </TouchableOpacity>
+                                );
+                            }
                             return (
                                 <TouchableOpacity
                                     key={idx}
                                     style={s.key}
-                                    onPress={handleDelete}
+                                    onPress={() => handlePress(key)}
                                     activeOpacity={0.6}
-                                    accessibilityLabel="Borrar dígito"
+                                    accessibilityLabel={`Dígito ${key}`}
                                 >
-                                    <Delete size={26} color={colors.textMuted} />
+                                    <Text style={s.keyText}>{key}</Text>
                                 </TouchableOpacity>
                             );
-                        }
-                        return (
-                            <TouchableOpacity
-                                key={idx}
-                                style={s.key}
-                                onPress={() => handlePress(key)}
-                                activeOpacity={0.6}
-                                accessibilityLabel={`Dígito ${key}`}
-                            >
-                                <Text style={s.keyText}>{key}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                        })}
+                    </View>
                 </View>
-            </View>
+            </ScrollView>
         </View>
     );
 }

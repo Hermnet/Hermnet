@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { Eye, EyeOff } from 'lucide-react-native';
 import QuickCrypto from 'react-native-quick-crypto';
@@ -271,38 +271,40 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
 
             {/* Password modal for restore */}
             <Modal visible={restorePasswordModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRestorePasswordModal(false)}>
-                <TouchableOpacity style={restoreSh.overlay} activeOpacity={1} onPress={() => setRestorePasswordModal(false)}>
-                    <TouchableOpacity activeOpacity={1} style={[restoreSh.card, { backgroundColor: colors.bgSurface, borderColor: colors.borderLight }]} onPress={() => {}}>
-                        <Text style={[restoreSh.title, { color: colors.textPrimary }]}>Descifrar respaldo</Text>
-                        <Text style={[restoreSh.subtitle, { color: colors.textMuted }]}>
-                            Introduce la contraseña con la que cifraste este archivo .hnet.
-                        </Text>
-                        <View style={[restoreSh.inputRow, { backgroundColor: colors.inputFieldBg, borderColor: colors.borderSubtle }]}>
-                            <TextInput
-                                style={[restoreSh.input, { color: colors.textPrimary }]}
-                                placeholder="Contraseña"
-                                placeholderTextColor={colors.textHint}
-                                secureTextEntry={!showRestorePassword}
-                                value={restorePassword}
-                                onChangeText={setRestorePassword}
-                                autoFocus
-                            />
-                            <TouchableOpacity onPress={() => setShowRestorePassword(v => !v)} style={restoreSh.eyeBtn}>
-                                {showRestorePassword
-                                    ? <EyeOff size={20} color={colors.textMuted} />
-                                    : <Eye size={20} color={colors.textMuted} />}
-                            </TouchableOpacity>
-                        </View>
-                        <View style={restoreSh.btnRow}>
-                            <TouchableOpacity style={[restoreSh.btn, { backgroundColor: colors.bgElevated }]} onPress={() => setRestorePasswordModal(false)}>
-                                <Text style={[restoreSh.btnText, { color: colors.textPrimary }]}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[restoreSh.btn, { backgroundColor: colors.accentPrimary }]} onPress={doRestore}>
-                                <Text style={[restoreSh.btnText, { color: '#fff' }]}>Restaurar</Text>
-                            </TouchableOpacity>
-                        </View>
+                <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                    <TouchableOpacity style={restoreSh.overlay} activeOpacity={1} onPress={() => setRestorePasswordModal(false)}>
+                        <TouchableOpacity activeOpacity={1} style={[restoreSh.card, { backgroundColor: colors.bgSurface, borderColor: colors.borderLight }]} onPress={() => {}}>
+                            <Text style={[restoreSh.title, { color: colors.textPrimary }]}>Descifrar respaldo</Text>
+                            <Text style={[restoreSh.subtitle, { color: colors.textMuted }]}>
+                                Introduce la contraseña con la que cifraste este archivo .hnet.
+                            </Text>
+                            <View style={[restoreSh.inputRow, { backgroundColor: colors.inputFieldBg, borderColor: colors.borderSubtle }]}>
+                                <TextInput
+                                    style={[restoreSh.input, { color: colors.textPrimary }]}
+                                    placeholder="Contraseña"
+                                    placeholderTextColor={colors.textHint}
+                                    secureTextEntry={!showRestorePassword}
+                                    value={restorePassword}
+                                    onChangeText={setRestorePassword}
+                                    autoFocus
+                                />
+                                <TouchableOpacity onPress={() => setShowRestorePassword(v => !v)} style={restoreSh.eyeBtn}>
+                                    {showRestorePassword
+                                        ? <EyeOff size={20} color={colors.textMuted} />
+                                        : <Eye size={20} color={colors.textMuted} />}
+                                </TouchableOpacity>
+                            </View>
+                            <View style={restoreSh.btnRow}>
+                                <TouchableOpacity style={[restoreSh.btn, { backgroundColor: colors.bgElevated }]} onPress={() => setRestorePasswordModal(false)}>
+                                    <Text style={[restoreSh.btnText, { color: colors.textPrimary }]}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[restoreSh.btn, { backgroundColor: colors.accentPrimary }]} onPress={doRestore}>
+                                    <Text style={[restoreSh.btnText, { color: '#fff' }]}>Restaurar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableOpacity>
                     </TouchableOpacity>
-                </TouchableOpacity>
+                </KeyboardAvoidingView>
             </Modal>
 
             {modalNode}

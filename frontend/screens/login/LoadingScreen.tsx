@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Animated, Easing, FlatList, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, Animated, Easing, FlatList, StyleSheet, TouchableOpacity, ViewStyle, useWindowDimensions } from 'react-native';
 import { Folder, ShieldAlert, Smartphone, Mail, Image as LucideImage, Zap, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles, localAnimStyles } from '../../styles/loadingStyles';
 import { styles as loginStyles } from '../../styles/loginStyles';
-import { SCREEN_WIDTH } from '../../constants/layout';
 
 const SLIDES = [
     {
@@ -81,7 +80,7 @@ const PhonesCommunicationAnimation = () => {
 
     const envelopeTranslateX = animValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [-60, 60]
+        outputRange: [-45, 45]
     });
 
     const envelopeOpacity = animValue.interpolate({
@@ -96,7 +95,7 @@ const PhonesCommunicationAnimation = () => {
 
     return (
         <LoadingAnimationStep style={{ flexDirection: 'row' }}>
-            <Smartphone size={60} color="#1a202c" style={{ marginRight: 60 }} />
+            <Smartphone size={50} color="#1a202c" style={{ marginRight: 40 }} />
 
             <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', transform: [{ translateX: envelopeTranslateX }], opacity: envelopeOpacity }]}>
                 <Mail size={24} color="#3182ce" />
@@ -106,7 +105,7 @@ const PhonesCommunicationAnimation = () => {
                 <LucideImage size={34} color="#a0aec0" />
             </Animated.View>
 
-            <Smartphone size={60} color="#1a202c" style={{ marginLeft: 60 }} />
+            <Smartphone size={50} color="#1a202c" style={{ marginLeft: 40 }} />
         </LoadingAnimationStep>
     );
 };
@@ -190,6 +189,8 @@ const ShieldDefenseAnimation = () => {
 
 
 export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
+    const { width: SCREEN_WIDTH, height: screenHeight } = useWindowDimensions();
+    const isShort = screenHeight < 680;
     const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
     const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -259,7 +260,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
     ), []);
 
     return (
-        <View style={[styles.container, { paddingTop: 90 }]}>
+        <View style={[styles.container, { paddingTop: isShort ? 40 : 90 }]}>
             <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
                 {SLIDES.map((_, index) => (
                     <Animated.View
@@ -313,7 +314,7 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
             {showButton && (
                 <Animated.View style={{
                     position: 'absolute',
-                    bottom: 40,
+                    bottom: isShort ? 20 : 40,
                     width: '100%',
                     alignItems: 'center',
                     opacity: enterAnim,

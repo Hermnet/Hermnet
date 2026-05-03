@@ -1,6 +1,11 @@
-import { StyleSheet } from 'react-native';
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../constants/layout';
+import { StyleSheet, Dimensions } from 'react-native';
 import { ThemeColors, darkColors } from './theme';
+
+const getMetrics = () => {
+    const { width, height } = Dimensions.get('window');
+    const isShort = height < 680;
+    return { width, height, isShort };
+};
 
 export function createLocalAnimStyles(c: ThemeColors) {
     return StyleSheet.create({
@@ -35,18 +40,20 @@ export function createLocalAnimStyles(c: ThemeColors) {
 }
 
 export function createStyles(c: ThemeColors) {
+    const { width, height, isShort } = getMetrics();
+
     return StyleSheet.create({
         container: {
             flex: 1,
             backgroundColor: 'transparent',
             alignItems: 'center',
-            paddingVertical: 60,
+            paddingVertical: isShort ? 30 : 60,
         },
         paginationContainer: {
             flexDirection: 'row',
             justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: 30,
+            marginBottom: isShort ? 12 : 30,
         },
         dot: {
             width: 6,
@@ -66,11 +73,11 @@ export function createStyles(c: ThemeColors) {
             elevation: 5,
         },
         card: {
-            width: SCREEN_WIDTH * 0.85,
-            height: SCREEN_HEIGHT * 0.65,
+            width: width * 0.85,
+            height: height * (isShort ? 0.55 : 0.65),
             backgroundColor: c.textSecondary,
             borderRadius: 24,
-            padding: 30,
+            padding: isShort ? 20 : 30,
             alignItems: 'center',
             justifyContent: 'space-between',
             shadowColor: '#000',
@@ -80,18 +87,18 @@ export function createStyles(c: ThemeColors) {
             elevation: 15,
         },
         title: {
-            fontSize: 18,
+            fontSize: isShort ? 16 : 18,
             fontWeight: '800',
             color: c.textDark,
             textAlign: 'center',
-            marginBottom: 20,
+            marginBottom: isShort ? 12 : 20,
             letterSpacing: 1.5,
         },
         description: {
-            fontSize: 16,
+            fontSize: isShort ? 14 : 16,
             color: c.textFaint,
             textAlign: 'center',
-            lineHeight: 26,
+            lineHeight: isShort ? 22 : 26,
             fontWeight: '500',
         },
         iconContainer: {
@@ -110,13 +117,13 @@ export function createStyles(c: ThemeColors) {
         },
         bottomSection: {
             width: '85%',
-            marginTop: 40,
+            marginTop: isShort ? 16 : 40,
             alignItems: 'flex-start',
         },
         loadingText: {
             color: c.textSecondary,
-            fontSize: 15,
-            marginBottom: 16,
+            fontSize: isShort ? 13 : 15,
+            marginBottom: isShort ? 10 : 16,
             fontWeight: '600',
             letterSpacing: 0.5,
         },
