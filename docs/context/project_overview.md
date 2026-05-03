@@ -15,7 +15,6 @@ Periodistas, activistas, profesionales de seguridad, cualquiera que quiera anoni
 - **TOFU** (Trust On First Use) para intercambio de claves vía QR.
 - **Verificación de fingerprint** del HNET-id contra la pk recibida — bloquea suplantación.
 - **Blind push**: notificaciones FCM vacías que solo despiertan la app para sincronizar.
-- **Auto-destrucción**: N fallos de PIN → se borra la key store local.
 - **Servidor zero-knowledge**: jamás conoce contenido, identidades reales, ni clave privada.
 
 Más detalle: `docs/anteproyecto.md`, `docs/technical/descripcion_detallada.md`.
