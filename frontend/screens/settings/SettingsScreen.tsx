@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Modal,
     KeyboardAvoidingView, Platform, Animated, StyleSheet,
@@ -7,10 +7,11 @@ import { useAppModal } from '../../components/AppModal';
 import {
     ArrowLeft, User, Bell, Shield, HelpCircle, FileText,
     Download, LogOut, Trash2, ChevronRight,
-    AlertTriangle, Copy, Accessibility,
+    AlertTriangle, Copy, Accessibility, Palette,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
-import { styles } from '../../styles/settingsStyles';
+import { createStyles } from '../../styles/settingsStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
 import { authFlowService } from '../../services/AuthFlowService';
 import { useAuthStore } from '../../store/authStore';
@@ -24,43 +25,26 @@ import HelpScreen from './HelpScreen';
 import TermsScreen from './TermsScreen';
 import TransferScreen from './TransferScreen';
 import AccessibilityScreen from './AccessibilityScreen';
+import AppearanceScreen from './AppearanceScreen';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type ConfirmModal = 'logout' | 'delete' | null;
-type SubScreen = 'security' | 'notifications' | 'privacy' | 'help' | 'terms' | 'transfer' | 'accessibility' | null;
+type SubScreen = 'security' | 'notifications' | 'privacy' | 'help' | 'terms' | 'transfer' | 'accessibility' | 'appearance' | null;
 
 interface Props {
     onBack: () => void;
 }
 
-// ─── Row helper ────────────────────────────────────────────────────────────────
-const SettingRow = React.memo(function SettingRow({
-    icon, label, iconBg = '#1e2d4a', onPress, last = false,
-}: {
-    icon: React.ReactNode; label: string; iconBg?: string; onPress?: () => void; last?: boolean;
-}) {
-    return (
-        <>
-            <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={onPress}>
-                <View style={[styles.rowIconWrap, { backgroundColor: iconBg }]}>
-                    {icon}
-                </View>
-                <Text style={styles.rowLabel}>{label}</Text>
-                <ChevronRight size={16} color="#4a5568" />
-            </TouchableOpacity>
-            {!last && <View style={styles.rowSeparator} />}
-        </>
-    );
-});
-
 // ─── SettingsScreen ────────────────────────────────────────────────────────────
 export default function SettingsScreen({ onBack }: Props) {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
     const [activeSub, setActiveSub] = useState<SubScreen>(null);
     const { showModal, modalNode } = useAppModal();
     const subSlide = useSlideAnim(300);
-    const identity = useAuthStore((s) => s.identity);
-    const storeLogout = useAuthStore((s) => s.logout);
+    const identity = useAuthStore((st) => st.identity);
+    const storeLogout = useAuthStore((st) => st.logout);
     const hashId = identity?.id ?? 'HNET-?????';
 
     const openSub = (screen: SubScreen) => {
@@ -95,47 +79,62 @@ export default function SettingsScreen({ onBack }: Props) {
         await storeLogout();
     };
 
+    const SettingRow = ({ icon, label, iconBg = colors.bgElevated, onPress, last = false }: {
+        icon: React.ReactNode; label: string; iconBg?: string; onPress?: () => void; last?: boolean;
+    }) => (
+        <>
+            <TouchableOpacity style={s.row} activeOpacity={0.7} onPress={onPress}>
+                <View style={[s.rowIconWrap, { backgroundColor: iconBg }]}>
+                    {icon}
+                </View>
+                <Text style={s.rowLabel}>{label}</Text>
+                <ChevronRight size={16} color={colors.textFaint} />
+            </TouchableOpacity>
+            {!last && <View style={s.rowSeparator} />}
+        </>
+    );
+
     return (
         <KeyboardAvoidingView
-            style={styles.safeArea}
+            style={s.safeArea}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            <View style={styles.container}>
+            <View style={s.container}>
                 {/* ── Header ── */}
-                <View style={styles.header}>
-                    <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.6}>
-                        <ArrowLeft size={26} color="#ffffff" />
+                <View style={s.header}>
+                    <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.6}>
+                        <ArrowLeft size={26} color={colors.textPrimary} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Ajustes</Text>
+                    <Text style={s.headerTitle}>Ajustes</Text>
                 </View>
 
                 <ScrollView
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={s.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
                     {/* ── Sección Cuenta ── */}
-                    <Text style={styles.sectionLabel}>Cuenta</Text>
+                    <Text style={s.sectionLabel}>Cuenta</Text>
 
                     {/* Hash ID */}
                     <TouchableOpacity
-                        style={styles.hashIdCard}
+                        style={s.hashIdCard}
                         activeOpacity={0.75}
                         onPress={handleCopyId}
                     >
-                        <View style={styles.hashIdIconWrap}>
-                            <User size={18} color="#60a5fa" />
+                        <View style={s.hashIdIconWrap}>
+                            <User size={18} color={colors.accentLight} />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.hashIdLabel}>Tu identidad</Text>
-                            <Text style={styles.hashIdValue}>{hashId}</Text>
-                            <Text style={styles.copyHint}>Toca para copiar</Text>
+                            <Text style={s.hashIdLabel}>Tu identidad</Text>
+                            <Text style={s.hashIdValue}>{hashId}</Text>
+                            <Text style={s.copyHint}>Toca para copiar</Text>
                         </View>
-                        <Copy size={16} color="#4a5568" />
+                        <Copy size={16} color={colors.textFaint} />
                     </TouchableOpacity>
 
-                    <View style={styles.sectionCard}>
+                    <View style={s.sectionCard}>
                         <SettingRow
-                            icon={<Shield size={17} color="#60a5fa" />}
+                            icon={<Shield size={17} color={colors.accentLight} />}
                             label="Seguridad"
                             iconBg="#1e2d4a"
                             onPress={() => openSub('security')}
@@ -156,20 +155,26 @@ export default function SettingsScreen({ onBack }: Props) {
                     </View>
 
                     {/* ── Sección Preferencias ── */}
-                    <Text style={styles.sectionLabel}>Preferencias</Text>
-                    <View style={styles.sectionCard}>
+                    <Text style={s.sectionLabel}>Preferencias</Text>
+                    <View style={s.sectionCard}>
                         <SettingRow
                             icon={<Accessibility size={17} color="#818cf8" />}
                             label="Accesibilidad"
                             iconBg="#1e1f3a"
                             onPress={() => openSub('accessibility')}
+                        />
+                        <SettingRow
+                            icon={<Palette size={17} color="#f472b6" />}
+                            label="Apariencia"
+                            iconBg="#3a1e35"
+                            onPress={() => openSub('appearance')}
                             last
                         />
                     </View>
 
                     {/* ── Sección Soporte & Otros ── */}
-                    <Text style={styles.sectionLabel}>Soporte &amp; Otros</Text>
-                    <View style={styles.sectionCard}>
+                    <Text style={s.sectionLabel}>Soporte &amp; Otros</Text>
+                    <View style={s.sectionCard}>
                         <SettingRow
                             icon={<HelpCircle size={17} color="#fbbf24" />}
                             label="Ayuda y Soporte"
@@ -177,7 +182,7 @@ export default function SettingsScreen({ onBack }: Props) {
                             onPress={() => openSub('help')}
                         />
                         <SettingRow
-                            icon={<FileText size={17} color="#a0aec0" />}
+                            icon={<FileText size={17} color={colors.textMuted} />}
                             label="Términos y Condiciones"
                             iconBg="#1e2535"
                             onPress={() => openSub('terms')}
@@ -186,8 +191,8 @@ export default function SettingsScreen({ onBack }: Props) {
                     </View>
 
                     {/* ── Sección Datos ── */}
-                    <Text style={styles.sectionLabel}>Datos</Text>
-                    <View style={styles.sectionCard}>
+                    <Text style={s.sectionLabel}>Datos</Text>
+                    <View style={s.sectionCard}>
                         <SettingRow
                             icon={<Download size={17} color="#34d399" />}
                             label="Transferir Archivos"
@@ -199,22 +204,22 @@ export default function SettingsScreen({ onBack }: Props) {
 
                     {/* ── Cerrar Sesión ── */}
                     <TouchableOpacity
-                        style={styles.logoutBtn}
+                        style={s.logoutBtn}
                         activeOpacity={0.75}
                         onPress={() => setConfirmModal('logout')}
                     >
-                        <LogOut size={20} color="#e2e8f0" />
-                        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+                        <LogOut size={20} color={colors.textSecondary} />
+                        <Text style={s.logoutText}>Cerrar Sesión</Text>
                     </TouchableOpacity>
 
                     {/* ── Eliminar Cuenta (zona de peligro) ── */}
                     <TouchableOpacity
-                        style={styles.deleteBtn}
+                        style={s.deleteBtn}
                         activeOpacity={0.75}
                         onPress={() => setConfirmModal('delete')}
                     >
-                        <Trash2 size={20} color="#fca5a5" />
-                        <Text style={styles.deleteText}>Eliminar Cuenta</Text>
+                        <Trash2 size={20} color={colors.dangerText} />
+                        <Text style={s.deleteText}>Eliminar Cuenta</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </View>
@@ -228,32 +233,32 @@ export default function SettingsScreen({ onBack }: Props) {
                 onRequestClose={() => setConfirmModal(null)}
             >
                 <TouchableOpacity
-                    style={styles.modalOverlay}
+                    style={s.modalOverlay}
                     activeOpacity={1}
                     onPress={() => setConfirmModal(null)}
                 >
-                    <TouchableOpacity activeOpacity={1} style={styles.confirmModal} onPress={() => {}}>
-                        <View style={[styles.confirmIconWrap, { backgroundColor: '#1e3a5f' }]}>
-                            <LogOut size={28} color="#60a5fa" />
+                    <TouchableOpacity activeOpacity={1} style={s.confirmModal} onPress={() => {}}>
+                        <View style={[s.confirmIconWrap, { backgroundColor: '#1e3a5f' }]}>
+                            <LogOut size={28} color={colors.accentLight} />
                         </View>
-                        <Text style={styles.confirmTitle}>¿Cerrar sesión?</Text>
-                        <Text style={styles.confirmSubtitle}>
+                        <Text style={s.confirmTitle}>¿Cerrar sesión?</Text>
+                        <Text style={s.confirmSubtitle}>
                             Tu identidad y mensajes permanecerán cifrados en este dispositivo.
                         </Text>
-                        <View style={styles.confirmBtnsRow}>
+                        <View style={s.confirmBtnsRow}>
                             <TouchableOpacity
-                                style={[styles.confirmBtn, styles.confirmBtnGreen]}
+                                style={[s.confirmBtn, s.confirmBtnGreen]}
                                 onPress={confirmLogout}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.confirmBtnText}>Confirmar</Text>
+                                <Text style={s.confirmBtnText}>Confirmar</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.confirmBtn, styles.confirmBtnRed]}
+                                style={[s.confirmBtn, s.confirmBtnRed]}
                                 onPress={() => setConfirmModal(null)}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.confirmBtnText}>Denegar</Text>
+                                <Text style={s.confirmBtnText}>Denegar</Text>
                             </TouchableOpacity>
                         </View>
                     </TouchableOpacity>
@@ -269,32 +274,32 @@ export default function SettingsScreen({ onBack }: Props) {
                 onRequestClose={() => setConfirmModal(null)}
             >
                 <TouchableOpacity
-                    style={styles.modalOverlay}
+                    style={s.modalOverlay}
                     activeOpacity={1}
                     onPress={() => setConfirmModal(null)}
                 >
-                    <TouchableOpacity activeOpacity={1} style={styles.confirmModal} onPress={() => {}}>
-                        <View style={styles.confirmIconWrap}>
-                            <AlertTriangle size={28} color="#fca5a5" />
+                    <TouchableOpacity activeOpacity={1} style={s.confirmModal} onPress={() => {}}>
+                        <View style={s.confirmIconWrap}>
+                            <AlertTriangle size={28} color={colors.dangerText} />
                         </View>
-                        <Text style={styles.confirmTitle}>¿Eliminar cuenta?</Text>
-                        <Text style={styles.confirmSubtitle}>
+                        <Text style={s.confirmTitle}>¿Eliminar cuenta?</Text>
+                        <Text style={s.confirmSubtitle}>
                             Esta acción es irreversible. Todos tus mensajes y datos locales serán eliminados permanentemente.
                         </Text>
-                        <View style={styles.confirmBtnsRow}>
+                        <View style={s.confirmBtnsRow}>
                             <TouchableOpacity
-                                style={[styles.confirmBtn, styles.confirmBtnRed]}
+                                style={[s.confirmBtn, s.confirmBtnRed]}
                                 onPress={confirmDeleteAccount}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.confirmBtnText}>Eliminar</Text>
+                                <Text style={s.confirmBtnText}>Eliminar</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.confirmBtn, { backgroundColor: '#1e2d4a' }]}
+                                style={[s.confirmBtn, { backgroundColor: colors.bgElevated }]}
                                 onPress={() => setConfirmModal(null)}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.confirmBtnText}>Cancelar</Text>
+                                <Text style={s.confirmBtnText}>Cancelar</Text>
                             </TouchableOpacity>
                         </View>
                     </TouchableOpacity>
@@ -307,7 +312,7 @@ export default function SettingsScreen({ onBack }: Props) {
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: subSlide.anim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' },
+                    { transform: [{ translateX: subSlide.anim }], zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary },
                 ]}
                 pointerEvents={activeSub ? 'auto' : 'none'}
             >
@@ -318,6 +323,7 @@ export default function SettingsScreen({ onBack }: Props) {
                 {activeSub === 'terms' && <TermsScreen onBack={closeSub} />}
                 {activeSub === 'transfer' && <TransferScreen onBack={closeSub} />}
                 {activeSub === 'accessibility' && <AccessibilityScreen onBack={closeSub} />}
+                {activeSub === 'appearance' && <AppearanceScreen onBack={closeSub} />}
             </Animated.View>
 
         </KeyboardAvoidingView>

@@ -81,7 +81,7 @@ Para evitar ataques de repetición (Replay Attack), el Nonce debe:
 *   **Validez:** 5 minutos exactos.
 *   **Blacklist:** Si el usuario cierra sesión o se detecta robo, el token se invalida en el servidor instantáneamente.
 
-## 5. Manejo de Errores y "Autodestrucción"
+## 5. Manejo de Errores
 
 Definimos cómo reacciona el sistema ante fallos de seguridad local:
 
@@ -89,14 +89,7 @@ Definimos cómo reacciona el sistema ante fallos de seguridad local:
 *   La app muestra "Credenciales Incorrectas".
 *   No se envía nada al servidor (ahorro de tráfico y seguridad).
 
-### B. Protocolo de Autodestrucción Local
-Para proteger la identidad si roban el móvil e intentan adivinar el PIN:
-*   **Contador de Fallos:** La app registra internamente los intentos fallidos consecutivos de PIN.
-*   **Límite (10 intentos):** Si se alcanza el intento nº 10 fallido:
-    *   **Acción:** La app ejecuta un `DROP TABLE key_store` o sobrescribe la clave privada con ceros.
-    *   **Resultado:** La identidad se pierde permanentemente en ese dispositivo. El usuario podrá restaurar su cuenta únicamente importando su archivo de respaldo (.hnet) si lo exportó previamente.
-
-### C. Fallo de Red / Reloj Desincronizado
+### B. Fallo de Red / Reloj Desincronizado
 *   Si el reloj del móvil no coincide con el tiempo UTC del servidor, la firma será rechazada. La app avisará: "Ajuste su hora a automática".
 
 </div>

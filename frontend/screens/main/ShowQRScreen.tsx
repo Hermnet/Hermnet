@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Animated } from 'react-native';
 import { ArrowLeft, AlertTriangle, User } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import QRCode from 'react-native-qrcode-svg';
-import { styles } from '../../styles/showQRStyles';
+import { createStyles } from '../../styles/showQRStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useAuthStore } from '../../store/authStore';
 
 const CONFIRM_DELAY = 5;
@@ -14,8 +15,9 @@ interface Props {
     hashId?: string;
 }
 
-// ── Confirmation phase ────────────────────────────────────────────────────────
 function ConfirmView({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () => void }) {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
     const [countdown, setCountdown] = useState(CONFIRM_DELAY);
     const progressAnim = useRef(new Animated.Value(1)).current;
 
@@ -46,50 +48,50 @@ function ConfirmView({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () 
     const ready = countdown === 0;
 
     return (
-        <View style={styles.overlay}>
-            <StatusBar barStyle="light-content" />
-            <View style={styles.confirmCard}>
-                <View style={styles.warningIconWrap}>
-                    <AlertTriangle size={34} color="#f59e0b" />
+        <View style={s.overlay}>
+            <StatusBar barStyle={colors.statusBarStyle === 'light' ? 'light-content' : 'dark-content'} />
+            <View style={s.confirmCard}>
+                <View style={s.warningIconWrap}>
+                    <AlertTriangle size={34} color={colors.warningMain} />
                 </View>
 
-                <Text style={styles.confirmTitle}>Compartir QR</Text>
-                <Text style={styles.confirmText}>
+                <Text style={s.confirmTitle}>Compartir QR</Text>
+                <Text style={s.confirmText}>
                     Al compartir tu código QR permites que otro usuario te agregue como contacto. ¿Estás seguro?
                 </Text>
 
-                {/* Progress bar */}
                 {!ready && (
-                    <View style={{ width: '100%', height: 3, backgroundColor: '#1e2d4a', borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
+                    <View style={{ width: '100%', height: 3, backgroundColor: colors.bgElevated, borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
                         <Animated.View style={{
                             height: '100%',
                             borderRadius: 2,
-                            backgroundColor: '#f59e0b',
+                            backgroundColor: colors.warningMain,
                             width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
                         }} />
                     </View>
                 )}
 
                 <TouchableOpacity
-                    style={[styles.confirmBtn, !ready && styles.confirmBtnDisabled]}
+                    style={[s.confirmBtn, !ready && s.confirmBtnDisabled]}
                     onPress={ready ? onConfirm : undefined}
                     activeOpacity={ready ? 0.8 : 1}
                 >
-                    <Text style={[styles.confirmBtnText, !ready && styles.confirmBtnTextDisabled]}>
+                    <Text style={[s.confirmBtnText, !ready && s.confirmBtnTextDisabled]}>
                         {ready ? 'Confirmar' : `Confirmar (${countdown})`}
                     </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.denyBtn} onPress={onDeny} activeOpacity={0.8}>
-                    <Text style={styles.denyBtnText}>Denegar</Text>
+                <TouchableOpacity style={s.denyBtn} onPress={onDeny} activeOpacity={0.8}>
+                    <Text style={s.denyBtnText}>Denegar</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
 
-// ── ShowQRScreen ──────────────────────────────────────────────────────────────
 export default function ShowQRScreen({ onClose, hashId }: Props) {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
     const [confirmed, setConfirmed] = useState(false);
     const { identity } = useAuthStore();
 
@@ -103,48 +105,44 @@ export default function ShowQRScreen({ onClose, hashId }: Props) {
     }
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+        <View style={s.container}>
+            <StatusBar barStyle={colors.statusBarStyle === 'light' ? 'light-content' : 'dark-content'} />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={onClose} activeOpacity={0.6}>
-                    <ArrowLeft size={26} color="#ffffff" />
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={onClose} activeOpacity={0.6}>
+                    <ArrowLeft size={26} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Mi QR</Text>
-                <View style={styles.headerSpacer} />
+                <Text style={s.headerTitle}>Mi QR</Text>
+                <View style={s.headerSpacer} />
             </View>
 
-            {/* Content */}
-            <View style={styles.content}>
-                {/* Identity badge */}
-                <View style={styles.identityBadge}>
-                    <View style={styles.identityIconWrap}>
-                        <User size={16} color="#60a5fa" />
+            <View style={s.content}>
+                <View style={s.identityBadge}>
+                    <View style={s.identityIconWrap}>
+                        <User size={16} color={colors.accentLight} />
                     </View>
-                    <Text style={styles.identityId}>{displayId}</Text>
+                    <Text style={s.identityId}>{displayId}</Text>
                 </View>
 
-                {/* QR */}
-                <View style={styles.qrWrapper}>
-                    <View style={styles.qrBox}>
+                <View style={s.qrWrapper}>
+                    <View style={s.qrBox}>
                         {qrPayload ? (
                             <QRCode
                                 value={qrPayload}
                                 size={200}
                                 backgroundColor="#ffffff"
-                                color="#0d111b"
+                                color={colors.textDark}
                                 ecl="M"
                             />
                         ) : (
-                            <Text style={styles.qrPlaceholderText}>
+                            <Text style={s.qrPlaceholderText}>
                                 Identidad no disponible
                             </Text>
                         )}
                     </View>
                 </View>
 
-                <Text style={styles.hint}>
+                <Text style={s.hint}>
                     Muestra este código a otro usuario{'\n'}para conectar de forma segura
                 </Text>
 
@@ -154,7 +152,7 @@ export default function ShowQRScreen({ onClose, hashId }: Props) {
                         activeOpacity={0.8}
                         onPress={() => Clipboard.setStringAsync(qrPayload)}
                     >
-                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>🐛 Copiar datos QR</Text>
+                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>Copiar datos QR</Text>
                     </TouchableOpacity>
                 ) : null}
             </View>

@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, Fingerprint, Users } from 'lucide-react-native';
-// expo-local-authentication requiere un development build; en Expo Go se degrada sin biometría
 let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
 try { LocalAuthentication = require('expo-local-authentication'); } catch { /* Expo Go */ }
-import { styles } from '../../styles/settingsStyles';
+import { createStyles } from '../../styles/settingsStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { prefsService, SecurityPrefs } from '../../services/PrefsService';
 import { useAuthStore } from '../../store/authStore';
 
@@ -13,35 +13,6 @@ interface Props {
     onBack: () => void;
 }
 
-// ── Toggle row ─────────────────────────────────────────────────────────────────
-function ToggleRow({
-    label, sub, value, onChange, disabled = false, last = false,
-}: {
-    label: string; sub?: string; value: boolean; onChange: (v: boolean) => void;
-    disabled?: boolean; last?: boolean;
-}) {
-    return (
-        <>
-            <View style={styles.toggleRow}>
-                <View style={styles.toggleInfo}>
-                    <Text style={[styles.toggleLabel, disabled && { color: '#4a5568' }]}>{label}</Text>
-                    {sub && <Text style={styles.toggleSub}>{sub}</Text>}
-                </View>
-                <Switch
-                    value={value}
-                    onValueChange={onChange}
-                    disabled={disabled}
-                    trackColor={{ false: '#1e2d4a', true: '#3b82f6' }}
-                    thumbColor="#ffffff"
-                    ios_backgroundColor="#1e2d4a"
-                />
-            </View>
-            {!last && <View style={styles.rowSeparator} />}
-        </>
-    );
-}
-
-// ── Decodifica el JTI del JWT actual ──────────────────────────────────────────
 function extractJti(token: string | null): string {
     if (!token) return '—';
     try {
@@ -55,9 +26,10 @@ function extractJti(token: string | null): string {
     }
 }
 
-// ── SecurityScreen ─────────────────────────────────────────────────────────────
 export default function SecurityScreen({ onBack }: Props) {
-    const jwt = useAuthStore((s) => s.jwt);
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
+    const jwt = useAuthStore((st) => st.jwt);
     const [prefs, setPrefs] = useState<SecurityPrefs>({ biometric: false, screenLock: false });
     const [biometricAvailable, setBiometricAvailable] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -120,22 +92,47 @@ export default function SecurityScreen({ onBack }: Props) {
 
     const jti = extractJti(jwt);
 
-    if (loading) return <View style={styles.container} />;
+    const ToggleRow = ({
+        label, sub, value, onChange, disabled = false, last = false,
+    }: {
+        label: string; sub?: string; value: boolean; onChange: (v: boolean) => void;
+        disabled?: boolean; last?: boolean;
+    }) => (
+        <>
+            <View style={s.toggleRow}>
+                <View style={s.toggleInfo}>
+                    <Text style={[s.toggleLabel, disabled && { color: colors.textFaint }]}>{label}</Text>
+                    {sub && <Text style={s.toggleSub}>{sub}</Text>}
+                </View>
+                <Switch
+                    value={value}
+                    onValueChange={onChange}
+                    disabled={disabled}
+                    trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+                    thumbColor={colors.switchThumb}
+                    ios_backgroundColor={colors.switchTrackOff}
+                />
+            </View>
+            {!last && <View style={s.rowSeparator} />}
+        </>
+    );
+
+    if (loading) return <View style={s.container} />;
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.6}>
-                    <ArrowLeft size={26} color="#ffffff" />
+        <View style={s.container}>
+            <StatusBar barStyle={colors.statusBarStyle === 'light' ? 'light-content' : 'dark-content'} />
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.6}>
+                    <ArrowLeft size={26} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Seguridad</Text>
-                <View style={styles.headerSpacer} />
+                <Text style={s.headerTitle}>Seguridad</Text>
+                <View style={s.headerSpacer} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <Text style={styles.sectionLabel}>Autenticación</Text>
-                <View style={styles.sectionCard}>
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                <Text style={s.sectionLabel}>Autenticación</Text>
+                <View style={s.sectionCard}>
                     <ToggleRow
                         label="Bloqueo de pantalla"
                         sub="Requiere autenticación al volver a la app"
@@ -156,27 +153,27 @@ export default function SecurityScreen({ onBack }: Props) {
                     />
                 </View>
 
-                <Text style={styles.sectionLabel}>Sesión actual</Text>
-                <View style={styles.sectionCard}>
-                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
-                        <View style={[styles.rowIconWrap, { backgroundColor: '#1e2d4a' }]}>
-                            <Users size={17} color="#60a5fa" />
+                <Text style={s.sectionLabel}>Sesión actual</Text>
+                <View style={s.sectionCard}>
+                    <View style={[s.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: colors.bgElevated }]}>
+                            <Users size={17} color={colors.accentLight} />
                         </View>
-                        <View style={styles.toggleInfo}>
-                            <Text style={styles.toggleLabel}>ID de sesión (JTI)</Text>
-                            <Text style={[styles.toggleSub, { fontFamily: 'monospace', fontSize: 11 }]} selectable>
+                        <View style={s.toggleInfo}>
+                            <Text style={s.toggleLabel}>ID de sesión (JTI)</Text>
+                            <Text style={[s.toggleSub, { fontFamily: 'monospace', fontSize: 11 }]} selectable>
                                 {jti}
                             </Text>
                         </View>
                     </View>
-                    <View style={styles.rowSeparator} />
-                    <View style={[styles.toggleRow, { paddingVertical: 12 }]}>
-                        <View style={[styles.rowIconWrap, { backgroundColor: '#1e2d4a' }]}>
+                    <View style={s.rowSeparator} />
+                    <View style={[s.toggleRow, { paddingVertical: 12 }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: colors.bgElevated }]}>
                             <Fingerprint size={17} color="#34d399" />
                         </View>
-                        <View style={styles.toggleInfo}>
-                            <Text style={styles.toggleLabel}>Clave privada</Text>
-                            <Text style={styles.toggleSub}>
+                        <View style={s.toggleInfo}>
+                            <Text style={s.toggleLabel}>Clave privada</Text>
+                            <Text style={s.toggleSub}>
                                 Almacenada cifrada en este dispositivo. Compártela mediante QR si cambias de móvil.
                             </Text>
                         </View>

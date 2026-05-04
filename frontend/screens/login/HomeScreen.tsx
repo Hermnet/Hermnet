@@ -1,14 +1,17 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
+import { Eye, EyeOff } from 'lucide-react-native';
 import QuickCrypto from 'react-native-quick-crypto';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
 import PinScreen from './PinScreen';
-import { styles as loginStyles } from '../../styles/loginStyles';
+import { createStyles as createLoginStyles } from '../../styles/loginStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { authFlowService, LoginFlowResult } from '../../services/AuthFlowService';
 import { authSessionService } from '../../services/AuthSessionService';
 import { useAuthStore } from '../../store/authStore';
+import { recoveryService } from '../../services/RecoveryService';
 
 const { height } = Dimensions.get('window');
 
@@ -17,6 +20,8 @@ function hashPin(pin: string, salt: string): string {
 }
 
 export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
+    const { colors } = useTheme();
+    const loginStyles = useMemo(() => createLoginStyles(colors), [colors]);
     const [hasAccount, setHasAccount] = useState<boolean | null>(null);
     const [showPin, setShowPin] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -57,22 +62,48 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
         animateToPinScreen();
     };
 
-    const handleRestoreClick = () => {
-        showModal({
-            type: 'warning',
-            title: 'Restaurar Identidad',
-            message: 'Aquí se abrirá el explorador de archivos para seleccionar tu Bóveda de Respaldo (.hnet). Tras seleccionarlo, te pediremos tu contraseña de cifrado.',
-            buttons: [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Simular Selección',
-                    onPress: () => {
-                        setIsRestoring(true);
-                        animateToPinScreen();
-                    },
-                },
-            ],
-        });
+    /* ─── Restore flow state ─── */
+    const [restorePasswordModal, setRestorePasswordModal] = useState(false);
+    const [restorePassword, setRestorePassword] = useState('');
+    const [showRestorePassword, setShowRestorePassword] = useState(false);
+    const [restoreBusy, setRestoreBusy] = useState(false);
+    const restoreFileUri = useRef<string>('');
+
+    const handleRestoreClick = async () => {
+        let fileUri: string | null = null;
+        try {
+            fileUri = await recoveryService.pickBackupFile();
+        } catch {
+            return;
+        }
+        if (!fileUri) return;
+        restoreFileUri.current = fileUri;
+        setRestorePassword('');
+        setShowRestorePassword(false);
+        setRestorePasswordModal(true);
+    };
+
+    const doRestore = async () => {
+        if (!restorePassword) {
+            showModal({ type: 'error', title: 'Sin contraseña', message: 'Debes introducir la contraseña.' });
+            return;
+        }
+        setRestorePasswordModal(false);
+        setRestoreBusy(true);
+        try {
+            const identity = await recoveryService.importBackup(restoreFileUri.current, restorePassword);
+            // Restaurado — ahora autenticar con el servidor
+            const result = await authFlowService.bootstrapLogin();
+            await authStoreLogin(result.identity, result.jwtToken);
+            if (onAuthSuccess) onAuthSuccess();
+        } catch (e: any) {
+            setRestoreBusy(false);
+            showModal({
+                type: 'error',
+                title: 'Error al restaurar',
+                message: e?.message ?? 'No se pudo restaurar la identidad.',
+            });
+        }
     };
 
     const handlePinComplete = (pin: string) => {
@@ -143,11 +174,11 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
     }, [authStoreLogin, onAuthSuccess, showModal]);
 
     if (hasAccount === null) {
-        return <View style={{ flex: 1, backgroundColor: '#0d111b' }} />;
+        return <View style={{ flex: 1, backgroundColor: colors.bgPrimary }} />;
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#0d111b' }}>
+        <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
             {!hasAccount && (
                 <Animated.View style={[loginStyles.container, StyleSheet.absoluteFill, { opacity: fadeHomeAnim, transform: [{ translateY: translateYHomeAnim }] }]}>
                     <View style={loginStyles.content}>
@@ -192,7 +223,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                             transform: hasAccount ? [] : [{ translateY: translateYPinAnim }],
                             zIndex: 5,
                             elevation: 5,
-                            backgroundColor: '#0d111b'
+                            backgroundColor: colors.bgPrimary
                         }
                     ]}
                 >
@@ -218,7 +249,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                 <Animated.View
                     style={[
                         StyleSheet.absoluteFill,
-                        { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: '#0d111b' }
+                        { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary }
                     ]}
                 >
                     <LoadingScreen onFinish={handleLoadingFinish} />
@@ -226,12 +257,115 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
             )}
 
             {loginLoading && (
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0d111b', zIndex: 30, elevation: 30, alignItems: 'center', justifyContent: 'center' }]}>
-                    <ActivityIndicator size="large" color="#3b82f6" />
-                    <Text style={{ color: '#a0aec0', marginTop: 12, fontSize: 14 }}>Autenticando...</Text>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgPrimary, zIndex: 30, elevation: 30, alignItems: 'center', justifyContent: 'center' }]}>
+                    <ActivityIndicator size="large" color={colors.accentPrimary} />
+                    <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 14 }}>Autenticando...</Text>
                 </View>
             )}
+            {restoreBusy && (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgPrimary, zIndex: 30, elevation: 30, alignItems: 'center', justifyContent: 'center' }]}>
+                    <ActivityIndicator size="large" color={colors.accentPrimary} />
+                    <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 14 }}>Restaurando...</Text>
+                </View>
+            )}
+
+            {/* Password modal for restore */}
+            <Modal visible={restorePasswordModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRestorePasswordModal(false)}>
+                <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                    <TouchableOpacity style={restoreSh.overlay} activeOpacity={1} onPress={() => setRestorePasswordModal(false)}>
+                        <TouchableOpacity activeOpacity={1} style={[restoreSh.card, { backgroundColor: colors.bgSurface, borderColor: colors.borderLight }]} onPress={() => {}}>
+                            <Text style={[restoreSh.title, { color: colors.textPrimary }]}>Descifrar respaldo</Text>
+                            <Text style={[restoreSh.subtitle, { color: colors.textMuted }]}>
+                                Introduce la contraseña con la que cifraste este archivo .hnet.
+                            </Text>
+                            <View style={[restoreSh.inputRow, { backgroundColor: colors.inputFieldBg, borderColor: colors.borderSubtle }]}>
+                                <TextInput
+                                    style={[restoreSh.input, { color: colors.textPrimary }]}
+                                    placeholder="Contraseña"
+                                    placeholderTextColor={colors.textHint}
+                                    secureTextEntry={!showRestorePassword}
+                                    value={restorePassword}
+                                    onChangeText={setRestorePassword}
+                                    autoFocus
+                                />
+                                <TouchableOpacity onPress={() => setShowRestorePassword(v => !v)} style={restoreSh.eyeBtn}>
+                                    {showRestorePassword
+                                        ? <EyeOff size={20} color={colors.textMuted} />
+                                        : <Eye size={20} color={colors.textMuted} />}
+                                </TouchableOpacity>
+                            </View>
+                            <View style={restoreSh.btnRow}>
+                                <TouchableOpacity style={[restoreSh.btn, { backgroundColor: colors.bgElevated }]} onPress={() => setRestorePasswordModal(false)}>
+                                    <Text style={[restoreSh.btnText, { color: colors.textPrimary }]}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[restoreSh.btn, { backgroundColor: colors.accentPrimary }]} onPress={doRestore}>
+                                    <Text style={[restoreSh.btnText, { color: '#fff' }]}>Restaurar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
+            </Modal>
+
             {modalNode}
         </View>
     );
 }
+
+const restoreSh = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 32,
+    },
+    card: {
+        borderRadius: 24,
+        padding: 28,
+        width: '100%',
+        borderWidth: 1,
+    },
+    title: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    subtitle: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 20,
+        lineHeight: 20,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderRadius: 12,
+        marginBottom: 20,
+        paddingHorizontal: 12,
+    },
+    input: {
+        flex: 1,
+        fontSize: 16,
+        paddingVertical: 14,
+    },
+    eyeBtn: {
+        padding: 8,
+    },
+    btnRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    btn: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    btnText: {
+        fontSize: 15,
+        fontWeight: '700',
+    },
+});
