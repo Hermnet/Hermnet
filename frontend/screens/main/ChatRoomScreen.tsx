@@ -784,6 +784,9 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
                         <MoreVertical size={20} color={colors.textMuted} />
                     </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
+                        <MoreVertical size={20} color="#a0aabf" />
+                    </TouchableOpacity>
                 </View>
 
                 <MessageInputBar
