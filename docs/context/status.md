@@ -25,13 +25,12 @@
 - [x] ~~**ACK de mensajes**~~ → añadido `POST /api/messages/ack` (cutoff opcional). Falta cliente: que `MessageFlowService` lo invoque tras procesar.
 - [x] ~~**Refresh token / rotación**~~ → backend listo (`POST /api/auth/refresh`). Falta cliente: silent refresh periódico antes de expirar.
 - [x] **Chat flow real** en `ChatRoomScreen`: integración E2E con `MessageFlowService` (envío + recepción + dedup + estados pending/sent/failed + reintento).
-- [ ] **Recovery file .hnet**: flujo de exportar/importar bóveda (hoy `HomeScreen.handleRestoreClick` está simulado con `Alert`).
-- [ ] **Auto-destrucción tras N PIN fallidos**: no implementado todavía.
-- [ ] **The Bridge (PC P2P)**: documentado, no iniciado.
+- [x] ~~**Recovery file .hnet**~~: implementado `RecoveryService.ts` (export/import con PBKDF2 + AES-256-GCM). `TransferScreen` y `HomeScreen` integrados con picker de archivos y diálogo de contraseña.
+- ~~**The Bridge (PC P2P)**~~: fuera del alcance del TFG.
 - [ ] **Tests frontend**: cobertura parcial; revisar y ampliar (backend ya en 121 tests verdes).
-- [ ] **CORS / hardening producción**: definir `JWT_SECRET` real en env; revisar CORS.
-- [ ] **Settings funcionales**: comprobar qué sub-pantallas de settings son mockups y cuáles ya hacen algo.
-- [ ] **Limpiar warning SecureStore >2048 bytes**: identidad serializada excede límite recomendado; considerar split o compresión.
+- [x] ~~**CORS / hardening producción**~~: `jwt.secret` lee de env `JWT_SECRET` (fail-fast si vacío); DB credentials externalizadas; CORS configurable vía `CORS_ALLOWED_ORIGINS`.
+- [x] ~~**Settings funcionales**~~: todas las sub-pantallas son funcionales (Accessibility usa contexto real, Help tiene FAQ + mailto, Terms es contenido estático, Transfer integra RecoveryService).
+- [x] ~~**Limpiar warning SecureStore >2048 bytes**~~: resuelto en commit 73a3220 (identidad dividida en 3 keys separadas, cada una <2048 B).
 
 ## Bugs conocidos
 - Ver `recent_fixes.md` (arreglados).

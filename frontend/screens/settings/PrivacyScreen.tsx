@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, ShieldCheck, Eye, Database, Trash2 } from 'lucide-react-native';
-import { styles } from '../../styles/settingsStyles';
+import { createStyles } from '../../styles/settingsStyles';
+import { useTheme } from '../../contexts/ThemeContext';
 import { databaseService } from '../../services/DatabaseService';
 
 interface Props {
     onBack: () => void;
 }
 
-// ── PrivacyScreen ──────────────────────────────────────────────────────────────
 export default function PrivacyScreen({ onBack }: Props) {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
     const { showModal, modalNode } = useAppModal();
 
     const handleClearHistory = () => {
@@ -37,67 +39,65 @@ export default function PrivacyScreen({ onBack }: Props) {
     };
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.6}>
-                    <ArrowLeft size={26} color="#ffffff" />
+        <View style={s.container}>
+            <StatusBar barStyle={colors.statusBarStyle === 'light' ? 'light-content' : 'dark-content'} />
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.6}>
+                    <ArrowLeft size={26} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Privacidad</Text>
-                <View style={styles.headerSpacer} />
+                <Text style={s.headerTitle}>Privacidad</Text>
+                <View style={s.headerSpacer} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                <Text style={styles.sectionLabel}>Modelo zero-knowledge</Text>
-                <View style={styles.sectionCard}>
-                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
-                        <View style={[styles.rowIconWrap, { backgroundColor: '#1a3a2d' }]}>
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                <Text style={s.sectionLabel}>Modelo zero-knowledge</Text>
+                <View style={s.sectionCard}>
+                    <View style={[s.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: '#1a3a2d' }]}>
                             <ShieldCheck size={17} color="#34d399" />
                         </View>
-                        <View style={styles.toggleInfo}>
-                            <Text style={styles.toggleLabel}>Contenido de mensajes</Text>
-                            <Text style={styles.toggleSub}>
+                        <View style={s.toggleInfo}>
+                            <Text style={s.toggleLabel}>Contenido de mensajes</Text>
+                            <Text style={s.toggleSub}>
                                 Cifrado extremo a extremo. El servidor nunca ve ni almacena el texto de tus mensajes.
                             </Text>
                         </View>
                     </View>
-                    <View style={styles.rowSeparator} />
-                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
-                        <View style={[styles.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
+                    <View style={s.rowSeparator} />
+                    <View style={[s.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
                             <Eye size={17} color="#fbbf24" />
                         </View>
-                        <View style={styles.toggleInfo}>
-                            <Text style={styles.toggleLabel}>Metadatos de enrutamiento</Text>
-                            <Text style={styles.toggleSub}>
+                        <View style={s.toggleInfo}>
+                            <Text style={s.toggleLabel}>Metadatos de enrutamiento</Text>
+                            <Text style={s.toggleSub}>
                                 Para entregar mensajes, el servidor conoce el Hash ID del remitente y del destinatario, pero nunca el contenido.
                             </Text>
                         </View>
                     </View>
-                    <View style={styles.rowSeparator} />
-                    <View style={[styles.toggleRow, { paddingVertical: 14 }]}>
-                        <View style={[styles.rowIconWrap, { backgroundColor: '#1e2d4a' }]}>
-                            <Database size={17} color="#60a5fa" />
+                    <View style={s.rowSeparator} />
+                    <View style={[s.toggleRow, { paddingVertical: 14 }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: colors.bgElevated }]}>
+                            <Database size={17} color={colors.accentLight} />
                         </View>
-                        <View style={styles.toggleInfo}>
-                            <Text style={styles.toggleLabel}>Historial local</Text>
-                            <Text style={styles.toggleSub}>
+                        <View style={s.toggleInfo}>
+                            <Text style={s.toggleLabel}>Historial local</Text>
+                            <Text style={s.toggleSub}>
                                 Los mensajes descifrados se guardan únicamente en este dispositivo. El servidor los borra en cuanto los descargas.
                             </Text>
                         </View>
                     </View>
                 </View>
 
-                <Text style={styles.sectionLabel}>Datos locales</Text>
+                <Text style={s.sectionLabel}>Datos locales</Text>
                 <TouchableOpacity
-                    style={styles.deleteBtn}
+                    style={s.deleteBtn}
                     activeOpacity={0.75}
                     onPress={handleClearHistory}
                 >
-                    <Trash2 size={20} color="#fca5a5" />
-                    <Text style={styles.deleteText}>Borrar historial local</Text>
+                    <Trash2 size={20} color={colors.dangerText} />
+                    <Text style={s.deleteText}>Borrar historial local</Text>
                 </TouchableOpacity>
-
             </ScrollView>
             {modalNode}
         </View>

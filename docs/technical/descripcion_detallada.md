@@ -210,7 +210,9 @@ Como no hay nube ni contraseñas, ni usamos frases de 12 palabras, la exportaci�
 
 ---
 
-## 14. Sincronización PC (The Bridge)
+## 14. Sincronización PC (The Bridge) — *Fuera del alcance del TFG*
+> Esta funcionalidad se contempló en el diseño inicial pero queda fuera del alcance del trabajo de fin de grado. Se documenta aquí como trabajo futuro.
+
 *   Túnel P2P local (vía QR).
 *   Transferencia de Clave Privada cifrada.
 *   El PC actúa como un espejo independiente.

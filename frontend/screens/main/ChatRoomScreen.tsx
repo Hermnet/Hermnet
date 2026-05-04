@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     KeyboardAvoidingView, Platform, StatusBar, FlatList, PanResponder, ListRenderItemInfo,
+    useWindowDimensions,
 } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,13 +11,14 @@ import {
     Check, Clock, AlertCircle, RotateCw, ChevronsDown, MoreVertical, Trash2, Eraser,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
-import { styles, sh } from '../../styles/chatRoomStyles';
+import { createStyles, createChatRoomStyles } from '../../styles/chatRoomStyles';
 import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
 import { contactsService } from '../../services/ContactsService';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 import { useAuthStore } from '../../store/authStore';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const TRUNCATE_AT = 200;
 const MAX_LENGTH = 500;
@@ -51,26 +53,30 @@ type MsgData = {
 // ─── Full Text Modal ───────────────────────────────────────────────────────────
 const FullMessageModal = React.memo(({
     msg, contactName, onClose,
-}: { msg: MsgData | null; contactName: string; onClose: () => void }) => (
-    <Modal visible={!!msg} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-        <TouchableOpacity style={sh.modalOverlay} activeOpacity={1} onPress={onClose}>
-            <TouchableOpacity activeOpacity={1} onPress={() => { }}>
-                <View style={sh.modalSheet}>
-                    <View style={sh.modalHandle} />
-                    <View style={sh.modalHeader}>
-                        <Text style={sh.modalAuthor}>{msg?.isMine ? 'Tú' : contactName}</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <X size={22} color="#a0aabf" />
-                        </TouchableOpacity>
+}: { msg: MsgData | null; contactName: string; onClose: () => void }) => {
+    const { colors } = useTheme();
+    const crStyles = useMemo(() => createChatRoomStyles(colors), [colors]);
+    return (
+        <Modal visible={!!msg} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+            <TouchableOpacity style={crStyles.modalOverlay} activeOpacity={1} onPress={onClose}>
+                <TouchableOpacity activeOpacity={1} onPress={() => { }}>
+                    <View style={crStyles.modalSheet}>
+                        <View style={crStyles.modalHandle} />
+                        <View style={crStyles.modalHeader}>
+                            <Text style={crStyles.modalAuthor}>{msg?.isMine ? 'Tú' : contactName}</Text>
+                            <TouchableOpacity onPress={onClose}>
+                                <X size={22} color={colors.textMuted} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <Text style={crStyles.modalText}>{msg?.text}</Text>
+                        </ScrollView>
                     </View>
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={sh.modalText}>{msg?.text}</Text>
-                    </ScrollView>
-                </View>
+                </TouchableOpacity>
             </TouchableOpacity>
-        </TouchableOpacity>
-    </Modal>
-));
+        </Modal>
+    );
+});
 
 // ─── Message Action Sheet ──────────────────────────────────────────────────────
 type ActionSheetProps = {
@@ -81,6 +87,7 @@ type ActionSheetProps = {
     onClose: () => void;
 };
 const MessageActionSheet = React.memo(({ msg, contactName, onReply, onRetry, onClose }: ActionSheetProps) => {
+    const { colors: c } = useTheme();
     const handleCopy = async () => {
         if (!msg) return;
         await Clipboard.setStringAsync(msg.text);
@@ -103,42 +110,42 @@ const MessageActionSheet = React.memo(({ msg, contactName, onReply, onRetry, onC
         <Modal visible={!!msg} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
             <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={onClose}>
                 <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-                    <View style={{ backgroundColor: '#141927', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20 }}>
-                        <View style={{ width: 36, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
-                        <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 4 }}>
+                    <View style={{ backgroundColor: c.bgSurface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20 }}>
+                        <View style={{ width: 36, height: 4, backgroundColor: c.borderSubtle, borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+                        <Text style={{ color: c.accentLight, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>
                             {msg?.isMine ? 'Tú' : contactName}
                         </Text>
-                        <Text style={{ color: '#a0aec0', fontSize: 13, marginBottom: 20 }} numberOfLines={2}>{msg?.text}</Text>
+                        <Text style={{ color: c.textMuted, fontSize: 13, marginBottom: 20 }} numberOfLines={2}>{msg?.text}</Text>
 
                         {isFailed && (
                             <TouchableOpacity
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: c.borderFaint }}
                                 activeOpacity={0.7}
                                 onPress={handleRetry}
                             >
-                                <RotateCw size={20} color="#fca5a5" />
-                                <Text style={{ color: '#ffffff', fontSize: 15 }}>Reintentar envío</Text>
+                                <RotateCw size={20} color={c.dangerText} />
+                                <Text style={{ color: c.textPrimary, fontSize: 15 }}>Reintentar envío</Text>
                             </TouchableOpacity>
                         )}
 
                         {canReply && (
                             <TouchableOpacity
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: c.borderFaint }}
                                 activeOpacity={0.7}
                                 onPress={handleReply}
                             >
-                                <Reply size={20} color="#60a5fa" />
-                                <Text style={{ color: '#ffffff', fontSize: 15 }}>Responder</Text>
+                                <Reply size={20} color={c.accentLight} />
+                                <Text style={{ color: c.textPrimary, fontSize: 15 }}>Responder</Text>
                             </TouchableOpacity>
                         )}
 
                         <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: c.borderFaint }}
                             activeOpacity={0.7}
                             onPress={handleCopy}
                         >
-                            <Copy size={20} color="#a0aec0" />
-                            <Text style={{ color: '#ffffff', fontSize: 15 }}>Copiar texto</Text>
+                            <Copy size={20} color={c.textMuted} />
+                            <Text style={{ color: c.textPrimary, fontSize: 15 }}>Copiar texto</Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
@@ -165,6 +172,8 @@ type BubbleProps = {
     highContrast: boolean;
 };
 const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, fontScale, highContrast }: BubbleProps) => {
+    const { colors } = useTheme();
+    const s = useMemo(() => createStyles(colors), [colors]);
     const { fontSize, lineHeight, maxLines, needsTruncation } = useMemo(
         () => getDynamicTextProps(msg.text, !!msg.replyTo, fontScale),
         [msg.text, msg.replyTo, fontScale]
@@ -187,10 +196,9 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
                 onLongPress={() => onLongPress(msg)}
             >
                 <View style={[
-                    styles.messageBubble,
-                    msg.isMine ? styles.messageBubbleRight : styles.messageBubbleLeft,
+                    s.messageBubble,
+                    msg.isMine ? s.messageBubbleRight : s.messageBubbleLeft,
                     hcBubbleStyle,
-                    { maxWidth: 280 },
                 ]}>
                     {msg.replyTo && (
                         <View style={{
@@ -209,7 +217,7 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
                     )}
 
                     <Text
-                        style={[styles.messageText, { fontSize, lineHeight, color: hcTextColor }]}
+                        style={[s.messageText, { fontSize, lineHeight, color: hcTextColor }]}
                         numberOfLines={maxLines}
                         ellipsizeMode="tail"
                     >
@@ -253,21 +261,24 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
 
 // ─── Reply Banner ──────────────────────────────────────────────────────────────
 type ReplyBannerProps = { msg: MsgData; contactName: string; onJumpTo: () => void; onCancel: () => void };
-const ReplyBanner = React.memo(({ msg, contactName, onJumpTo, onCancel }: ReplyBannerProps) => (
-    <TouchableOpacity onPress={onJumpTo} activeOpacity={0.8} style={sh.replyBanner}>
-        <CornerUpLeft size={14} color="#60a5fa" style={{ marginRight: 10 }} />
-        <View style={{ flex: 1 }}>
-            <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
-                {msg.isMine ? 'Tú' : contactName}
-            </Text>
-            <Text style={{ color: '#a0aabf', fontSize: 13 }} numberOfLines={1}>{msg.text}</Text>
-        </View>
-        <Text style={{ color: '#60a5fa', fontSize: 11, marginRight: 8 }}>↑ ver</Text>
-        <TouchableOpacity onPress={onCancel} style={{ padding: 4 }} accessibilityLabel="Cancelar respuesta">
-            <X size={18} color="#a0aabf" />
+const ReplyBanner = React.memo(({ msg, contactName, onJumpTo, onCancel }: ReplyBannerProps) => {
+    const { colors: c } = useTheme();
+    return (
+        <TouchableOpacity onPress={onJumpTo} activeOpacity={0.8} style={{ backgroundColor: c.replyBannerBg, paddingHorizontal: 14, paddingVertical: 10, borderTopLeftRadius: 16, borderTopRightRadius: 16, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: c.accentPrimary }}>
+            <CornerUpLeft size={14} color={c.accentLight} style={{ marginRight: 10 }} />
+            <View style={{ flex: 1 }}>
+                <Text style={{ color: c.accentLight, fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
+                    {msg.isMine ? 'Tú' : contactName}
+                </Text>
+                <Text style={{ color: c.textMuted, fontSize: 13 }} numberOfLines={1}>{msg.text}</Text>
+            </View>
+            <Text style={{ color: c.accentLight, fontSize: 11, marginRight: 8 }}>↑ ver</Text>
+            <TouchableOpacity onPress={onCancel} style={{ padding: 4 }} accessibilityLabel="Cancelar respuesta">
+                <X size={18} color={c.textMuted} />
+            </TouchableOpacity>
         </TouchableOpacity>
-    </TouchableOpacity>
-));
+    );
+});
 
 // ─── Message Input Bar ─────────────────────────────────────────────────────────
 type InputBarProps = {
@@ -282,22 +293,24 @@ type InputBarProps = {
     bottomInset: number;
 };
 const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending, bottomInset }: InputBarProps) => {
+    const { colors: c } = useTheme();
+    const s = useMemo(() => createStyles(c), [c]);
     const remaining = MAX_LENGTH - value.length;
     const showCounter = value.length >= COUNTER_THRESHOLD;
-    const counterColor = remaining <= 20 ? '#fca5a5' : '#a0aabf';
+    const counterColor = remaining <= 20 ? c.dangerText : c.textMuted;
 
     return (
-        <View style={[styles.inputContainer, { paddingBottom: Math.max(bottomInset, 12) + 8 }]}>
+        <View style={[s.inputContainer, { paddingBottom: Math.max(bottomInset, 12) + 8 }]}>
             {replyingTo && (
                 <ReplyBanner msg={replyingTo} contactName={contactName} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
             )}
-            <View style={[styles.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
+            <View style={[s.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
                 <TextInput
-                    style={styles.textInput}
+                    style={s.textInput}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder="Escribe aqui..."
-                    placeholderTextColor="#a0aabf"
+                    placeholderTextColor={c.textMuted}
                     multiline
                     maxLength={MAX_LENGTH}
                 />
@@ -306,8 +319,8 @@ const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, c
                         {remaining}
                     </Text>
                 )}
-                <TouchableOpacity style={styles.sendButton} onPress={onSend} activeOpacity={isSending ? 1 : 0.7} accessibilityLabel="Enviar mensaje">
-                    <Send size={20} color={isSending ? '#5a6a7a' : '#1a202c'} style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
+                <TouchableOpacity style={s.sendButton} onPress={onSend} activeOpacity={isSending ? 1 : 0.7} accessibilityLabel="Enviar mensaje">
+                    <Send size={20} color={isSending ? c.textHint : c.textDark} style={{ transform: [{ translateX: -1 }, { translateY: 1 }] }} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -316,6 +329,12 @@ const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, c
 
 // ─── ChatRoomScreen ────────────────────────────────────────────────────────────
 export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void; chatId: string }) {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    const sh = useMemo(() => createChatRoomStyles(colors), [colors]);
+    const { width: screenWidth } = useWindowDimensions();
+    const maxBubbleWidth = Math.round(screenWidth * 0.75);
+
     // dbMessages: persistido en SQLite (autoritativo, status = 'sent').
     // pendingSends: enviados aún no confirmados en BD (encriptado/red en curso).
     const [dbMessages, setDbMessages] = useState<MsgData[]>([]);
@@ -462,7 +481,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                 }
                 databaseService.markAsRead(chatId).catch(() => {});
             } catch { /* silencioso */ }
-        }, 1000);
+        }, 2000);
         return () => clearInterval(interval);
     }, [chatId, isAppActive]);
 
@@ -686,7 +705,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     return (
         <KeyboardAvoidingView
             style={styles.safeArea}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
             <View style={styles.container} {...globalSwipe.panHandlers}>
@@ -699,7 +718,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     contentContainerStyle={{ paddingTop: 12, paddingBottom: headerHeight + 8, flexGrow: 1, justifyContent: allMessages.length === 0 ? 'center' : 'flex-end' }}
                     ListEmptyComponent={
                         <View style={{ alignItems: 'center', paddingHorizontal: 40, transform: [{ scaleY: -1 }] }}>
-                            <Text style={{ color: '#4a5568', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+                            <Text style={{ color: colors.textHint, fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
                                 Aún no hay mensajes.{'\n'}Comienza la conversación.
                             </Text>
                         </View>
@@ -708,7 +727,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                         // En FlatList invertida, el footer aparece arriba (mensajes más antiguos)
                         isLoadingMore ? (
                             <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-                                <Text style={{ color: '#4a5568', fontSize: 12 }}>Cargando más...</Text>
+                                <Text style={{ color: colors.textHint, fontSize: 12 }}>Cargando más...</Text>
                             </View>
                         ) : null
                     }
@@ -735,7 +754,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                         accessibilityLabel="Ir al último mensaje"
                         style={{
                             position: 'absolute', bottom: insets.bottom + 90, alignSelf: 'center',
-                            backgroundColor: '#3b82f6', borderRadius: 20,
+                            backgroundColor: colors.accentPrimary, borderRadius: 20,
                             paddingHorizontal: 16, paddingVertical: 8,
                             flexDirection: 'row', alignItems: 'center', gap: 6,
                             shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
@@ -750,17 +769,20 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
 
                 <View style={[sh.headerContainer, { paddingTop: headerTopPad }]}>
                     <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6} accessibilityLabel="Volver atrás">
-                        <ArrowLeft size={28} color="#ffffff" />
+                        <ArrowLeft size={28} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.headerChatInfo} activeOpacity={0.75} onPress={handleOpenEditAlias} accessibilityLabel="Editar nombre del contacto">
                         <View style={styles.headerAvatar}>
-                            <User size={16} color="#60a5fa" />
+                            <User size={16} color={colors.accentLight} />
                         </View>
                         <Text style={styles.headerName} numberOfLines={1}>{contactName}</Text>
-                        <Pencil size={14} color="#a0aabf" style={{ marginLeft: 8, opacity: 0.7 }} />
+                        <Pencil size={14} color={colors.textMuted} style={{ marginLeft: 8, opacity: 0.7 }} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={handleRefresh} style={{ padding: 5, marginRight: 4 }} activeOpacity={0.6} accessibilityLabel="Recibir mensajes nuevos">
-                        <RefreshCw size={20} color={isRefreshing ? '#3b82f6' : '#6b7280'} />
+                        <RefreshCw size={20} color={isRefreshing ? colors.accentPrimary : colors.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
+                        <MoreVertical size={20} color={colors.textMuted} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
                         <MoreVertical size={20} color="#a0aabf" />
@@ -787,43 +809,45 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     statusBarTranslucent
                     onRequestClose={() => setEditingAlias(false)}
                 >
-                    <TouchableOpacity
-                        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
-                        activeOpacity={1}
-                        onPress={() => setEditingAlias(false)}
-                    >
-                        <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: '#141927', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} onPress={() => {}}>
-                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '700', marginBottom: 6 }}>Editar nombre</Text>
-                            <Text style={{ color: '#a0aec0', fontSize: 13, marginBottom: 18 }}>Este nombre solo es visible para ti.</Text>
-                            <TextInput
-                                style={{ backgroundColor: '#1e2d4a', color: '#ffffff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, marginBottom: 20 }}
-                                placeholder="Nombre del contacto"
-                                placeholderTextColor="#4a5568"
-                                value={aliasInput}
-                                onChangeText={setAliasInput}
-                                autoFocus
-                                maxLength={40}
-                                returnKeyType="done"
-                                onSubmitEditing={handleSaveAlias}
-                            />
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <TouchableOpacity
-                                    style={{ flex: 1, backgroundColor: '#1e2d4a', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
-                                    activeOpacity={0.8}
-                                    onPress={() => setEditingAlias(false)}
-                                >
-                                    <Text style={{ color: '#a0aec0', fontWeight: '600', fontSize: 15 }}>Cancelar</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={{ flex: 1, backgroundColor: '#354d8b', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
-                                    activeOpacity={0.8}
-                                    onPress={handleSaveAlias}
-                                >
-                                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 15 }}>Guardar</Text>
-                                </TouchableOpacity>
-                            </View>
+                    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                        <TouchableOpacity
+                            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
+                            activeOpacity={1}
+                            onPress={() => setEditingAlias(false)}
+                        >
+                            <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: colors.bgSurface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: colors.borderFaint }} onPress={() => {}}>
+                                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '700', marginBottom: 6 }}>Editar nombre</Text>
+                                <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 18 }}>Este nombre solo es visible para ti.</Text>
+                                <TextInput
+                                    style={{ backgroundColor: colors.bgElevated, color: colors.textPrimary, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, marginBottom: 20 }}
+                                    placeholder="Nombre del contacto"
+                                    placeholderTextColor={colors.textHint}
+                                    value={aliasInput}
+                                    onChangeText={setAliasInput}
+                                    autoFocus
+                                    maxLength={40}
+                                    returnKeyType="done"
+                                    onSubmitEditing={handleSaveAlias}
+                                />
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                    <TouchableOpacity
+                                        style={{ flex: 1, backgroundColor: colors.bgElevated, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                                        activeOpacity={0.8}
+                                        onPress={() => setEditingAlias(false)}
+                                    >
+                                        <Text style={{ color: colors.textMuted, fontWeight: '600', fontSize: 15 }}>Cancelar</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={{ flex: 1, backgroundColor: colors.accentButton, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                                        activeOpacity={0.8}
+                                        onPress={handleSaveAlias}
+                                    >
+                                        <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 15 }}>Guardar</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
                         </TouchableOpacity>
-                    </TouchableOpacity>
+                    </KeyboardAvoidingView>
                 </Modal>
 
                 <MessageActionSheet msg={actionSheetMsg} contactName={contactName} onReply={handleReply} onRetry={handleRetry} onClose={handleCloseActionSheet} />
@@ -833,26 +857,26 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                 <Modal visible={showChatMenu} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setShowChatMenu(false)}>
                     <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowChatMenu(false)}>
                         <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-                            <View style={{ backgroundColor: '#141927', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20 }}>
-                                <View style={{ width: 36, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
-                                <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '700', marginBottom: 4 }}>{contactName}</Text>
-                                <Text style={{ color: '#4a5568', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginBottom: 16 }}>{chatId}</Text>
+                            <View style={{ backgroundColor: colors.bgSurface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20 }}>
+                                <View style={{ width: 36, height: 4, backgroundColor: colors.borderSubtle, borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+                                <Text style={{ color: colors.accentLight, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>{contactName}</Text>
+                                <Text style={{ color: colors.textHint, fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginBottom: 16 }}>{chatId}</Text>
 
                                 <TouchableOpacity
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }}
                                     activeOpacity={0.7}
                                     onPress={handleClearHistory}
                                 >
-                                    <Eraser size={20} color="#fbbf24" />
-                                    <Text style={{ color: '#ffffff', fontSize: 15 }}>Vaciar conversación</Text>
+                                    <Eraser size={20} color={colors.warningMain} />
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Vaciar conversación</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }}
                                     activeOpacity={0.7}
                                     onPress={handleDeleteContact}
                                 >
-                                    <Trash2 size={20} color="#fca5a5" />
-                                    <Text style={{ color: '#ffffff', fontSize: 15 }}>Eliminar contacto</Text>
+                                    <Trash2 size={20} color={colors.dangerText} />
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Eliminar contacto</Text>
                                 </TouchableOpacity>
                             </View>
                         </TouchableOpacity>
