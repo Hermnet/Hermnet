@@ -1,0 +1,57 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'expo.modules.hermnettor'
+version = '0.1.0'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+useExpoPublishing()
+
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+android {
+    namespace 'expo.modules.hermnettor'
+    compileSdkVersion safeExtGet("compileSdkVersion", 35)
+
+    defaultConfig {
+        minSdkVersion safeExtGet("minSdkVersion", 24)
+        targetSdkVersion safeExtGet("targetSdkVersion", 35)
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    google()
+    // tor-android no está en Maven Central; vive en el maven repo de GuardianProject.
+    maven { url 'https://raw.githubusercontent.com/guardianproject/gpmaven/master' }
+}
+
+dependencies {
+    implementation project(':expo-modules-core')
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib'
+
+    // Tor cliente empotrado: AAR de GuardianProject con clases Java
+    // (`org.torproject.jni.TorService`) + binarios nativos para todas las archs.
+    // Si la resolución en Maven Central fallara puntualmente, hay un mirror en
+    // el maven de GuardianProject.
+    implementation 'info.guardianproject:tor-android:0.4.8.7'
+
+    // HTTP client con soporte de proxy SOCKS5 nativo.
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}
+

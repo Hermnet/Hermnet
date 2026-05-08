@@ -5,7 +5,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/DatabaseService';
 import { authFlowService } from '../services/AuthFlowService';
-import { configureUnauthorizedHandler } from '../services/ApiClient';
+import { apiClient, configureUnauthorizedHandler, TOR_NATIVE_AVAILABLE } from '../services/ApiClient';
+import { prefsService } from '../services/PrefsService';
+import { getHermnetTor } from '../modules/hermnet-tor/src';
+import { messageFlowService } from '../services/MessageFlowService';
+import NetInfo from '@react-native-community/netinfo';
 import { AccessibilityProvider } from '../contexts/AccessibilityContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { BG_PRIMARY, ACCENT_PRIMARY, DANGER_TEXT, TEXT_PRIMARY, TEXT_SECONDARY } from '../styles/theme';
@@ -25,10 +29,89 @@ export default function RootLayout() {
       try {
         const result = await authFlowService.bootstrapLogin();
         await useAuthStore.getState().login(result.identity, result.jwtToken);
-      } catch {
-        await useAuthStore.getState().logout();
+      } catch (err: any) {
+        // Solo expulsamos al usuario si el JWT está realmente revocado/expirado
+        // por el servidor. Si estamos sin red, mantenemos la sesión para que
+        // pueda seguir usando la app offline; el reintento ocurrirá automáticamente
+        // cuando vuelva la conectividad.
+        const isNetworkErr = /network|timeout|fetch/i.test(String(err?.message ?? ''));
+        if (!isNetworkErr) {
+          await useAuthStore.getState().logout();
+        }
       }
     });
+
+    // Worker offline → online: cuando NetInfo detecta que volvemos a tener red,
+    // drenamos la cola de mensajes pendientes que se acumularon offline. Es el
+    // único disparador que necesita el modo offline; el resto de la app funciona
+    // contra la BD local sin tocar red.
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      if (state.isConnected && state.isInternetReachable !== false) {
+        messageFlowService.flushQueue().catch(() => {});
+      }
+    });
+    // También intentamos al arrancar por si la app se abrió con la cola llena.
+    messageFlowService.flushQueue().catch(() => {});
+
+    // Worker periódico de mensajes temporales: cada 30s borra los expirados.
+    const purgeTimer = setInterval(() => {
+      databaseService.purgeExpiredMessages().catch(() => {});
+    }, 30_000);
+
+    // Bootstrap de Tor en background con timeout. Si Tor no consigue construir
+    // circuitos en 90s (red restringida, lib defectuosa, etc.), caemos a
+    // clearnet para que la app no quede colgada y el usuario pueda funcionar.
+    // Es el compromiso entre privacidad (Tor activo por defecto) y disponibilidad.
+    (async () => {
+      try {
+        const prefs = await prefsService.getSecurityPrefs();
+        const userWants = prefs.torEnabled !== false;
+        const tor = getHermnetTor();
+        if (!TOR_NATIVE_AVAILABLE || !tor || !userWants) {
+          apiClient.setTorEnabled(false);
+          return;
+        }
+        // Empezamos en modo Tor para que las requests no salgan por clearnet
+        // mientras Tor arranca. Si fallan, la cola de mensajes las recoge.
+        apiClient.setTorEnabled(true);
+        try { tor.start(); } catch { /* idempotente */ }
+
+        // Polling: cada 3s pedimos progreso. El primer arranque desde cache
+        // vacía puede tardar 1-3 min en redes domésticas (descarga consensus
+        // de ~5MB y construye circuitos). Si tras 180s seguimos sin bootstrap,
+        // fallback a clearnet para que la app funcione.
+        const startedAt = Date.now();
+        let bootstrapped = false;
+        let lastProgress = -1;
+        while (Date.now() - startedAt < 180_000) {
+          await new Promise(r => setTimeout(r, 3000));
+          try {
+            const progress = await tor.bootstrapProgress();
+            if (__DEV__ && progress !== lastProgress) {
+              console.log(`[Tor] bootstrap ${progress}% (${Math.round((Date.now() - startedAt) / 1000)}s)`);
+              lastProgress = progress;
+            }
+            if (progress >= 100) {
+              bootstrapped = true;
+              if (__DEV__) console.log('[Tor] bootstrap completo, routing por .onion');
+              break;
+            }
+          } catch { /* swallow, vuelve a intentar */ }
+        }
+        if (!bootstrapped) {
+          console.warn(`[Tor] bootstrap excedió 180s (último progreso: ${lastProgress}%), fallback a clearnet`);
+          apiClient.setTorEnabled(false);
+        }
+      } catch (err) {
+        console.warn('[Tor] bootstrap fallido:', err);
+        apiClient.setTorEnabled(false);
+      }
+    })();
+
+    return () => {
+      unsubscribe();
+      clearInterval(purgeTimer);
+    };
   }, []);
 
   // initDB en su propio efecto para poder reintentar manualmente desde el UI de error.
@@ -45,6 +128,11 @@ export default function RootLayout() {
       });
     return () => { cancelled = true; };
   }, [retryNonce]);
+
+  // Tor arranca SIN bloquear la app. Mientras los circuitos se construyen el
+  // usuario puede entrar, leer sus chats locales y escribir mensajes (que
+  // quedan en cola). Un banner discreto en lo alto de la pantalla muestra el
+  // progreso. Cuando Tor está listo, las peticiones de red pasan por él.
 
   if (dbStatus === 'loading') {
     return (
