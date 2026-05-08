@@ -82,8 +82,9 @@ export default function ChatsScreen() {
             });
         }
         const contacts = await contactsService.getAllContacts();
+        const visible = contacts.filter(c => !c.isBlocked);
         const newSet = new Set(result.senders);
-        const chatsWithCounts = await Promise.all(contacts.map(async c => ({
+        const chatsWithCounts = await Promise.all(visible.map(async c => ({
             id: c.contactHash,
             name: c.alias ?? c.contactHash.slice(5, 17),
             unreadCount: newSet.has(c.contactHash)
@@ -166,9 +167,10 @@ export default function ChatsScreen() {
      */
     const refreshContacts = useCallback(async () => {
         const contacts = await contactsService.getAllContacts();
+        const visible = contacts.filter(c => !c.isBlocked);
         setChats(prev => {
             const prevByHash = new Map(prev.map(c => [c.id, c]));
-            return contacts.map(c => {
+            return visible.map(c => {
                 const existing = prevByHash.get(c.contactHash);
                 return {
                     id: c.contactHash,
@@ -422,7 +424,8 @@ export default function ChatsScreen() {
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: chatSlide.anim }], zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary }
+                    chatSlide.style,
+                    { zIndex: 10, elevation: 10 },
                 ]}
                 pointerEvents={activeChatId ? 'auto' : 'none'}
             >
@@ -432,7 +435,8 @@ export default function ChatsScreen() {
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: settingsSlide.anim }], zIndex: 20, elevation: 20, backgroundColor: colors.bgPrimary }
+                    settingsSlide.style,
+                    { zIndex: 20, elevation: 20, backgroundColor: colors.bgPrimary },
                 ]}
                 pointerEvents={showSettings ? 'auto' : 'none'}
             >
@@ -442,7 +446,8 @@ export default function ChatsScreen() {
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: qrSlide.anim }], zIndex: 30, elevation: 30 }
+                    qrSlide.style,
+                    { zIndex: 30, elevation: 30 },
                 ]}
                 pointerEvents={showQR ? 'auto' : 'none'}
             >
@@ -452,7 +457,8 @@ export default function ChatsScreen() {
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: showQRSlide.anim }], zIndex: 35, elevation: 35 }
+                    showQRSlide.style,
+                    { zIndex: 35, elevation: 35 },
                 ]}
                 pointerEvents={showShowQR ? 'auto' : 'none'}
             >

@@ -1,30 +1,53 @@
-import { useRef, useCallback } from 'react';
-import { Animated } from 'react-native';
-import { SCREEN_WIDTH } from '../constants/layout';
+import { useRef, useCallback, useMemo } from 'react';
+import { Animated, Easing } from 'react-native';
 import { useAccessibility } from '../contexts/AccessibilityContext';
 
-export function useSlideAnim(duration = 350) {
-    const anim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+/**
+ * Transición "vault reveal": la pantalla emerge con escala + ligero levantamiento +
+ * fade, pensada para 120 Hz. El nombre se mantiene por compatibilidad con los
+ * callsites históricos (`useSlideAnim`), aunque ya no es un slide horizontal.
+ *
+ * Devuelve `style` compuesto (transform + opacity) para spreadear en un
+ * Animated.View, y `progress` (0→1) por si quieres sincronizar otra animación.
+ */
+export function useSlideAnim(durationOpen = 240) {
+    const progress = useRef(new Animated.Value(0)).current;
     const { prefs } = useAccessibility();
 
     const open = useCallback(() => {
         if (prefs.reduceMotion) {
-            anim.setValue(0);
-        } else {
-            Animated.timing(anim, { toValue: 0, duration, useNativeDriver: true }).start();
+            progress.setValue(1);
+            return;
         }
-    }, [anim, duration, prefs.reduceMotion]);
+        Animated.timing(progress, {
+            toValue: 1,
+            duration: durationOpen,
+            easing: Easing.bezier(0.22, 1, 0.36, 1),
+            useNativeDriver: true,
+        }).start();
+    }, [progress, durationOpen, prefs.reduceMotion]);
 
     const close = useCallback((onDone?: () => void) => {
         if (prefs.reduceMotion) {
-            anim.setValue(SCREEN_WIDTH);
+            progress.setValue(0);
             onDone?.();
-        } else {
-            Animated.timing(anim, { toValue: SCREEN_WIDTH, duration, useNativeDriver: true }).start(
-                onDone ? ({ finished }) => { if (finished) onDone(); } : undefined
-            );
+            return;
         }
-    }, [anim, duration, prefs.reduceMotion]);
+        Animated.timing(progress, {
+            toValue: 0,
+            duration: Math.round(durationOpen * 0.85),
+            easing: Easing.bezier(0.55, 0, 0.6, 1),
+            useNativeDriver: true,
+        }).start(onDone ? ({ finished }) => { if (finished) onDone(); } : undefined);
+    }, [progress, durationOpen, prefs.reduceMotion]);
 
-    return { anim, open, close };
+    const style = useMemo(() => ({
+        opacity: progress,
+        transform: [
+            { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
+            { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) },
+        ],
+    }), [progress]);
+
+    return { progress, style, open, close };
 }

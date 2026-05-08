@@ -2,19 +2,21 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, ScrollView,
     KeyboardAvoidingView, Platform, StatusBar, FlatList, PanResponder, ListRenderItemInfo,
-    useWindowDimensions,
+    useWindowDimensions, Animated, Keyboard, Easing, KeyboardEvent,
 } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     X, ArrowLeft, User, CornerUpLeft, Send, Copy, Reply, RefreshCw, Pencil,
-    Check, Clock, AlertCircle, RotateCw, ChevronsDown, MoreVertical, Trash2, Eraser,
+    Check, Clock, AlertCircle, RotateCw, ChevronsDown, MoreVertical, Trash2, Eraser, Lock, Timer,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { createStyles, createChatRoomStyles } from '../../styles/chatRoomStyles';
 import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
 import { contactsService } from '../../services/ContactsService';
+import { prefsService } from '../../services/PrefsService';
+import { ChatBackground } from '../../components/ChatBackground';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 import { useAuthStore } from '../../store/authStore';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
@@ -23,6 +25,21 @@ import { useTheme } from '../../contexts/ThemeContext';
 const TRUNCATE_AT = 200;
 const MAX_LENGTH = 500;
 const COUNTER_THRESHOLD = 400;
+
+const TTL_OPTIONS: Array<{ label: string; seconds: number }> = [
+    { label: '5 minutos', seconds: 5 * 60 },
+    { label: '1 hora', seconds: 60 * 60 },
+    { label: '1 día', seconds: 24 * 60 * 60 },
+    { label: '1 semana', seconds: 7 * 24 * 60 * 60 },
+];
+
+const formatTtl = (seconds: number): string => {
+    const found = TTL_OPTIONS.find(o => o.seconds === seconds);
+    if (found) return found.label;
+    if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+    if (seconds < 86_400) return `${Math.round(seconds / 3600)} h`;
+    return `${Math.round(seconds / 86_400)} d`;
+};
 
 const formatTime = (ts?: number): string => {
     if (!ts) return '';
@@ -186,7 +203,7 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
 
     return (
         <View style={{
-            paddingHorizontal: 14, paddingVertical: 3,
+            paddingHorizontal: 16, paddingVertical: 5,
             alignItems: msg.isMine ? 'flex-end' : 'flex-start',
             opacity: msg.status === 'pending' ? 0.7 : 1,
         }}>
@@ -355,6 +372,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     const [isAtBottom, setIsAtBottom] = useState(true);
     const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
     const [showChatMenu, setShowChatMenu] = useState(false);
+    const [showPrivacyBanner, setShowPrivacyBanner] = useState(false);
     const PAGE_SIZE = 50;
     const { fontScale, prefs: { highContrast } } = useAccessibility();
     const { showModal, modalNode } = useAppModal();
@@ -362,6 +380,40 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     const insets = useSafeAreaInsets();
     const isAppActive = useIsAppActive();
     const flatListRef = useRef<FlatList<MsgData>>(null);
+
+    /**
+     * Sincronización fina del input bar con el teclado nativo.
+     *
+     * Usamos `translateY` con native driver (no paddingBottom con JS driver) para
+     * que la animación corra en el hilo de UI a la misma velocidad que el teclado.
+     * El valor es negativo (sube la pantalla); cuando vale 0 la pantalla está en su
+     * posición de reposo. La duración y curva se toman del propio evento del SO,
+     * así que coinciden píxel a píxel con el teclado.
+     */
+    const keyboardOffset = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const onShow = (e: KeyboardEvent) => {
+            Animated.timing(keyboardOffset, {
+                toValue: -Math.max(e.endCoordinates.height - insets.bottom, 0),
+                duration: e.duration ?? 250,
+                easing: Easing.bezier(0.17, 0.59, 0.4, 0.77),
+                useNativeDriver: true,
+            }).start();
+        };
+        const onHide = (e: KeyboardEvent) => {
+            Animated.timing(keyboardOffset, {
+                toValue: 0,
+                duration: e.duration ?? 250,
+                easing: Easing.bezier(0.17, 0.59, 0.4, 0.77),
+                useNativeDriver: true,
+            }).start();
+        };
+        const subShow = Keyboard.addListener(showEvt, onShow);
+        const subHide = Keyboard.addListener(hideEvt, onHide);
+        return () => { subShow.remove(); subHide.remove(); };
+    }, [insets.bottom, keyboardOffset]);
 
     // Lista combinada para render: pending (más recientes) + histórico, dedup por (text, isMine, createdAt).
     // FlatList está invertida → primer elemento = más reciente abajo.
@@ -385,6 +437,21 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
             .catch(() => {});
     }, [chatId]);
 
+    // Estado del banner de privacidad: si el usuario nunca lo ha cerrado, se muestra.
+    useEffect(() => {
+        prefsService.getSecurityPrefs()
+            .then(prefs => setShowPrivacyBanner(!prefs.privacyBannerDismissed))
+            .catch(() => setShowPrivacyBanner(true));
+    }, []);
+
+    const handleDismissPrivacyBanner = useCallback(async () => {
+        setShowPrivacyBanner(false);
+        try {
+            const current = await prefsService.getSecurityPrefs();
+            await prefsService.setSecurityPrefs({ ...current, privacyBannerDismissed: true });
+        } catch { /* no bloqueamos al usuario si falla la persistencia */ }
+    }, []);
+
     useEffect(() => {
         // Carga inicial paginada: solo los N más recientes
         databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE })
@@ -407,6 +474,20 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                 .catch(() => {});
         }
     }, [chatId, identity]);
+
+    // Cuando la cola offline drena (vuelve la conectividad), refrescamos el
+    // historial para que los mensajes pasen del icono "reloj" al "check".
+    useEffect(() => {
+        const unsubscribe = messageFlowService.onQueueFlushed(() => {
+            databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE })
+                .then(history => {
+                    if (!isMountedRef.current) return;
+                    setDbMessages(history);
+                })
+                .catch(() => {});
+        });
+        return unsubscribe;
+    }, [chatId]);
 
     // Cargar más mensajes antiguos cuando el usuario llega al final (= scroll arriba en inverted)
     const handleLoadMore = useCallback(async () => {
@@ -618,11 +699,37 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         sendInternal(failedMsg.text, failedMsg.createdAt ?? Date.now(), failedMsg.id, failedMsg.replyTo ?? null);
     }, [sendInternal]);
 
-    // Swipe horizontal para volver atrás
+    // Swipe horizontal para volver atrás. La vista sigue al dedo y, al soltar,
+    // o se anima hasta fuera de pantalla (cerrando) o vuelve a su sitio.
+    // Threshold: 35% del ancho o velocidad > 0.5 px/ms en horizontal.
+    const dismissX = useRef(new Animated.Value(0)).current;
     const globalSwipe = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, g) => g.dx > 30 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
-        onPanResponderRelease: (_, g) => { if (g.dx > 80) onBack(); },
+        onMoveShouldSetPanResponder: (_, g) => g.dx > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+        onPanResponderMove: (_, g) => {
+            if (g.dx >= 0) dismissX.setValue(g.dx);
+        },
+        onPanResponderRelease: (_, g) => {
+            const shouldClose = g.dx > screenWidth * 0.35 || g.vx > 0.5;
+            if (shouldClose) {
+                Animated.timing(dismissX, {
+                    toValue: screenWidth,
+                    duration: 220,
+                    easing: Easing.bezier(0.22, 1, 0.36, 1),
+                    useNativeDriver: true,
+                }).start(({ finished }) => { if (finished) onBack(); });
+            } else {
+                Animated.spring(dismissX, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    friction: 9,
+                    tension: 90,
+                }).start();
+            }
+        },
+        onPanResponderTerminate: () => {
+            Animated.spring(dismissX, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 }).start();
+        },
     })).current;
 
     const renderItem = useCallback(({ item }: ListRenderItemInfo<MsgData>) => (
@@ -699,23 +806,116 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         });
     }, [chatId, showModal, onBack]);
 
+    // Estado de bloqueo para el contacto actual (refresca al abrir el menú).
+    const [isBlocked, setIsBlocked] = useState(false);
+    useEffect(() => {
+        databaseService.isContactBlocked(chatId)
+            .then(setIsBlocked)
+            .catch(() => setIsBlocked(false));
+    }, [chatId, showChatMenu]);
+
+    // ── Mensajes temporales ─────────────────────────────────────────────────
+    const [ephemeralTtl, setEphemeralTtl] = useState<number | null>(null);
+    const [pendingProposal, setPendingProposal] = useState<number | null>(null);
+    const [showEphemeralPicker, setShowEphemeralPicker] = useState(false);
+
+    const refreshEphemeralState = useCallback(async () => {
+        const [ttl, proposal] = await Promise.all([
+            databaseService.getEphemeralTtl(chatId).catch(() => null),
+            databaseService.getPendingEphemeralProposal(chatId).catch(() => null),
+        ]);
+        setEphemeralTtl(ttl);
+        setPendingProposal(proposal);
+    }, [chatId]);
+    useEffect(() => { refreshEphemeralState(); }, [refreshEphemeralState]);
+
+    const handleProposeEphemeral = useCallback(async (ttlSeconds: number | null) => {
+        setShowEphemeralPicker(false);
+        try {
+            if (ttlSeconds === null) {
+                await messageFlowService.disableEphemeral(chatId);
+                showModal({ type: 'info', title: 'Mensajes temporales desactivados', message: 'Los mensajes ya no expirarán.' });
+            } else {
+                await messageFlowService.proposeEphemeral(chatId, ttlSeconds);
+                showModal({
+                    type: 'info',
+                    title: 'Propuesta enviada',
+                    message: 'Cuando tu contacto la acepte, los mensajes empezarán a expirar.',
+                });
+            }
+            refreshEphemeralState();
+        } catch (err: any) {
+            showModal({ type: 'error', title: 'Error', message: err?.message ?? 'No se pudo enviar la propuesta.' });
+        }
+    }, [chatId, showModal, refreshEphemeralState]);
+
+    const handleAcceptProposal = useCallback(async () => {
+        if (pendingProposal == null) return;
+        try {
+            await messageFlowService.acceptEphemeral(chatId, pendingProposal);
+            refreshEphemeralState();
+        } catch (err: any) {
+            showModal({ type: 'error', title: 'Error', message: err?.message ?? 'No se pudo aceptar la propuesta.' });
+        }
+    }, [chatId, pendingProposal, refreshEphemeralState, showModal]);
+
+    const handleRejectProposal = useCallback(async () => {
+        try {
+            await messageFlowService.rejectEphemeral(chatId);
+            refreshEphemeralState();
+        } catch { /* silencioso */ }
+    }, [chatId, refreshEphemeralState]);
+
+    const handleToggleBlock = useCallback(async () => {
+        setShowChatMenu(false);
+        try {
+            const next = !isBlocked;
+            await contactsService.setBlocked(chatId, next);
+            setIsBlocked(next);
+            showModal({
+                type: 'info',
+                title: next ? 'Contacto bloqueado' : 'Contacto desbloqueado',
+                message: next
+                    ? 'No volverás a recibir mensajes de este contacto. Sus envíos se descartarán al llegar.'
+                    : 'Volverás a recibir mensajes de este contacto.',
+            });
+        } catch {
+            showModal({ type: 'error', title: 'Error', message: 'No se pudo actualizar el bloqueo.' });
+        }
+    }, [chatId, isBlocked, showModal]);
+
     const headerTopPad = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : Math.max(insets.top, 12) + 4;
     const headerHeight = headerTopPad + 50;
 
     return (
-        <KeyboardAvoidingView
-            style={styles.safeArea}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
+        // safeArea: solo translateX para el gesto de cerrar el chat. NO traslada el
+        // header ni el banner (ese era el bug: subía todo cuando aparecía el teclado).
+        <Animated.View style={[styles.safeArea, { transform: [{ translateX: dismissX }] }]}>
             <View style={styles.container} {...globalSwipe.panHandlers}>
+                <ChatBackground color={colors.chatPattern} />
+                {/*
+                  keyboardWrapper: mueve FlatList + InputBar hacia arriba con translateY
+                  nativo a la velocidad exacta del teclado. El header y el banner están
+                  fuera (más abajo en JSX, posicionados absolute) y por eso quedan fijos.
+                */}
+                <Animated.View style={{ flex: 1, transform: [{ translateY: keyboardOffset }] }}>
                 <FlatList
                     ref={flatListRef}
                     inverted
                     data={allMessages}
                     keyExtractor={(item) => item.id}
                     renderItem={renderItem}
-                    contentContainerStyle={{ paddingTop: 12, paddingBottom: headerHeight + 8, flexGrow: 1, justifyContent: allMessages.length === 0 ? 'center' : 'flex-end' }}
+                    contentContainerStyle={{
+                        // FlatList invertida: paddingTop = espacio junto al input (abajo en pantalla),
+                        // paddingBottom = espacio junto al header/banner (arriba en pantalla).
+                        // NO usamos justifyContent: 'flex-end' aquí: con `inverted`, flex-end
+                        // empuja al visual-top (al revés). Dejamos el default y los mensajes
+                        // se apilan desde abajo, que es lo que esperamos en un chat.
+                        paddingTop: 10,
+                        paddingBottom: headerHeight + (showPrivacyBanner ? 88 : 14),
+                        flexGrow: 1,
+                        justifyContent: allMessages.length === 0 ? 'center' : 'flex-start',
+                    }}
                     ListEmptyComponent={
                         <View style={{ alignItems: 'center', paddingHorizontal: 40, transform: [{ scaleY: -1 }] }}>
                             <Text style={{ color: colors.textHint, fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
@@ -767,6 +967,20 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     </TouchableOpacity>
                 )}
 
+                <MessageInputBar
+                    value={newMessage}
+                    onChangeText={setNewMessage}
+                    onSend={handleSend}
+                    replyingTo={replyingTo}
+                    contactName={contactName}
+                    onJumpToReply={jumpToReply}
+                    onCancelReply={handleCancelReply}
+                    isSending={isSending}
+                    bottomInset={insets.bottom}
+                />
+                </Animated.View>
+
+                {/* Header y banner FUERA del keyboardWrapper: se mantienen fijos cuando aparece el teclado. */}
                 <View style={[sh.headerContainer, { paddingTop: headerTopPad }]}>
                     <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6} accessibilityLabel="Volver atrás">
                         <ArrowLeft size={28} color={colors.textPrimary} />
@@ -784,22 +998,13 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
                         <MoreVertical size={20} color={colors.textMuted} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowChatMenu(true)} style={{ padding: 5 }} activeOpacity={0.6} accessibilityLabel="Opciones del chat">
-                        <MoreVertical size={20} color="#a0aabf" />
-                    </TouchableOpacity>
                 </View>
 
-                <MessageInputBar
-                    value={newMessage}
-                    onChangeText={setNewMessage}
-                    onSend={handleSend}
-                    replyingTo={replyingTo}
-                    contactName={contactName}
-                    onJumpToReply={jumpToReply}
-                    onCancelReply={handleCancelReply}
-                    isSending={isSending}
-                    bottomInset={insets.bottom}
-                />
+                {showPrivacyBanner && (
+                    <View style={{ position: 'absolute', top: headerHeight + 18, left: 16, right: 16, zIndex: 5, alignItems: 'center' }} pointerEvents="box-none">
+                        <PrivacyBanner colors={colors} onDismiss={handleDismissPrivacyBanner} />
+                    </View>
+                )}
 
                 {/* ── Modal: Editar alias ── */}
                 <Modal
@@ -865,6 +1070,26 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                                 <TouchableOpacity
                                     style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }}
                                     activeOpacity={0.7}
+                                    onPress={() => { setShowChatMenu(false); setShowEphemeralPicker(true); }}
+                                >
+                                    <Timer size={20} color={ephemeralTtl ? colors.accentLight : colors.textMuted} />
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                        Mensajes temporales{ephemeralTtl ? ` · ${formatTtl(ephemeralTtl)}` : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }}
+                                    activeOpacity={0.7}
+                                    onPress={handleToggleBlock}
+                                >
+                                    <Lock size={20} color={isBlocked ? colors.accentLight : colors.warningMain} />
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                        {isBlocked ? 'Desbloquear contacto' : 'Bloquear contacto'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }}
+                                    activeOpacity={0.7}
                                     onPress={handleClearHistory}
                                 >
                                     <Eraser size={20} color={colors.warningMain} />
@@ -883,9 +1108,137 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     </TouchableOpacity>
                 </Modal>
 
+                {/* Selector de duración para activar/cambiar mensajes temporales */}
+                <Modal visible={showEphemeralPicker} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowEphemeralPicker(false)}>
+                    <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }} activeOpacity={1} onPress={() => setShowEphemeralPicker(false)}>
+                        <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: colors.bgSurface, borderRadius: 18, padding: 22, borderWidth: 1, borderColor: colors.borderFaint }} onPress={() => {}}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <Timer size={18} color={colors.accentLight} />
+                                <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>Mensajes temporales</Text>
+                            </View>
+                            <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 16 }}>
+                                Los mensajes desaparecerán de ambos dispositivos tras la duración elegida.
+                                Tu contacto recibirá una propuesta y deberá aceptarla.
+                            </Text>
+                            {TTL_OPTIONS.map(opt => (
+                                <TouchableOpacity
+                                    key={opt.seconds}
+                                    style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.borderFaint, flexDirection: 'row', justifyContent: 'space-between' }}
+                                    onPress={() => handleProposeEphemeral(opt.seconds)}
+                                    activeOpacity={0.6}
+                                >
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>{opt.label}</Text>
+                                    {ephemeralTtl === opt.seconds && <Check size={18} color={colors.accentLight} />}
+                                </TouchableOpacity>
+                            ))}
+                            {ephemeralTtl !== null && (
+                                <TouchableOpacity
+                                    style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.borderFaint, marginTop: 4 }}
+                                    onPress={() => handleProposeEphemeral(null)}
+                                    activeOpacity={0.6}
+                                >
+                                    <Text style={{ color: colors.dangerText, fontSize: 15 }}>Desactivar</Text>
+                                </TouchableOpacity>
+                            )}
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Propuesta entrante: el otro lado activó mensajes temporales y espera tu OK */}
+                <Modal visible={pendingProposal !== null} transparent animationType="fade" statusBarTranslucent onRequestClose={handleRejectProposal}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+                        <View style={{ width: '100%', backgroundColor: colors.bgSurface, borderRadius: 18, padding: 24, borderWidth: 1, borderColor: colors.borderFaint }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                <Timer size={20} color={colors.accentLight} />
+                                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '700' }}>Mensajes temporales</Text>
+                            </View>
+                            <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 18 }}>
+                                {contactName} quiere que los mensajes de este chat
+                                desaparezcan tras <Text style={{ fontWeight: '700' }}>{pendingProposal != null ? formatTtl(pendingProposal) : ''}</Text>.
+                                Si aceptas, se aplicará para los dos.
+                            </Text>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <TouchableOpacity
+                                    style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.bgElevated, alignItems: 'center' }}
+                                    onPress={handleRejectProposal}
+                                >
+                                    <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Rechazar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.accentPrimary, alignItems: 'center' }}
+                                    onPress={handleAcceptProposal}
+                                >
+                                    <Text style={{ color: '#fff', fontWeight: '700' }}>Aceptar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
                 {modalNode}
 
             </View>
-        </KeyboardAvoidingView>
+        </Animated.View>
+    );
+}
+
+/**
+ * Banner de sistema que recuerda al usuario la garantía de privacidad del chat.
+ * Aparece encima del FlatList al abrir el chat por primera vez. Se puede cerrar
+ * con la ✕ o deslizando hacia arriba; el descarte se persiste en PrefsService
+ * para no volver a mostrarlo.
+ */
+function PrivacyBanner({ colors, onDismiss }: { colors: any; onDismiss: () => void }) {
+    const translateY = useRef(new Animated.Value(0)).current;
+    const opacity = useRef(new Animated.Value(1)).current;
+
+    const animateOut = useCallback(() => {
+        Animated.parallel([
+            Animated.timing(translateY, { toValue: -60, duration: 220, useNativeDriver: true }),
+            Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+        ]).start(({ finished }) => { if (finished) onDismiss(); });
+    }, [translateY, opacity, onDismiss]);
+
+    const pan = useRef(PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderMove: (_, g) => { if (g.dy < 0) translateY.setValue(g.dy); },
+        onPanResponderRelease: (_, g) => {
+            if (g.dy < -40) {
+                animateOut();
+            } else {
+                Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7 }).start();
+            }
+        },
+    })).current;
+
+    return (
+        <Animated.View
+            {...pan.panHandlers}
+            style={{
+                alignSelf: 'stretch',
+                backgroundColor: colors.bgSurface,
+                borderColor: colors.borderFaint,
+                borderWidth: 1,
+                borderRadius: 14,
+                paddingLeft: 14,
+                paddingRight: 10,
+                paddingVertical: 11,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 10,
+                transform: [{ translateY }],
+                opacity,
+            }}
+            accessibilityLabel="Aviso de privacidad. Desliza arriba o pulsa la cruz para cerrarlo."
+        >
+            <Lock size={14} color={colors.accentLight} style={{ marginTop: 2 }} />
+            <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 17, flex: 1 }}>
+                Tus mensajes solo viven en este dispositivo y en el de tu contacto.
+                Hermnet no los almacena. Si borras la conversación no podrá recuperarse.
+            </Text>
+            <TouchableOpacity onPress={animateOut} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Cerrar aviso">
+                <X size={16} color={colors.textHint} />
+            </TouchableOpacity>
+        </Animated.View>
     );
 }
