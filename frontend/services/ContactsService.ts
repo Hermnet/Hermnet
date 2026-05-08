@@ -5,6 +5,7 @@ export interface Contact {
     contactHash: string;
     publicKey: string;
     alias: string | null;
+    isBlocked: boolean;
 }
 
 /** Payload encoded inside the QR code shown to other users */
@@ -52,7 +53,13 @@ export class ContactsService {
             contactHash: r.contact_hash,
             publicKey: r.public_key,
             alias: r.alias_local ?? null,
+            isBlocked: r.is_blocked,
         }));
+    }
+
+    async setBlocked(contactHash: string, blocked: boolean): Promise<void> {
+        await databaseService.setContactBlocked(contactHash, blocked);
+        this.emit();
     }
 
     async saveContact(contactHash: string, publicKey: string, alias?: string): Promise<void> {
@@ -99,7 +106,7 @@ export class ContactsService {
         }
 
         await this.saveContact(payload.id, payload.publicKey, alias);
-        return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null };
+        return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null, isBlocked: false };
     }
 }
 

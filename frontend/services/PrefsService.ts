@@ -14,6 +14,19 @@ export interface ThemePrefs {
 export interface SecurityPrefs {
     biometric: boolean;
     screenLock: boolean;
+    /** Si el usuario ha cerrado el banner "tus mensajes solo viven en este dispositivo". */
+    privacyBannerDismissed?: boolean;
+    /** PIN de pánico configurado: al introducirlo en lugar del PIN normal,
+     *  la app borra toda la identidad y el historial local. Útil bajo coacción. */
+    panicPinEnabled?: boolean;
+    /** Routing por Tor (hidden service .onion). Por defecto ACTIVO: la app ya
+     *  arranca anónima. El usuario puede desactivarlo a cambio de menor latencia
+     *  pero más exposición de IP al backend. */
+    torEnabled?: boolean;
+    /** Modo paranoico: si está activado, al arrancar comprueba si el dispositivo
+     *  está rooteado/jailbreakado y avisa al usuario. Por defecto OFF para no
+     *  molestar a usuarios técnicos legítimos. */
+    paranoidMode?: boolean;
 }
 
 export interface NotificationPrefs {
@@ -29,7 +42,10 @@ export interface AccessibilityPrefs {
     reduceMotion: boolean;
 }
 
-const DEFAULT_SECURITY: SecurityPrefs = { biometric: false, screenLock: false };
+// screenLock arranca SIEMPRE en true: el bloqueo de la app es obligatorio en
+// Hermnet por diseño. Lo dejamos en el shape por compatibilidad pero la UI
+// no expone el toggle.
+const DEFAULT_SECURITY: SecurityPrefs = { biometric: false, screenLock: true, torEnabled: true };
 const DEFAULT_NOTIFICATIONS: NotificationPrefs = { pushEnabled: true, preview: false, sound: true, vibration: true };
 const DEFAULT_ACCESSIBILITY: AccessibilityPrefs = {
     textSize: 'normal', highContrast: false, reduceMotion: false,

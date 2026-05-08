@@ -25,12 +25,29 @@ export class AuthFlowService {
   }
 
   /**
+   * Promesa de bootstrap en curso. Si se llama a `bootstrapLogin` mientras otro
+   * todavía corre, devolvemos esa misma promesa para que múltiples disparadores
+   * (polling + flushQueue + unauthorizedHandler) compartan UN solo flujo de
+   * autenticación. Antes ejecutábamos varios refresh/challenge en paralelo y el
+   * primero blacklistaba el JWT del segundo en el backend → 403 perpetuo.
+   */
+  private inflightBootstrap: Promise<LoginFlowResult> | null = null;
+
+  /**
    * Bootstraps auth for app startup:
    * 1) First use: register public identity
    * 2) If valid JWT exists, rotate it via refresh (avoids challenge round-trip)
    * 3) Otherwise: request challenge nonce, sign it, exchange for JWT
    */
   async bootstrapLogin(): Promise<LoginFlowResult> {
+    if (this.inflightBootstrap) return this.inflightBootstrap;
+    this.inflightBootstrap = this.runBootstrapLogin().finally(() => {
+      this.inflightBootstrap = null;
+    });
+    return this.inflightBootstrap;
+  }
+
+  private async runBootstrapLogin(): Promise<LoginFlowResult> {
     let identity = await authSessionService.getIdentity();
     let registeredInThisSession = false;
 
@@ -59,14 +76,11 @@ export class AuthFlowService {
     const challengeResponse = await authApiService.challenge({
       userId: identity.id,
     });
-
     const signedNonce = identityService.signNonce(identity.privateKey, challengeResponse.nonce);
-
     const loginResponse = await authApiService.login({
       nonce: challengeResponse.nonce,
       signedNonce,
     });
-
     await authSessionService.setJwtToken(loginResponse.token);
 
     return {

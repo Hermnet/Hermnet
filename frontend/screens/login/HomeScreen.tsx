@@ -12,6 +12,7 @@ import { authFlowService, LoginFlowResult } from '../../services/AuthFlowService
 import { authSessionService } from '../../services/AuthSessionService';
 import { useAuthStore } from '../../store/authStore';
 import { recoveryService } from '../../services/RecoveryService';
+import { panicService } from '../../services/PanicService';
 
 const { height } = Dimensions.get('window');
 
@@ -31,7 +32,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
 
     const bootstrapPromiseRef = useRef<Promise<LoginFlowResult> | null>(null);
     const pinRef = useRef<string>('');
-    const { login: authStoreLogin } = useAuthStore();
+    const { login: authStoreLogin, logout: authStoreLogout } = useAuthStore();
 
     const fadeHomeAnim       = useRef(new Animated.Value(1)).current;
     const translateYHomeAnim = useRef(new Animated.Value(0)).current;
@@ -148,22 +149,49 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
 
     const handleLoginComplete = useCallback(async (pin: string) => {
         setLoginLoading(true);
+
+        // Pre-check PIN de pánico ANTES de cualquier otra cosa. Si el usuario lo
+        // introduce, ejecutamos el wipe completo y mostramos el mismo error que
+        // si el PIN fuera erróneo, para no dar pista a quien esté observando.
+        try {
+            const cachedIdentityForPanic = await authSessionService.getIdentity();
+            const panicHash = await authSessionService.getPanicPinHash();
+            if (cachedIdentityForPanic && panicHash &&
+                hashPin(pin, cachedIdentityForPanic.id) === panicHash) {
+                await panicService.wipe();
+                await authStoreLogout();
+                setHasAccount(false);
+                showModal({ type: 'error', title: 'PIN incorrecto', message: 'No se pudo acceder a tu bóveda local.' });
+                setLoginLoading(false);
+                return;
+            }
+        } catch {
+            // Si el chequeo falla (SecureStore no disponible, etc.), seguimos con el flujo normal.
+        }
+
         try {
             const result = await authFlowService.bootstrapLogin();
             await authStoreLogin(result.identity, result.jwtToken);
             if (onAuthSuccess) onAuthSuccess();
         } catch {
+            // Fallback offline: si el bootstrap online falla, dejamos entrar al
+            // usuario con su identidad cacheada + verificación local del PIN.
+            // El JWT puede no existir (lo limpió un logout previo) o estar caducado;
+            // se obtendrá uno nuevo automáticamente cuando vuelva la red, vía el
+            // unauthorizedHandler en cualquier request 401/403.
             const [cachedIdentity, cachedJwt, storedHash] = await Promise.all([
                 authSessionService.getIdentity(),
                 authSessionService.getJwtToken(),
                 authSessionService.getPinHash(),
             ]);
-            if (cachedIdentity && cachedJwt && storedHash) {
+            if (cachedIdentity && storedHash) {
                 if (hashPin(pin, cachedIdentity.id) !== storedHash) {
                     showModal({ type: 'error', title: 'PIN incorrecto', message: 'No se pudo acceder a tu bóveda local.' });
                     return;
                 }
-                await authStoreLogin(cachedIdentity, cachedJwt);
+                // authStoreLogin requiere un string para el JWT — pasamos cadena vacía
+                // si no hay cache. La app trabajará offline hasta que se obtenga uno nuevo.
+                await authStoreLogin(cachedIdentity, cachedJwt ?? '');
                 if (onAuthSuccess) onAuthSuccess();
             } else {
                 showModal({ type: 'error', title: 'Error de autenticación', message: 'No se pudo verificar tu identidad. Comprueba la conexión.' });
@@ -171,7 +199,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
         } finally {
             setLoginLoading(false);
         }
-    }, [authStoreLogin, onAuthSuccess, showModal]);
+    }, [authStoreLogin, authStoreLogout, onAuthSuccess, showModal]);
 
     if (hasAccount === null) {
         return <View style={{ flex: 1, backgroundColor: colors.bgPrimary }} />;
