@@ -27,6 +27,12 @@ export interface SecurityPrefs {
      *  está rooteado/jailbreakado y avisa al usuario. Por defecto OFF para no
      *  molestar a usuarios técnicos legítimos. */
     paranoidMode?: boolean;
+    /** Efecto Matrix: ofusca los mensajes del chat con caracteres aleatorios.
+     *  Tap para revelar, doble-tap para re-ocultar. Por defecto ACTIVO. */
+    matrixReveal?: boolean;
+    /** Si el usuario ya ha visto el tooltip "toca un mensaje para revelarlo".
+     *  Se muestra una sola vez en toda la vida de la app. */
+    matrixHintShown?: boolean;
 }
 
 export interface NotificationPrefs {

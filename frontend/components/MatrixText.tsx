@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, TextStyle } from 'react-native';
 
-// Characters used for the scramble effect — mix of katakana-like and Latin symbols
-const MATRIX_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+// Braille pattern characters for the scramble effect
+const MATRIX_CHARS = '⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿';
 
 function randomChar(): string {
     return MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
@@ -57,8 +57,8 @@ export default function MatrixText({
     revealed,
     style,
     numberOfLines,
-    speed = 3,
-    interval = 30,
+    speed = 1,
+    interval = 40,
 }: MatrixTextProps) {
     // How many characters from the start are "real" (revealed)
     const [revealedCount, setRevealedCount] = useState(revealed ? text.length : 0);
@@ -100,21 +100,6 @@ export default function MatrixText({
         } else {
             setDisplay(scrambleText(text, revealedCount));
         }
-    }, [revealedCount, text]);
-
-    // Idle animation: when fully scrambled, periodically shuffle the random chars
-    // to create the living Matrix effect. Runs at a slow rate (every 600ms) to
-    // avoid excessive re-renders when many messages are visible.
-    useEffect(() => {
-        if (revealedCount >= text.length) return; // fully revealed, no idle anim
-        if (revealedCount > 0 && revealedCount < text.length) return; // transitioning
-
-        // Only run idle shuffle when fully scrambled (revealedCount === 0)
-        const id = setInterval(() => {
-            setDisplay(scrambleText(text, 0));
-        }, 600);
-
-        return () => clearInterval(id);
     }, [revealedCount, text]);
 
     // If the text prop changes (new message loaded), sync display

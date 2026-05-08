@@ -86,6 +86,11 @@ export class DatabaseService {
       `ALTER TABLE contacts_vault ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;`,
       `ALTER TABLE contacts_vault ADD COLUMN is_muted INTEGER NOT NULL DEFAULT 0;`,
       `ALTER TABLE contacts_vault ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;`,
+      // Avatar customization: background color and icon color per contact
+      `ALTER TABLE contacts_vault ADD COLUMN avatar_bg TEXT;`,
+      `ALTER TABLE contacts_vault ADD COLUMN avatar_icon TEXT;`,
+      // Reply-to context: JSON string with { id, text, isMine } of the replied message
+      `ALTER TABLE messages_history ADD COLUMN reply_to_json TEXT;`,
     ];
     for (const sql of migrations) {
       await (this.db as any).runAsync(sql).catch(() => {});
@@ -178,7 +183,14 @@ export class DatabaseService {
     });
   }
 
-  async saveDecryptedMessage(contactHash: string, plaintext: string, isMine: boolean, createdAt?: number, status?: MessageStatus): Promise<void> {
+  async saveDecryptedMessage(
+    contactHash: string,
+    plaintext: string,
+    isMine: boolean,
+    createdAt?: number,
+    status?: MessageStatus,
+    replyTo?: { id: string; text: string; isMine: boolean } | null,
+  ): Promise<void> {
     const ts = createdAt ?? Date.now();
     await this.withDb(async (db) => {
       // Dedupe contra reintentos / sync concurrentes. Como el ciphertext se reaplica con
@@ -202,9 +214,10 @@ export class DatabaseService {
 
       const stored = dataKeyService.isReady() ? dataKeyService.encrypt(plaintext) : plaintext;
       const finalStatus = status ?? (isMine ? 'SENT' : 'DELIVERED');
+      const replyJson = replyTo ? JSON.stringify(replyTo) : null;
       await (db as any).runAsync(
-        'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at) VALUES (?, ?, ?, ?, ?, ?);',
-        [contactHash, stored, isMine ? 1 : 0, ts, finalStatus, expiresAt]
+        'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json) VALUES (?, ?, ?, ?, ?, ?, ?);',
+        [contactHash, stored, isMine ? 1 : 0, ts, finalStatus, expiresAt, replyJson]
       );
     });
   }
@@ -233,12 +246,12 @@ export class DatabaseService {
   async getMessagesByContact(
     contactHash: string,
     options: { limit?: number; beforeMsgId?: number } = {}
-  ): Promise<Array<{ id: string; text: string; isMine: boolean; createdAt: number; status: 'pending' | 'sent' | 'failed' }>> {
+  ): Promise<Array<{ id: string; text: string; isMine: boolean; createdAt: number; status: 'pending' | 'sent' | 'failed'; replyTo?: { id: string; text: string; isMine: boolean } | null }>> {
     const limit = options.limit ?? 50;
     return this.withDb(async (db) => {
       const sql = options.beforeMsgId !== undefined
-        ? 'SELECT msg_id, plaintext, is_mine, created_at, status FROM messages_history WHERE contact_hash = ? AND msg_id < ? ORDER BY created_at DESC, msg_id DESC LIMIT ?;'
-        : 'SELECT msg_id, plaintext, is_mine, created_at, status FROM messages_history WHERE contact_hash = ? ORDER BY created_at DESC, msg_id DESC LIMIT ?;';
+        ? 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? AND msg_id < ? ORDER BY created_at DESC, msg_id DESC LIMIT ?;'
+        : 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? ORDER BY created_at DESC, msg_id DESC LIMIT ?;';
       const params = options.beforeMsgId !== undefined
         ? [contactHash, options.beforeMsgId, limit]
         : [contactHash, limit];
@@ -249,12 +262,17 @@ export class DatabaseService {
         const dbStatus = String(r.status ?? '').toUpperCase();
         const uiStatus: 'pending' | 'sent' | 'failed' =
           dbStatus === 'PENDING' ? 'pending' : 'sent';
+        let replyTo: { id: string; text: string; isMine: boolean } | null = null;
+        if (r.reply_to_json) {
+          try { replyTo = JSON.parse(r.reply_to_json); } catch { /* ignore malformed */ }
+        }
         return {
           id: String(r.msg_id),
           text: this.safeDecrypt(r.plaintext),
           isMine: r.is_mine === 1,
           createdAt: r.created_at ?? 0,
           status: uiStatus,
+          replyTo,
         };
       });
     });
@@ -311,10 +329,10 @@ export class DatabaseService {
     });
   }
 
-  async getAllContactsRaw(): Promise<Array<{ contact_hash: string; public_key: string; alias_local: string | null; is_blocked: boolean; is_pinned: boolean; is_muted: boolean; is_archived: boolean }>> {
+  async getAllContactsRaw(): Promise<Array<{ contact_hash: string; public_key: string; alias_local: string | null; is_blocked: boolean; is_pinned: boolean; is_muted: boolean; is_archived: boolean; avatar_bg: string | null; avatar_icon: string | null }>> {
     return this.withDb(async (db) => {
       const rows = await (db as any).getAllAsync(
-        'SELECT contact_hash, public_key, alias_local, is_blocked, is_pinned, is_muted, is_archived FROM contacts_vault;'
+        'SELECT contact_hash, public_key, alias_local, is_blocked, is_pinned, is_muted, is_archived, avatar_bg, avatar_icon FROM contacts_vault;'
       );
       return (rows ?? []).map((r: any) => ({
         contact_hash: r.contact_hash,
@@ -324,6 +342,8 @@ export class DatabaseService {
         is_pinned: r.is_pinned === 1,
         is_muted: r.is_muted === 1,
         is_archived: r.is_archived === 1,
+        avatar_bg: r.avatar_bg ?? null,
+        avatar_icon: r.avatar_icon ?? null,
       }));
     });
   }
@@ -372,6 +392,43 @@ export class DatabaseService {
         'UPDATE contacts_vault SET is_archived = ? WHERE contact_hash = ?;',
         [archived ? 1 : 0, contactHash]
       );
+    });
+  }
+
+  async setContactAvatarColors(contactHash: string, bg: string | null, icon: string | null): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'UPDATE contacts_vault SET avatar_bg = ?, avatar_icon = ? WHERE contact_hash = ?;',
+        [bg, icon, contactHash]
+      );
+    });
+  }
+
+  /**
+   * Returns the most recent message for each contact in a single query.
+   * Much more efficient than N separate queries.
+   */
+  async getLastMessagePerContact(): Promise<Map<string, { text: string; isMine: boolean; createdAt: number }>> {
+    return this.withDb(async (db) => {
+      const rows = await (db as any).getAllAsync(
+        `SELECT m.contact_hash, m.plaintext, m.is_mine, m.created_at
+         FROM messages_history m
+         INNER JOIN (
+           SELECT contact_hash, MAX(created_at) AS max_ts
+           FROM messages_history
+           GROUP BY contact_hash
+         ) latest ON m.contact_hash = latest.contact_hash AND m.created_at = latest.max_ts
+         GROUP BY m.contact_hash;`
+      );
+      const map = new Map<string, { text: string; isMine: boolean; createdAt: number }>();
+      for (const r of rows ?? []) {
+        map.set(r.contact_hash, {
+          text: this.safeDecrypt(r.plaintext),
+          isMine: r.is_mine === 1,
+          createdAt: r.created_at,
+        });
+      }
+      return map;
     });
   }
 

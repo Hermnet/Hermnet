@@ -167,6 +167,8 @@ export class ApiClient {
   }
 
   private fetchRaw(config: RequestConfig): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
     return fetch(`${this.currentBaseUrl()}${config.path}`, {
       method: config.method ?? 'GET',
       headers: {
@@ -174,7 +176,8 @@ export class ApiClient {
         ...(config.headers ?? {}),
       },
       body: config.body !== undefined ? JSON.stringify(config.body) : undefined,
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
   }
 
   private async parseResponse<T>(response: Response): Promise<T> {
@@ -210,6 +213,7 @@ function resolveApiBaseUrl(): string {
     ((Constants.manifest2 as { extra?: { expoGo?: { debuggerHost?: string } } } | null)?.extra?.expoGo
       ?.debuggerHost);
 
+  if (__DEV__) console.log(`[ApiClient] hostUri detectado: ${hostUri ?? '(null)'}`);
   if (hostUri) {
     const host = hostUri.split(':')[0];
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
@@ -222,9 +226,12 @@ function resolveApiBaseUrl(): string {
   }
 
   // En iOS simulador localhost funciona, pero en dispositivo físico necesitamos
-  // la IP real de la máquina de desarrollo.
+  // la IP real de la máquina de desarrollo. Preferimos la IP dinámica de
+  // hostUri (ya resuelta arriba) y solo usamos la del .env como último recurso.
+  // Así, al cambiar de red WiFi no hay que editar .env manualmente.
   const devMachineIp = process.env.EXPO_PUBLIC_DEV_MACHINE_IP;
   if (devMachineIp) {
+    if (__DEV__) console.log(`[ApiClient] Usando IP manual del .env: ${devMachineIp}`);
     return `http://${devMachineIp}:${BACKEND_PORT}`;
   }
 

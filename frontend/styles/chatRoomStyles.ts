@@ -65,17 +65,19 @@ export function createStyles(c: ThemeColors) {
         headerChatInfo: {
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: c.surfaceLight,
+            backgroundColor: c.bgSurface,
             borderRadius: 25,
             paddingVertical: 8,
-            paddingHorizontal: 15,
+            paddingHorizontal: 12,
             flex: 1,
+            borderWidth: 1,
+            borderColor: c.borderFaint,
         },
         headerAvatar: {
             width: 30,
             height: 30,
             borderRadius: 15,
-            backgroundColor: c.bgSurface,
+            backgroundColor: c.bgElevated,
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 12,
@@ -83,7 +85,7 @@ export function createStyles(c: ThemeColors) {
         headerName: {
             fontSize: 16,
             fontWeight: 'bold',
-            color: c.textDark,
+            color: c.textPrimary,
         },
         messageRow: {
             flexDirection: 'row',

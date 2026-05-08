@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, ArchiveRestore, PinOff } from 'lucide-react-native';
+import { Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, ArchiveRestore, PinOff } from 'lucide-react-native';
 import { createStyles } from '../../styles/chatsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
@@ -18,6 +18,8 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import * as Clipboard from 'expo-clipboard';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
+import ContactAvatar from '../../components/ContactAvatar';
+import AvatarCustomizer from '../../components/AvatarCustomizer';
 
 type Chat = {
     id: string;
@@ -26,7 +28,37 @@ type Chat = {
     isPinned: boolean;
     isMuted: boolean;
     isArchived: boolean;
+    avatarBg: string | null;
+    avatarIcon: string | null;
+    lastMessage: string | null;
+    lastMessageIsMine: boolean;
+    lastMessageTime: number | null;
 };
+
+/** Format a timestamp into a relative/short label */
+function formatRelativeTime(ts: number): string {
+    const now = Date.now();
+    const diff = now - ts;
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return 'Ahora';
+    if (mins < 60) return `${mins} min`;
+    const hours = Math.floor(mins / 60);
+    const today = new Date();
+    const msgDate = new Date(ts);
+    const isToday = today.toDateString() === msgDate.toDateString();
+    if (isToday) {
+        return `${msgDate.getHours().toString().padStart(2, '0')}:${msgDate.getMinutes().toString().padStart(2, '0')}`;
+    }
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (yesterday.toDateString() === msgDate.toDateString()) return 'Ayer';
+    const days = Math.floor(diff / 86_400_000);
+    if (days < 7) {
+        const names = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        return names[msgDate.getDay()];
+    }
+    return `${msgDate.getDate()}/${msgDate.getMonth() + 1}`;
+}
 
 export default function ChatsScreen() {
     const { colors } = useTheme();
@@ -45,6 +77,7 @@ export default function ChatsScreen() {
     const [aliasInput, setAliasInput] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ chat: Chat; y: number } | null>(null);
+    const [avatarChat, setAvatarChat] = useState<Chat | null>(null);
     // Cola de contactos entrantes a los que se debe pedir alias (alguien nos ha añadido)
     const [incomingContactQueue, setIncomingContactQueue] = useState<string[]>([]);
     const [incomingAliasInput, setIncomingAliasInput] = useState('');
@@ -85,19 +118,30 @@ export default function ChatsScreen() {
                 return additions.length > 0 ? [...prev, ...additions] : prev;
             });
         }
-        const contacts = await contactsService.getAllContacts();
+        const [contacts, lastMessages] = await Promise.all([
+            contactsService.getAllContacts(),
+            databaseService.getLastMessagePerContact(),
+        ]);
         const visible = contacts.filter(c => !c.isBlocked);
         const newSet = new Set(result.senders);
-        const chatsWithCounts = await Promise.all(visible.map(async c => ({
-            id: c.contactHash,
-            name: c.alias ?? c.contactHash.slice(5, 17),
-            unreadCount: newSet.has(c.contactHash)
-                ? await databaseService.getUnreadCount(c.contactHash)
-                : 0,
-            isPinned: c.isPinned,
-            isMuted: c.isMuted,
-            isArchived: c.isArchived,
-        })));
+        const chatsWithCounts = await Promise.all(visible.map(async c => {
+            const last = lastMessages.get(c.contactHash);
+            return {
+                id: c.contactHash,
+                name: c.alias ?? c.contactHash.slice(5, 17),
+                unreadCount: newSet.has(c.contactHash)
+                    ? await databaseService.getUnreadCount(c.contactHash)
+                    : 0,
+                isPinned: c.isPinned,
+                isMuted: c.isMuted,
+                isArchived: c.isArchived,
+                avatarBg: c.avatarBg,
+                avatarIcon: c.avatarIcon,
+                lastMessage: last?.text ?? null,
+                lastMessageIsMine: last?.isMine ?? false,
+                lastMessageTime: last?.createdAt ?? null,
+            };
+        }));
         setChats(chatsWithCounts);
     }, [identity]);
 
@@ -152,7 +196,10 @@ export default function ChatsScreen() {
                 // Fijados primero
                 if (a.isPinned && !b.isPinned) return -1;
                 if (!a.isPinned && b.isPinned) return 1;
-                return 0;
+                // Luego por último mensaje (más reciente primero)
+                const tA = a.lastMessageTime ?? 0;
+                const tB = b.lastMessageTime ?? 0;
+                return tB - tA;
             });
     }, [chats, searchQuery, showArchived]);
 
@@ -199,6 +246,11 @@ export default function ChatsScreen() {
                     isPinned: c.isPinned,
                     isMuted: c.isMuted,
                     isArchived: c.isArchived,
+                    avatarBg: c.avatarBg,
+                    avatarIcon: c.avatarIcon,
+                    lastMessage: existing?.lastMessage ?? null,
+                    lastMessageIsMine: existing?.lastMessageIsMine ?? false,
+                    lastMessageTime: existing?.lastMessageTime ?? null,
                 };
             });
         });
@@ -312,6 +364,11 @@ export default function ChatsScreen() {
         await contactsService.setArchived(chat.id, !chat.isArchived);
     }, []);
 
+    const handleSaveAvatar = useCallback(async (bg: string | null, icon: string | null) => {
+        if (!avatarChat) return;
+        await contactsService.setAvatarColors(avatarChat.id, bg, icon);
+    }, [avatarChat]);
+
     const archivedCount = useMemo(() => chats.filter(c => c.isArchived).length, [chats]);
 
     const renderItem = useCallback(({ item }: { item: Chat }) => (
@@ -326,21 +383,50 @@ export default function ChatsScreen() {
             delayLongPress={400}
             accessibilityLabel={`Abrir chat con ${item.name}`}
         >
-            <View style={styles.avatarContainer}>
-                <User size={20} color={colors.accentLight} />
-            </View>
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.chatName, { fontSize: Math.round(16 * fontScale), flex: 0, flexShrink: 1 }]} numberOfLines={1}>{item.name}</Text>
-                {item.isPinned && <Pin size={13} color={colors.textHint} />}
-                {item.isMuted && <BellOff size={13} color={colors.textHint} />}
-            </View>
-            {item.unreadCount > 0 && (
-                <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5 }]}>
-                    <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
-                        {item.unreadCount > 99 ? '99+' : item.unreadCount}
-                    </Text>
+            <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => setAvatarChat(item)}
+                accessibilityLabel="Personalizar avatar"
+            >
+                <ContactAvatar
+                    contactHash={item.id}
+                    alias={item.name}
+                    size={48}
+                    customBg={item.avatarBg}
+                    customIcon={item.avatarIcon}
+                />
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={[styles.chatName, { fontSize: Math.round(15 * fontScale), flex: 0, flexShrink: 1 }]} numberOfLines={1}>{item.name}</Text>
+                        {item.isPinned && <Pin size={12} color={colors.textHint} />}
+                        {item.isMuted && <BellOff size={12} color={colors.textHint} />}
+                    </View>
+                    {item.lastMessageTime != null && (
+                        <Text style={{ color: item.unreadCount > 0 ? colors.accentLight : colors.textHint, fontSize: 11, fontWeight: item.unreadCount > 0 ? '700' : '400', marginLeft: 8 }}>
+                            {formatRelativeTime(item.lastMessageTime)}
+                        </Text>
+                    )}
                 </View>
-            )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                    <Text
+                        style={{ flex: 1, color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint, fontSize: Math.round(13 * fontScale), lineHeight: Math.round(17 * fontScale) }}
+                        numberOfLines={1}
+                    >
+                        {item.lastMessage
+                            ? (item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage
+                            : 'Sin mensajes aún'}
+                    </Text>
+                    {item.unreadCount > 0 && (
+                        <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5, marginLeft: 8 }]}>
+                            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
+                                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            </View>
         </TouchableOpacity>
     ), [handleChatPress, fontScale, colors]);
 
@@ -706,6 +792,17 @@ export default function ChatsScreen() {
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            {/* ── Avatar customizer ── */}
+            <AvatarCustomizer
+                visible={!!avatarChat}
+                onClose={() => setAvatarChat(null)}
+                onSave={handleSaveAvatar}
+                contactHash={avatarChat?.id ?? ''}
+                alias={avatarChat?.name ?? null}
+                currentBg={avatarChat?.avatarBg}
+                currentIcon={avatarChat?.avatarIcon}
+            />
 
             {modalNode}
         </KeyboardAvoidingView>

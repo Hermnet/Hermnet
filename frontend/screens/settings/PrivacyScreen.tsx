@@ -11,7 +11,8 @@ interface Props {
 }
 
 export default function PrivacyScreen({ onBack }: Props) {
-    const { colors } = useTheme();
+    const { colors, scheme } = useTheme();
+    const isDark = scheme === 'dark';
     const s = useMemo(() => createStyles(colors), [colors]);
     const { showModal, modalNode } = useAppModal();
 
@@ -53,7 +54,7 @@ export default function PrivacyScreen({ onBack }: Props) {
                 <Text style={s.sectionLabel}>Modelo zero-knowledge</Text>
                 <View style={s.sectionCard}>
                     <View style={[s.toggleRow, { paddingVertical: 14 }]}>
-                        <View style={[s.rowIconWrap, { backgroundColor: '#1a3a2d' }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: isDark ? '#1a3a2d' : '#d1fae5' }]}>
                             <ShieldCheck size={17} color="#34d399" />
                         </View>
                         <View style={s.toggleInfo}>
@@ -65,7 +66,7 @@ export default function PrivacyScreen({ onBack }: Props) {
                     </View>
                     <View style={s.rowSeparator} />
                     <View style={[s.toggleRow, { paddingVertical: 14 }]}>
-                        <View style={[s.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: isDark ? '#3a2e10' : '#fef3c7' }]}>
                             <Eye size={17} color="#fbbf24" />
                         </View>
                         <View style={s.toggleInfo}>

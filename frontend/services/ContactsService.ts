@@ -9,6 +9,8 @@ export interface Contact {
     isPinned: boolean;
     isMuted: boolean;
     isArchived: boolean;
+    avatarBg: string | null;
+    avatarIcon: string | null;
 }
 
 /** Payload encoded inside the QR code shown to other users */
@@ -60,6 +62,8 @@ export class ContactsService {
             isPinned: r.is_pinned,
             isMuted: r.is_muted,
             isArchived: r.is_archived,
+            avatarBg: r.avatar_bg,
+            avatarIcon: r.avatar_icon,
         }));
     }
 
@@ -101,6 +105,11 @@ export class ContactsService {
         this.emit();
     }
 
+    async setAvatarColors(contactHash: string, bg: string | null, icon: string | null): Promise<void> {
+        await databaseService.setContactAvatarColors(contactHash, bg, icon);
+        this.emit();
+    }
+
     /** Parses the raw string from QR scanner and saves the contact. */
     async saveContactFromQR(rawData: string, alias?: string): Promise<Contact> {
         let payload: QRPayload;
@@ -127,7 +136,7 @@ export class ContactsService {
         }
 
         await this.saveContact(payload.id, payload.publicKey, alias);
-        return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null, isBlocked: false, isPinned: false, isMuted: false, isArchived: false };
+        return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null, isBlocked: false, isPinned: false, isMuted: false, isArchived: false, avatarBg: null, avatarIcon: null };
     }
 }
 

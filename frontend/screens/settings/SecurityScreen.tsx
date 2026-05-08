@@ -245,6 +245,21 @@ export default function SecurityScreen({ onBack }: Props) {
                     </>
                 )}
 
+                <Text style={s.sectionLabel}>Privacidad visual</Text>
+                <View style={s.sectionCard}>
+                    <ToggleRow
+                        label="Efecto Matrix"
+                        sub={
+                            prefs.matrixReveal !== false
+                                ? 'Los mensajes se ofuscan al abrir el chat. Toca para revelar, doble-toca para ocultar.'
+                                : 'Los mensajes se muestran directamente sin ofuscación.'
+                        }
+                        value={prefs.matrixReveal !== false}
+                        onChange={(v) => updatePrefs({ ...prefs, matrixReveal: v })}
+                        last
+                    />
+                </View>
+
                 <Text style={s.sectionLabel}>Modo pánico</Text>
                 <View style={s.sectionCard}>
                     <ToggleRow
