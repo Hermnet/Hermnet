@@ -60,6 +60,10 @@ export interface ThemeColors {
     sendBtnBg: string;
     replyBannerBg: string;
 
+    // Chat
+    incomingBubble: string;
+    chatPattern: string;
+
     // QR Scanner
     qrOverlayBg: string;
 }
@@ -116,6 +120,9 @@ export const darkColors: ThemeColors = {
     sendBtnBg: '#ffffff',
     replyBannerBg: '#1a2234',
 
+    incomingBubble: '#1e2942',
+    chatPattern: '#2a3654',
+
     qrOverlayBg: 'rgba(0,0,0,0.6)',
 };
 
@@ -170,6 +177,9 @@ export const lightColors: ThemeColors = {
     inputFieldBg: '#e5e7eb',
     sendBtnBg: '#2563eb',
     replyBannerBg: '#f3f4f6',
+
+    incomingBubble: '#e5e7eb',
+    chatPattern: '#9ca3af',
 
     qrOverlayBg: 'rgba(0,0,0,0.4)',
 };

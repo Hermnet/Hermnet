@@ -108,7 +108,7 @@ export function createStyles(c: ThemeColors) {
             borderBottomRightRadius: 6,
         },
         messageBubbleLeft: {
-            backgroundColor: c.successMsg,
+            backgroundColor: c.incomingBubble,
             borderBottomLeftRadius: 6,
         },
         messageText: {
