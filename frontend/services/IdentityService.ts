@@ -57,6 +57,22 @@ export class IdentityService {
         signer.update(nonce);
         return signer.sign(privateKey, 'base64');
     }
+
+    /**
+     * Verifica una firma RSA-SHA256 sobre `data` usando la clave pública del firmante.
+     * Devuelve `false` ante cualquier error (clave inválida, firma malformada, no
+     * coincidencia, etc.) — no propaga excepciones para evitar caídas en flujos
+     * de recepción de mensajes potencialmente hostiles.
+     */
+    verifySignature(publicKey: string, data: string, signatureBase64: string): boolean {
+        try {
+            const verifier = (QuickCrypto as any).createVerify('RSA-SHA256');
+            verifier.update(data);
+            return verifier.verify(publicKey, signatureBase64, 'base64') === true;
+        } catch {
+            return false;
+        }
+    }
 }
 
 export const identityService = new IdentityService();
