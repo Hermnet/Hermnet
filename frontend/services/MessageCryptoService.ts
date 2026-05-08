@@ -20,14 +20,42 @@ export class MessageCryptoService {
   private static readonly IV_LENGTH = 12;
   private static readonly TAG_LENGTH = 16;
   private static readonly AES_KEY_LENGTH = 32;
+  /**
+   * Tamaño del bloque de padding. Cualquier mensaje se rellena hasta el siguiente
+   * múltiplo de 256 bytes antes de cifrar. Esto evita que un observador de la
+   * red infiera la longitud del mensaje a partir del tamaño del paquete cifrado.
+   * Formato del plaintext rellenado:
+   *   [4 bytes BE: longitud real del JSON][JSON utf-8][padding 0x00 hasta múltiplo de 256]
+   */
+  private static readonly PAD_BLOCK = 256;
+
+  private padPlaintext(plaintext: string): Buffer {
+    const data = Buffer.from(plaintext, 'utf8');
+    const headerLen = 4;
+    const totalUnpadded = headerLen + data.length;
+    const padded = Math.ceil(totalUnpadded / MessageCryptoService.PAD_BLOCK) * MessageCryptoService.PAD_BLOCK;
+    const buf = Buffer.alloc(padded);
+    buf.writeUInt32BE(data.length, 0);
+    data.copy(buf, headerLen);
+    // El resto queda en 0x00, que es el padding.
+    return buf;
+  }
+
+  private unpadPlaintext(padded: Buffer): string {
+    if (padded.length < 4) throw new Error('Padding inválido: payload demasiado corto');
+    const realLen = padded.readUInt32BE(0);
+    if (realLen > padded.length - 4) throw new Error('Padding inválido: longitud declarada excede el payload');
+    return padded.subarray(4, 4 + realLen).toString('utf8');
+  }
 
   encryptForRecipient(plaintext: string, recipientPublicKey: string): Uint8Array {
     const aesKey = (QuickCrypto as any).randomBytes(MessageCryptoService.AES_KEY_LENGTH) as Buffer;
     const iv = (QuickCrypto as any).randomBytes(MessageCryptoService.IV_LENGTH) as Buffer;
 
+    const padded = this.padPlaintext(plaintext);
     const cipher = (QuickCrypto as any).createCipheriv('aes-256-gcm', aesKey, iv);
     const ciphertext = Buffer.concat([
-      cipher.update(Buffer.from(plaintext, 'utf8')),
+      cipher.update(padded),
       cipher.final(),
     ]) as Buffer;
     const authTag = cipher.getAuthTag() as Buffer;
@@ -79,6 +107,19 @@ export class MessageCryptoService {
       decipher.final(),
     ]) as Buffer;
 
+    // Compat hacia atrás: detectamos si el plaintext lleva el header de padding
+    // (4 bytes BE con longitud razonable + resto consistente). Si no, asumimos
+    // formato legado y devolvemos los bytes tal cual.
+    if (decrypted.length >= 4) {
+      const declaredLen = decrypted.readUInt32BE(0);
+      if (declaredLen <= decrypted.length - 4 && declaredLen > 0) {
+        try {
+          return this.unpadPlaintext(decrypted);
+        } catch {
+          // No era padding válido — retrocedemos al formato legado.
+        }
+      }
+    }
     return decrypted.toString('utf8');
   }
 }
