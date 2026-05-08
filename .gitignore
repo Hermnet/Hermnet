@@ -16,3 +16,6 @@ backend/src/main/resources/*firebase-adminsdk-*.json
 .vscode/
 CLAUDE.md
 
+## Contexto privado (no se sube)
+docs/.context/
+
