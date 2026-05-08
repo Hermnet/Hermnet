@@ -63,7 +63,7 @@ describe('DatabaseService', () => {
     await databaseService.saveDecryptedMessage('HNET-CONTACT', 'hello', true);
 
     expect(db?.runAsync).toHaveBeenCalledWith(
-      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status) VALUES (?, ?, ?, ?, ?);',
+      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at) VALUES (?, ?, ?, ?, ?, ?);',
       expect.arrayContaining(['HNET-CONTACT', 'hello', 1, 'SENT'])
     );
   });
