@@ -28,7 +28,7 @@ export function createChatRoomStyles(c: ThemeColors) {
             paddingTop: 16, paddingBottom: 36, paddingHorizontal: 20,
         },
         modalHandle: {
-            width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)',
+            width: 40, height: 4, backgroundColor: c.borderLight,
             borderRadius: 2, alignSelf: 'center', marginBottom: 16,
         },
         modalHeader: {
@@ -75,7 +75,7 @@ export function createStyles(c: ThemeColors) {
             width: 30,
             height: 30,
             borderRadius: 15,
-            backgroundColor: '#ffffff',
+            backgroundColor: c.bgSurface,
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 12,
@@ -113,8 +113,13 @@ export function createStyles(c: ThemeColors) {
         },
         messageText: {
             fontSize: 15,
-            color: '#ffffff',
             lineHeight: 22,
+        },
+        messageTextRight: {
+            color: c.outgoingText,
+        },
+        messageTextLeft: {
+            color: c.incomingText,
         },
         inputContainer: {
             width: '100%',
@@ -143,7 +148,7 @@ export function createStyles(c: ThemeColors) {
             borderRadius: 20,
             minHeight: 44,
             maxHeight: 120,
-            color: '#ffffff',
+            color: c.inputText,
             paddingHorizontal: 16,
             paddingTop: 12,
             paddingBottom: 12,

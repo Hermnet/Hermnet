@@ -37,8 +37,9 @@ interface Props {
 
 // ─── SettingsScreen ────────────────────────────────────────────────────────────
 export default function SettingsScreen({ onBack }: Props) {
-    const { colors } = useTheme();
+    const { colors, scheme } = useTheme();
     const s = useMemo(() => createStyles(colors), [colors]);
+    const isDark = scheme === 'dark';
     const [confirmModal, setConfirmModal] = useState<ConfirmModal>(null);
     const [activeSub, setActiveSub] = useState<SubScreen>(null);
     const { showModal, modalNode } = useAppModal();
@@ -136,19 +137,19 @@ export default function SettingsScreen({ onBack }: Props) {
                         <SettingRow
                             icon={<Shield size={17} color={colors.accentLight} />}
                             label="Seguridad"
-                            iconBg="#1e2d4a"
+                            iconBg={isDark ? '#1e2d4a' : '#dbeafe'}
                             onPress={() => openSub('security')}
                         />
                         <SettingRow
                             icon={<Bell size={17} color="#a78bfa" />}
                             label="Notificaciones"
-                            iconBg="#2d1f4a"
+                            iconBg={isDark ? '#2d1f4a' : '#ede9fe'}
                             onPress={() => openSub('notifications')}
                         />
                         <SettingRow
                             icon={<Shield size={17} color="#34d399" />}
                             label="Privacidad"
-                            iconBg="#1a3a2d"
+                            iconBg={isDark ? '#1a3a2d' : '#d1fae5'}
                             onPress={() => openSub('privacy')}
                             last
                         />
@@ -160,13 +161,13 @@ export default function SettingsScreen({ onBack }: Props) {
                         <SettingRow
                             icon={<Accessibility size={17} color="#818cf8" />}
                             label="Accesibilidad"
-                            iconBg="#1e1f3a"
+                            iconBg={isDark ? '#1e1f3a' : '#e0e7ff'}
                             onPress={() => openSub('accessibility')}
                         />
                         <SettingRow
                             icon={<Palette size={17} color="#f472b6" />}
                             label="Apariencia"
-                            iconBg="#3a1e35"
+                            iconBg={isDark ? '#3a1e35' : '#fce7f3'}
                             onPress={() => openSub('appearance')}
                             last
                         />
@@ -178,13 +179,13 @@ export default function SettingsScreen({ onBack }: Props) {
                         <SettingRow
                             icon={<HelpCircle size={17} color="#fbbf24" />}
                             label="Ayuda y Soporte"
-                            iconBg="#3a2e10"
+                            iconBg={isDark ? '#3a2e10' : '#fef3c7'}
                             onPress={() => openSub('help')}
                         />
                         <SettingRow
                             icon={<FileText size={17} color={colors.textMuted} />}
                             label="Términos y Condiciones"
-                            iconBg="#1e2535"
+                            iconBg={isDark ? '#1e2535' : '#e5e7eb'}
                             onPress={() => openSub('terms')}
                             last
                         />
@@ -196,7 +197,7 @@ export default function SettingsScreen({ onBack }: Props) {
                         <SettingRow
                             icon={<Download size={17} color="#34d399" />}
                             label="Transferir Archivos"
-                            iconBg="#1a3a2d"
+                            iconBg={isDark ? '#1a3a2d' : '#d1fae5'}
                             onPress={() => openSub('transfer')}
                             last
                         />

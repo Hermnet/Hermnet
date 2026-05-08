@@ -100,18 +100,21 @@ export default function AppLayout() {
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
-            const wasBackground = appState.current.match(/inactive|background/);
+            const prevState = appState.current;
             appState.current = nextState;
 
-            if (nextState.match(/inactive|background/)) {
+            if (nextState === 'background') {
                 // Bloqueo siempre activo: limpia el DEK de memoria al ir a background.
                 // Hasta que el usuario se reautentique, ningún módulo podrá descifrar.
+                // Solo en 'background' real, NO en 'inactive': en iOS 'inactive' se
+                // dispara por diálogos del sistema (Face ID, centro de notificaciones,
+                // control center…) y bloquear ahí causa un bucle infinito con biometría.
                 dataKeyService.lock();
             }
 
-            if (wasBackground && nextState === 'active') {
-                // Bloqueo siempre activo en Hermnet: cuando volvemos del background
-                // bloqueamos la pantalla y exigimos biometría/PIN para continuar.
+            if (prevState === 'background' && nextState === 'active') {
+                // Solo re-bloquear al volver de 'background' real (home, app switcher).
+                // Ignorar transiciones inactive→active (Face ID dialog, notificaciones).
                 const prefs = await prefsService.getSecurityPrefs();
                 setIsLocked(true);
                 // Lanzar biometría automáticamente solo si el usuario la habilitó

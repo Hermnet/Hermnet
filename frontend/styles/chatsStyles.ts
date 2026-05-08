@@ -61,7 +61,7 @@ export function createStyles(c: ThemeColors) {
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: '#ffffff',
+            backgroundColor: c.bgSurface,
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 15,

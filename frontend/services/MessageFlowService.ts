@@ -195,11 +195,18 @@ export class MessageFlowService {
       return { senders: [], newContacts: [] };
     }
 
+    if (__DEV__) {
+      console.log(`[syncInbox] ${packets.length} paquete(s) recibido(s) para ${myId.slice(0, 12)}…`);
+    }
+
     const receivedFrom = new Set<string>();
     const newContacts = new Set<string>();
 
     for (const packet of packets) {
       try {
+        if (__DEV__) {
+          console.log(`[syncInbox] paquete: ${packet.length} bytes`);
+        }
         const decrypted = messageCryptoService.decryptWithPrivateKey(packet, localPrivateKey);
 
         let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number };
@@ -208,7 +215,11 @@ export class MessageFlowService {
         } catch {
           // Payload sin envoltorio reconocible: descartar para no contaminar el historial
           // con mensajes huérfanos sin contactHash.
-          console.warn('[syncInbox] payload sin envoltorio descartado');
+          if (__DEV__) {
+            console.warn(`[syncInbox] payload sin envoltorio descartado — primeros 120 chars: ${decrypted.slice(0, 120)}`);
+          } else {
+            console.warn('[syncInbox] payload sin envoltorio descartado');
+          }
           continue;
         }
 
@@ -319,13 +330,20 @@ export class MessageFlowService {
       } catch (err) {
         // Paquete corrupto, formato antiguo o destinatario equivocado: lo descartamos para que
         // el ack lo borre del buzón y no rompa toda la sincronización.
-        console.warn('[syncInbox] paquete inválido descartado:', err);
+        if (__DEV__) {
+          console.warn('[syncInbox] paquete inválido (decrypt falló):', (err as Error)?.message ?? err);
+        } else {
+          console.warn('[syncInbox] paquete inválido descartado:', err);
+        }
       }
     }
 
     // Confirmar recepción al servidor SIEMPRE para que los paquetes corruptos se vacíen
     try {
       await messageApiService.ackMessages();
+      if (__DEV__) {
+        console.log('[syncInbox] ack exitoso');
+      }
     } catch (err) {
       console.warn('[syncInbox] ack falló:', err);
     }
@@ -433,6 +451,9 @@ export class MessageFlowService {
     const encryptedPayload = messageCryptoService.encryptForRecipient(envelope, recipientPublicKey);
 
     await messageApiService.sendMessage(recipientId, encryptedPayload);
+    if (__DEV__) {
+      console.log(`[sendHandshake] enviado a ${recipientId.slice(0, 12)}… (${encryptedPayload.length} bytes)`);
+    }
   }
 }
 

@@ -261,14 +261,16 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                     />
 
                     {hasAccount && (
-                        <TouchableOpacity
-                            style={[loginStyles.secondaryButton, { position: 'absolute', bottom: 40, alignSelf: 'center' }]}
-                            onPress={handleRestoreClick}
-                            activeOpacity={0.6}
-                            accessibilityLabel="Olvidé mi PIN, restaurar archivo .hnet"
-                        >
-                            <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
-                        </TouchableOpacity>
+                        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingBottom: 16 }}>
+                            <TouchableOpacity
+                                style={loginStyles.secondaryButton}
+                                onPress={handleRestoreClick}
+                                activeOpacity={0.6}
+                                accessibilityLabel="Olvidé mi PIN, restaurar archivo .hnet"
+                            >
+                                <Text style={loginStyles.secondaryButtonText}>Olvidó su PIN / Restaurar Archivo .hnet</Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
                 </Animated.View>
             )}

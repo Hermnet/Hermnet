@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
@@ -58,12 +58,18 @@ export default function RootLayout() {
       databaseService.purgeExpiredMessages().catch(() => {});
     }, 30_000);
 
-    // Bootstrap de Tor en background con timeout. Si Tor no consigue construir
+    // Bootstrap de Tor en background con timeout. Solo en Android — en iOS el
+    // tráfico va directo al servidor por clearnet. Si Tor no consigue construir
     // circuitos en 90s (red restringida, lib defectuosa, etc.), caemos a
     // clearnet para que la app no quede colgada y el usuario pueda funcionar.
     // Es el compromiso entre privacidad (Tor activo por defecto) y disponibilidad.
     (async () => {
       try {
+        // iOS → clearnet directo, sin Tor
+        if (Platform.OS === 'ios') {
+          apiClient.setTorEnabled(false);
+          return;
+        }
         const prefs = await prefsService.getSecurityPrefs();
         const userWants = prefs.torEnabled !== false;
         const tor = getHermnetTor();

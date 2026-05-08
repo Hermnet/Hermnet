@@ -82,6 +82,10 @@ export class DatabaseService {
       // de expiración por mensaje (NULL = no expira).
       `ALTER TABLE contacts_vault ADD COLUMN ephemeral_ttl INTEGER;`,
       `ALTER TABLE messages_history ADD COLUMN expires_at INTEGER;`,
+      // Chat list features: pin, mute, archive
+      `ALTER TABLE contacts_vault ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE contacts_vault ADD COLUMN is_muted INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE contacts_vault ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;`,
     ];
     for (const sql of migrations) {
       await (this.db as any).runAsync(sql).catch(() => {});
@@ -307,16 +311,19 @@ export class DatabaseService {
     });
   }
 
-  async getAllContactsRaw(): Promise<Array<{ contact_hash: string; public_key: string; alias_local: string | null; is_blocked: boolean }>> {
+  async getAllContactsRaw(): Promise<Array<{ contact_hash: string; public_key: string; alias_local: string | null; is_blocked: boolean; is_pinned: boolean; is_muted: boolean; is_archived: boolean }>> {
     return this.withDb(async (db) => {
       const rows = await (db as any).getAllAsync(
-        'SELECT contact_hash, public_key, alias_local, is_blocked FROM contacts_vault;'
+        'SELECT contact_hash, public_key, alias_local, is_blocked, is_pinned, is_muted, is_archived FROM contacts_vault;'
       );
       return (rows ?? []).map((r: any) => ({
         contact_hash: r.contact_hash,
         public_key: r.public_key,
         alias_local: r.alias_local ? this.safeDecrypt(r.alias_local) : null,
         is_blocked: r.is_blocked === 1,
+        is_pinned: r.is_pinned === 1,
+        is_muted: r.is_muted === 1,
+        is_archived: r.is_archived === 1,
       }));
     });
   }
@@ -337,6 +344,33 @@ export class DatabaseService {
       await (db as any).runAsync(
         'UPDATE contacts_vault SET is_blocked = ? WHERE contact_hash = ?;',
         [blocked ? 1 : 0, contactHash]
+      );
+    });
+  }
+
+  async setContactPinned(contactHash: string, pinned: boolean): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'UPDATE contacts_vault SET is_pinned = ? WHERE contact_hash = ?;',
+        [pinned ? 1 : 0, contactHash]
+      );
+    });
+  }
+
+  async setContactMuted(contactHash: string, muted: boolean): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'UPDATE contacts_vault SET is_muted = ? WHERE contact_hash = ?;',
+        [muted ? 1 : 0, contactHash]
+      );
+    });
+  }
+
+  async setContactArchived(contactHash: string, archived: boolean): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'UPDATE contacts_vault SET is_archived = ? WHERE contact_hash = ?;',
+        [archived ? 1 : 0, contactHash]
       );
     });
   }

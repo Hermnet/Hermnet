@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, StatusBar, Modal, Platform } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, Fingerprint, Users, X } from 'lucide-react-native';
 let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
@@ -224,22 +224,26 @@ export default function SecurityScreen({ onBack }: Props) {
                     />
                 </View>
 
-                <Text style={s.sectionLabel}>Red anónima (Tor)</Text>
-                <View style={s.sectionCard}>
-                    <ToggleRow
-                        label="Modo Tor"
-                        sub={
-                            TOR_NATIVE_AVAILABLE
-                                ? (prefs.torEnabled !== false
-                                    ? 'Tu IP queda oculta al backend. El tráfico va por Tor.'
-                                    : 'Tráfico directo al backend (más rápido, menos privado).')
-                                : 'Activado por defecto. Pendiente de integrar el módulo nativo de Tor para que sea efectivo en este dispositivo.'
-                        }
-                        value={prefs.torEnabled !== false}
-                        onChange={handleTorToggle}
-                        last
-                    />
-                </View>
+                {Platform.OS !== 'ios' && (
+                    <>
+                        <Text style={s.sectionLabel}>Red anónima (Tor)</Text>
+                        <View style={s.sectionCard}>
+                            <ToggleRow
+                                label="Modo Tor"
+                                sub={
+                                    TOR_NATIVE_AVAILABLE
+                                        ? (prefs.torEnabled !== false
+                                            ? 'Tu IP queda oculta al backend. El tráfico va por Tor.'
+                                            : 'Tráfico directo al backend (más rápido, menos privado).')
+                                        : 'Activado por defecto. Pendiente de integrar el módulo nativo de Tor para que sea efectivo en este dispositivo.'
+                                }
+                                value={prefs.torEnabled !== false}
+                                onChange={handleTorToggle}
+                                last
+                            />
+                        </View>
+                    </>
+                )}
 
                 <Text style={s.sectionLabel}>Modo pánico</Text>
                 <View style={s.sectionCard}>

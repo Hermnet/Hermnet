@@ -6,6 +6,9 @@ export interface Contact {
     publicKey: string;
     alias: string | null;
     isBlocked: boolean;
+    isPinned: boolean;
+    isMuted: boolean;
+    isArchived: boolean;
 }
 
 /** Payload encoded inside the QR code shown to other users */
@@ -54,6 +57,9 @@ export class ContactsService {
             publicKey: r.public_key,
             alias: r.alias_local ?? null,
             isBlocked: r.is_blocked,
+            isPinned: r.is_pinned,
+            isMuted: r.is_muted,
+            isArchived: r.is_archived,
         }));
     }
 
@@ -77,6 +83,21 @@ export class ContactsService {
     /** Limpia solo los mensajes con el contacto, conservándolo en la lista. */
     async clearChatHistory(contactHash: string): Promise<void> {
         await databaseService.deleteMessagesByContact(contactHash);
+        this.emit();
+    }
+
+    async setPinned(contactHash: string, pinned: boolean): Promise<void> {
+        await databaseService.setContactPinned(contactHash, pinned);
+        this.emit();
+    }
+
+    async setMuted(contactHash: string, muted: boolean): Promise<void> {
+        await databaseService.setContactMuted(contactHash, muted);
+        this.emit();
+    }
+
+    async setArchived(contactHash: string, archived: boolean): Promise<void> {
+        await databaseService.setContactArchived(contactHash, archived);
         this.emit();
     }
 
@@ -106,7 +127,7 @@ export class ContactsService {
         }
 
         await this.saveContact(payload.id, payload.publicKey, alias);
-        return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null, isBlocked: false };
+        return { contactHash: payload.id, publicKey: payload.publicKey, alias: alias ?? null, isBlocked: false, isPinned: false, isMuted: false, isArchived: false };
     }
 }
 

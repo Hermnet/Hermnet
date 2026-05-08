@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
+import { User, Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, ArchiveRestore, PinOff } from 'lucide-react-native';
 import { createStyles } from '../../styles/chatsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
@@ -16,7 +16,6 @@ import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
-// Theme colors now come from useTheme()
 import * as Clipboard from 'expo-clipboard';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 
@@ -24,6 +23,9 @@ type Chat = {
     id: string;
     name: string;
     unreadCount: number;
+    isPinned: boolean;
+    isMuted: boolean;
+    isArchived: boolean;
 };
 
 export default function ChatsScreen() {
@@ -41,6 +43,8 @@ export default function ChatsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [pendingQRData, setPendingQRData] = useState<string | null>(null);
     const [aliasInput, setAliasInput] = useState('');
+    const [showArchived, setShowArchived] = useState(false);
+    const [contextMenu, setContextMenu] = useState<{ chat: Chat; y: number } | null>(null);
     // Cola de contactos entrantes a los que se debe pedir alias (alguien nos ha añadido)
     const [incomingContactQueue, setIncomingContactQueue] = useState<string[]>([]);
     const [incomingAliasInput, setIncomingAliasInput] = useState('');
@@ -90,6 +94,9 @@ export default function ChatsScreen() {
             unreadCount: newSet.has(c.contactHash)
                 ? await databaseService.getUnreadCount(c.contactHash)
                 : 0,
+            isPinned: c.isPinned,
+            isMuted: c.isMuted,
+            isArchived: c.isArchived,
         })));
         setChats(chatsWithCounts);
     }, [identity]);
@@ -132,9 +139,22 @@ export default function ChatsScreen() {
         setRefreshing(false);
     }, [loadChats, identity]);
 
-    const filteredChats = chats.filter(chat =>
-        chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredChats = useMemo(() => {
+        const q = searchQuery.toLowerCase();
+        return chats
+            .filter(chat => {
+                if (!chat.name.toLowerCase().includes(q)) return false;
+                // En búsqueda, mostrar todo (incluidos archivados)
+                if (q) return true;
+                return showArchived ? chat.isArchived : !chat.isArchived;
+            })
+            .sort((a, b) => {
+                // Fijados primero
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return 0;
+            });
+    }, [chats, searchQuery, showArchived]);
 
     const handleChatPress = useCallback((id: string) => {
         setActiveChatId(id);
@@ -176,6 +196,9 @@ export default function ChatsScreen() {
                     id: c.contactHash,
                     name: c.alias ?? c.contactHash.slice(5, 17),
                     unreadCount: existing?.unreadCount ?? 0,
+                    isPinned: c.isPinned,
+                    isMuted: c.isMuted,
+                    isArchived: c.isArchived,
                 };
             });
         });
@@ -274,17 +297,43 @@ export default function ChatsScreen() {
         showQRSlide.close(() => setShowShowQR(false));
     }, [showQRSlide]);
 
+    const handleTogglePin = useCallback(async (chat: Chat) => {
+        setContextMenu(null);
+        await contactsService.setPinned(chat.id, !chat.isPinned);
+    }, []);
+
+    const handleToggleMute = useCallback(async (chat: Chat) => {
+        setContextMenu(null);
+        await contactsService.setMuted(chat.id, !chat.isMuted);
+    }, []);
+
+    const handleToggleArchive = useCallback(async (chat: Chat) => {
+        setContextMenu(null);
+        await contactsService.setArchived(chat.id, !chat.isArchived);
+    }, []);
+
+    const archivedCount = useMemo(() => chats.filter(c => c.isArchived).length, [chats]);
+
     const renderItem = useCallback(({ item }: { item: Chat }) => (
         <TouchableOpacity
             style={styles.chatItem}
             activeOpacity={0.7}
             onPress={() => handleChatPress(item.id)}
+            onLongPress={(e) => {
+                const y = (e.nativeEvent as any).pageY ?? 300;
+                setContextMenu({ chat: item, y });
+            }}
+            delayLongPress={400}
             accessibilityLabel={`Abrir chat con ${item.name}`}
         >
             <View style={styles.avatarContainer}>
                 <User size={20} color={colors.accentLight} />
             </View>
-            <Text style={[styles.chatName, { fontSize: Math.round(16 * fontScale) }]}>{item.name}</Text>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.chatName, { fontSize: Math.round(16 * fontScale), flex: 0, flexShrink: 1 }]} numberOfLines={1}>{item.name}</Text>
+                {item.isPinned && <Pin size={13} color={colors.textHint} />}
+                {item.isMuted && <BellOff size={13} color={colors.textHint} />}
+            </View>
             {item.unreadCount > 0 && (
                 <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5 }]}>
                     <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
@@ -293,7 +342,7 @@ export default function ChatsScreen() {
                 </View>
             )}
         </TouchableOpacity>
-    ), [handleChatPress, fontScale]);
+    ), [handleChatPress, fontScale, colors]);
 
     return (
         <KeyboardAvoidingView
@@ -342,7 +391,31 @@ export default function ChatsScreen() {
                             if (text) handleScannedQR(text);
                         }}
                     >
-                        <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 13 }}>🐛 Pegar QR del portapapeles</Text>
+                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>🐛 Pegar QR del portapapeles</Text>
+                    </TouchableOpacity>
+                )}
+
+                {!showArchived && archivedCount > 0 && !searchQuery && (
+                    <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}
+                        activeOpacity={0.7}
+                        onPress={() => setShowArchived(true)}
+                    >
+                        <Archive size={18} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>Archivados</Text>
+                        <View style={{ backgroundColor: colors.bgElevated, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700' }}>{archivedCount}</Text>
+                        </View>
+                    </TouchableOpacity>
+                )}
+                {showArchived && !searchQuery && (
+                    <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}
+                        activeOpacity={0.7}
+                        onPress={() => setShowArchived(false)}
+                    >
+                        <ArchiveRestore size={18} color={colors.accentLight} />
+                        <Text style={{ color: colors.accentLight, fontSize: 14, fontWeight: '600' }}>Volver a chats</Text>
                     </TouchableOpacity>
                 )}
 
@@ -564,6 +637,72 @@ export default function ChatsScreen() {
                                 <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 15 }}>Guardar</Text>
                             </TouchableOpacity>
                         </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* ── Context menu: long press en chat ── */}
+            <Modal
+                visible={!!contextMenu}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={() => setContextMenu(null)}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}
+                    activeOpacity={1}
+                    onPress={() => setContextMenu(null)}
+                >
+                    <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: colors.bgSurface, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: colors.borderLight }} onPress={() => {}}>
+                        {/* Header with contact name */}
+                        <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>
+                                {contextMenu?.chat.name}
+                            </Text>
+                        </View>
+
+                        {/* Pin */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
+                            activeOpacity={0.6}
+                            onPress={() => contextMenu && handleTogglePin(contextMenu.chat)}
+                        >
+                            {contextMenu?.chat.isPinned
+                                ? <PinOff size={20} color={colors.textSecondary} />
+                                : <Pin size={20} color={colors.textSecondary} />}
+                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                {contextMenu?.chat.isPinned ? 'Desfijar' : 'Fijar arriba'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Mute */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
+                            activeOpacity={0.6}
+                            onPress={() => contextMenu && handleToggleMute(contextMenu.chat)}
+                        >
+                            {contextMenu?.chat.isMuted
+                                ? <Bell size={20} color={colors.textSecondary} />
+                                : <BellOff size={20} color={colors.textSecondary} />}
+                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                {contextMenu?.chat.isMuted ? 'Activar notificaciones' : 'Silenciar'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Archive */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14, marginBottom: 4 }}
+                            activeOpacity={0.6}
+                            onPress={() => contextMenu && handleToggleArchive(contextMenu.chat)}
+                        >
+                            {contextMenu?.chat.isArchived
+                                ? <ArchiveRestore size={20} color={colors.textSecondary} />
+                                : <Archive size={20} color={colors.textSecondary} />}
+                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                {contextMenu?.chat.isArchived ? 'Desarchivar' : 'Archivar'}
+                            </Text>
+                        </TouchableOpacity>
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>

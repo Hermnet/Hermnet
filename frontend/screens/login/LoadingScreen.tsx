@@ -261,20 +261,19 @@ export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
 
     return (
         <View style={[styles.container, { paddingTop: isShort ? 40 : 90 }]}>
-            <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
-                {SLIDES.map((_, index) => (
-                    <Animated.View
-                        key={index}
-                        style={[
-                            styles.dot,
-                            currentIndex === index ? styles.activeDot : null,
-                            currentIndex === index && { transform: [{ scale: 1.2 }] }
-                        ]}
-                    />
-                ))}
-            </View>
-
             <Animated.View style={{ flex: 1, width: '100%', alignItems: 'center', transform: [{ translateY: contentTranslateY }] }}>
+                <View style={[styles.paginationContainer, { marginBottom: 20 }]}>
+                    {SLIDES.map((_, index) => (
+                        <Animated.View
+                            key={index}
+                            style={[
+                                styles.dot,
+                                currentIndex === index ? styles.activeDot : null,
+                                currentIndex === index && { transform: [{ scale: 1.2 }] }
+                            ]}
+                        />
+                    ))}
+                </View>
                 <View style={{ flex: 1, alignSelf: 'stretch' }}>
                     <FlatList
                         ref={flatListRef}

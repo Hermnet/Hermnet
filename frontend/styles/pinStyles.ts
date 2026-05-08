@@ -23,7 +23,7 @@ export function createStyles(c: ThemeColors) {
             flexGrow: 1,
             alignItems: 'center',
             justifyContent: 'center',
-            paddingBottom: isShort ? 16 : 20,
+            paddingBottom: isShort ? 50 : 60,
             paddingTop: isShort ? 24 : 40,
         },
         header: {

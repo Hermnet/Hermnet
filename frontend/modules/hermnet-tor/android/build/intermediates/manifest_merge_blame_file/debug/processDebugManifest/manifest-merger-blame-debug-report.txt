@@ -5,10 +5,10 @@
 5    <uses-sdk android:minSdkVersion="24" />
 6    <!-- Tor necesita acceso a internet para construir circuitos hacia los relays. -->
 7    <uses-permission android:name="android.permission.INTERNET" />
-7-->/Users/maria/Desktop/Alvaro/Hermnet/.claude/worktrees/agitated-gould-34b9e4/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:3:5-66
-7-->/Users/maria/Desktop/Alvaro/Hermnet/.claude/worktrees/agitated-gould-34b9e4/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:3:22-64
+7-->/Users/fran/Documents/GitHub/Hermnet/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:3:5-66
+7-->/Users/fran/Documents/GitHub/Hermnet/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:3:22-64
 8    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-8-->/Users/maria/Desktop/Alvaro/Hermnet/.claude/worktrees/agitated-gould-34b9e4/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:4:5-78
-8-->/Users/maria/Desktop/Alvaro/Hermnet/.claude/worktrees/agitated-gould-34b9e4/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:4:22-76
+8-->/Users/fran/Documents/GitHub/Hermnet/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:4:5-78
+8-->/Users/fran/Documents/GitHub/Hermnet/frontend/modules/hermnet-tor/android/src/main/AndroidManifest.xml:4:22-76
 9
 10</manifest>

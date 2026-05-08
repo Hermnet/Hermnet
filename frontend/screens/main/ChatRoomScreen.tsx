@@ -21,6 +21,7 @@ import { useAccessibility } from '../../contexts/AccessibilityContext';
 import { useAuthStore } from '../../store/authStore';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { useTheme } from '../../contexts/ThemeContext';
+import MatrixText from '../../components/MatrixText';
 
 const TRUNCATE_AT = 200;
 const MAX_LENGTH = 500;
@@ -187,8 +188,11 @@ type BubbleProps = {
     onReadMore: (msg: MsgData) => void;
     fontScale: number;
     highContrast: boolean;
+    revealed: boolean;
+    onReveal: (id: string) => void;
+    onHide: (id: string) => void;
 };
-const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, fontScale, highContrast }: BubbleProps) => {
+const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, fontScale, highContrast, revealed, onReveal, onHide }: BubbleProps) => {
     const { colors } = useTheme();
     const s = useMemo(() => createStyles(colors), [colors]);
     const { fontSize, lineHeight, maxLines, needsTruncation } = useMemo(
@@ -199,7 +203,29 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
     const hcBubbleStyle = highContrast
         ? (msg.isMine ? { backgroundColor: '#dbeafe' } : { backgroundColor: '#dcfce7' })
         : null;
-    const hcTextColor = highContrast ? (msg.isMine ? '#1e3a8a' : '#14532d') : '#ffffff';
+    const hcTextColor = highContrast
+        ? (msg.isMine ? '#1e3a8a' : '#14532d')
+        : (msg.isMine ? colors.outgoingText : colors.incomingText);
+
+    // Tap = reveal, Double tap = re-hide
+    const lastTapRef = useRef(0);
+    const handleTap = useCallback(() => {
+        const now = Date.now();
+        if (now - lastTapRef.current < 300) {
+            // Double tap → re-hide
+            onHide(msg.id);
+            lastTapRef.current = 0;
+        } else {
+            // Single tap → reveal (delayed to distinguish from double)
+            lastTapRef.current = now;
+            setTimeout(() => {
+                // Only fire if no second tap came
+                if (lastTapRef.current === now) {
+                    if (!revealed) onReveal(msg.id);
+                }
+            }, 300);
+        }
+    }, [revealed, msg.id, onReveal, onHide]);
 
     return (
         <View style={{
@@ -210,6 +236,7 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
             <TouchableOpacity
                 activeOpacity={0.85}
                 delayLongPress={350}
+                onPress={handleTap}
                 onLongPress={() => onLongPress(msg)}
             >
                 <View style={[
@@ -220,28 +247,34 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
                     {msg.replyTo && (
                         <View style={{
                             borderLeftWidth: 3,
-                            borderLeftColor: highContrast ? (msg.isMine ? '#1e3a8a' : '#14532d') : 'rgba(255,255,255,0.55)',
+                            borderLeftColor: highContrast ? (msg.isMine ? '#1e3a8a' : '#14532d') : colors.accentLight,
                             paddingLeft: 8, paddingVertical: 4, marginBottom: 6,
                             backgroundColor: 'rgba(0,0,0,0.10)', borderRadius: 6,
                         }}>
                             <Text style={{ color: hcTextColor, opacity: 0.7, fontSize: 11, fontWeight: '700', marginBottom: 1 }}>
                                 {msg.replyTo.isMine ? 'Tú' : contactName}
                             </Text>
-                            <Text style={{ color: hcTextColor, opacity: 0.85, fontSize: 12 }} numberOfLines={1}>
-                                {msg.replyTo.text}
-                            </Text>
+                            <MatrixText
+                                text={msg.replyTo.text}
+                                revealed={revealed}
+                                style={{ color: hcTextColor, opacity: 0.85, fontSize: 12 }}
+                                numberOfLines={1}
+                                speed={5}
+                                interval={20}
+                            />
                         </View>
                     )}
 
-                    <Text
+                    <MatrixText
+                        text={msg.text}
+                        revealed={revealed}
                         style={[s.messageText, { fontSize, lineHeight, color: hcTextColor }]}
                         numberOfLines={maxLines}
-                        ellipsizeMode="tail"
-                    >
-                        {msg.text}
-                    </Text>
+                        speed={4}
+                        interval={25}
+                    />
 
-                    {needsTruncation && (
+                    {needsTruncation && revealed && (
                         <TouchableOpacity onPress={() => onReadMore(msg)} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
                             <Text style={{
                                 color: hcTextColor, opacity: 0.65,
@@ -272,8 +305,11 @@ const MessageBubble = React.memo(({ msg, contactName, onLongPress, onReadMore, f
     prev.contactName === next.contactName &&
     prev.fontScale === next.fontScale &&
     prev.highContrast === next.highContrast &&
+    prev.revealed === next.revealed &&
     prev.onLongPress === next.onLongPress &&
-    prev.onReadMore === next.onReadMore
+    prev.onReadMore === next.onReadMore &&
+    prev.onReveal === next.onReveal &&
+    prev.onHide === next.onHide
 );
 
 // ─── Reply Banner ──────────────────────────────────────────────────────────────
@@ -379,6 +415,35 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     const { identity } = useAuthStore();
     const insets = useSafeAreaInsets();
     const isAppActive = useIsAppActive();
+
+    // ── Matrix reveal state ──
+    // Set of message IDs currently revealed. Everything else is scrambled.
+    const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+    const revealMsg = useCallback((id: string) => {
+        setRevealedIds(prev => {
+            if (prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+        });
+    }, []);
+    const hideMsg = useCallback((id: string) => {
+        setRevealedIds(prev => {
+            if (!prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+    }, []);
+    // Re-scramble everything when leaving the app
+    const prevAppActive = useRef(isAppActive);
+    useEffect(() => {
+        if (prevAppActive.current && !isAppActive) {
+            // App went to background → hide all
+            setRevealedIds(new Set());
+        }
+        prevAppActive.current = isAppActive;
+    }, [isAppActive]);
     const flatListRef = useRef<FlatList<MsgData>>(null);
 
     /**
@@ -740,8 +805,11 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
             onReadMore={handleReadMore}
             fontScale={fontScale}
             highContrast={highContrast}
+            revealed={revealedIds.has(item.id)}
+            onReveal={revealMsg}
+            onHide={hideMsg}
         />
-    ), [contactName, handleLongPress, handleReadMore, fontScale, highContrast]);
+    ), [contactName, handleLongPress, handleReadMore, fontScale, highContrast, revealedIds, revealMsg, hideMsg]);
 
     /**
      * En FlatList invertida, offset 0 = mensaje más reciente abajo. Consideramos "en el fondo"

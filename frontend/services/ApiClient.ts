@@ -221,6 +221,13 @@ function resolveApiBaseUrl(): string {
     return `http://10.0.2.2:${BACKEND_PORT}`;
   }
 
+  // En iOS simulador localhost funciona, pero en dispositivo físico necesitamos
+  // la IP real de la máquina de desarrollo.
+  const devMachineIp = process.env.EXPO_PUBLIC_DEV_MACHINE_IP;
+  if (devMachineIp) {
+    return `http://${devMachineIp}:${BACKEND_PORT}`;
+  }
+
   return `http://localhost:${BACKEND_PORT}`;
 }
 
@@ -232,10 +239,11 @@ const onionApiUrl = process.env.EXPO_PUBLIC_TOR_API_URL ?? '';
  * al hidden service. Se determina en runtime detectando si el módulo nativo
  * `HermnetTor` está disponible (existe el binario y se autolinkó al build).
  *
- * Si la app se ejecuta en Expo Go o un build viejo sin el módulo, vale `false`
- * y la app cae a clearnet automáticamente para no romperse.
+ * En iOS el routing va directo al servidor (clearnet) — Tor solo se usa en
+ * Android. Si la app se ejecuta en Expo Go o un build viejo sin el módulo,
+ * vale `false` y la app cae a clearnet automáticamente para no romperse.
  */
-export const TOR_NATIVE_AVAILABLE = getHermnetTor() !== null;
+export const TOR_NATIVE_AVAILABLE = Platform.OS !== 'ios' && getHermnetTor() !== null;
 
 if (__DEV__) {
   console.log(`[ApiClient] clearnet URL: ${apiBaseUrl}`);

@@ -49,7 +49,8 @@ dependencies {
     // (`org.torproject.jni.TorService`) + binarios nativos para todas las archs.
     // Si la resolución en Maven Central fallara puntualmente, hay un mirror en
     // el maven de GuardianProject.
-    implementation 'info.guardianproject:tor-android:0.4.8.7'
+    implementation 'info.guardianproject:tor-android:0.4.7.14'
+    implementation 'info.guardianproject:jtorctl:0.4.5.7'
 
     // HTTP client con soporte de proxy SOCKS5 nativo.
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
