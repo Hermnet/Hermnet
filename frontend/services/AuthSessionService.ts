@@ -6,6 +6,7 @@ const IDENTITY_PUBLIC_KEY = 'hermnet.identity.publicKey';
 const IDENTITY_PRIVATE_KEY = 'hermnet.identity.privateKey';
 const JWT_KEY = 'hermnet.jwt';
 const PIN_HASH_KEY = 'hermnet.pin_hash';
+const PANIC_PIN_HASH_KEY = 'hermnet.panic_pin_hash';
 
 /**
  * Stores identity and JWT state in secure local storage.
@@ -55,7 +56,24 @@ export class AuthSessionService {
     await SecureStore.deleteItemAsync(PIN_HASH_KEY);
   }
 
-  /** Borra toda la identidad local (para eliminar cuenta). */
+  /**
+   * PIN de pánico: opcional. Si está configurado y el usuario lo introduce al
+   * desbloquear la app, dispara el wipe completo de la identidad (en lugar de
+   * abrir la app). Permite "abrir" la app bajo coacción sin revelar nada.
+   */
+  async getPanicPinHash(): Promise<string | null> {
+    return SecureStore.getItemAsync(PANIC_PIN_HASH_KEY);
+  }
+
+  async setPanicPinHash(hash: string): Promise<void> {
+    await SecureStore.setItemAsync(PANIC_PIN_HASH_KEY, hash);
+  }
+
+  async clearPanicPinHash(): Promise<void> {
+    await SecureStore.deleteItemAsync(PANIC_PIN_HASH_KEY);
+  }
+
+  /** Borra toda la identidad local (para eliminar cuenta o tras pin de pánico). */
   async clearAllIdentityData(): Promise<void> {
     await Promise.all([
       SecureStore.deleteItemAsync(IDENTITY_ID_KEY),
@@ -63,6 +81,7 @@ export class AuthSessionService {
       SecureStore.deleteItemAsync(IDENTITY_PRIVATE_KEY),
       SecureStore.deleteItemAsync(JWT_KEY),
       SecureStore.deleteItemAsync(PIN_HASH_KEY),
+      SecureStore.deleteItemAsync(PANIC_PIN_HASH_KEY),
     ]);
   }
 }

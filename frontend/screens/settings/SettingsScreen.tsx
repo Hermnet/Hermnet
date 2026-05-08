@@ -312,7 +312,8 @@ export default function SettingsScreen({ onBack }: Props) {
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
-                    { transform: [{ translateX: subSlide.anim }], zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary },
+                    subSlide.style,
+                    { zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary },
                 ]}
                 pointerEvents={activeSub ? 'auto' : 'none'}
             >
