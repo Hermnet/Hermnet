@@ -17,7 +17,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.HermnetMobile",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Hermnet usa Face ID para bloquear el acceso a tus mensajes."
+        "NSFaceIDUsageDescription": "Hermnet usa Face ID para bloquear el acceso a tus mensajes.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {

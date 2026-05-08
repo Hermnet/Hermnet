@@ -3,6 +3,13 @@ import { apiClient } from './ApiClient';
 export interface RegisterRequestDto {
   id: string;
   publicKey: string;
+  /**
+   * OPCIONAL Y OPT-IN. El push token es PII (Google/Apple lo asocian al
+   * dispositivo), así que solo debe enviarse si el usuario activó push
+   * notifications explícitamente en `prefsService.notifications.pushEnabled`.
+   * Por defecto se omite para que el backend no almacene nada que ate la
+   * identidad a un dispositivo concreto.
+   */
   pushToken?: string | null;
 }
 
