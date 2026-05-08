@@ -45,8 +45,6 @@ public class IpAnonymizationFilter implements Filter {
 
         request.setAttribute("CLIENT_ID", anonymousId);
 
-        System.out.println("Request received from anonymous client: " + anonymousId);
-
         chain.doFilter(request, response);
     }
 }
