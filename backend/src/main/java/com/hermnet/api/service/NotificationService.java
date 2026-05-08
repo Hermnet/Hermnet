@@ -33,11 +33,22 @@ public class NotificationService {
                     .putData(ACTION_KEY, ACTION_SYNC)
                     .build();
 
-            String response = FirebaseMessaging.getInstance().send(message);
-            log.info("Sent silent sync notification to token {}: {}",
-                    recipientToken.substring(0, Math.min(10, recipientToken.length())) + "...", response);
+            FirebaseMessaging.getInstance().send(message);
+            // Log redactado: solo confirmamos que se envió. NO logueamos el token completo
+            // (es PII que identifica al dispositivo en los servidores de Google) ni la
+            // respuesta de FCM (puede contener el messageId que también es correlable).
+            if (log.isDebugEnabled()) {
+                log.debug("FCM sync notification sent (token={})", redact(recipientToken));
+            }
         } catch (Exception e) {
-            log.error("Failed to send FCM notification to token {}", recipientToken, e);
+            // Mismo principio en errores: redactamos el token.
+            log.error("Failed to send FCM notification (token={}): {}",
+                    redact(recipientToken), e.getMessage());
         }
+    }
+
+    private static String redact(String token) {
+        if (token == null || token.length() < 6) return "***";
+        return token.substring(0, 4) + "***";
     }
 }
