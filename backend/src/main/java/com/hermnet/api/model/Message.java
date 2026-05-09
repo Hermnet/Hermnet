@@ -44,8 +44,7 @@ public class Message {
      * for the body, RSA-OAEP-SHA256 for the AES key). The server treats this as
      * opaque data and never attempts to decode it.
      */
-    @Lob
-    @Column(name = "payload", nullable = false)
+    @Column(name = "payload", nullable = false, columnDefinition = "bytea")
     private byte[] payload;
 
     /**

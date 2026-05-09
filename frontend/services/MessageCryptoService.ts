@@ -45,7 +45,7 @@ export class MessageCryptoService {
     if (padded.length < 4) throw new Error('Padding inválido: payload demasiado corto');
     const realLen = padded.readUInt32BE(0);
     if (realLen > padded.length - 4) throw new Error('Padding inválido: longitud declarada excede el payload');
-    return padded.subarray(4, 4 + realLen).toString('utf8');
+    return Buffer.from(padded.subarray(4, 4 + realLen)).toString('utf8');
   }
 
   encryptForRecipient(plaintext: string, recipientPublicKey: string): Uint8Array {
@@ -102,10 +102,14 @@ export class MessageCryptoService {
 
     const decipher = (QuickCrypto as any).createDecipheriv('aes-256-gcm', aesKey, iv);
     decipher.setAuthTag(authTag);
-    const decrypted = Buffer.concat([
+    // QuickCrypto puede devolver Uint8Array en vez de Buffer real.
+    // Buffer.from() garantiza un Buffer con .toString('utf8') correcto;
+    // sin él, Uint8Array.toString() ignora el encoding y devuelve bytes
+    // separados por comas → rompe JSON.parse.
+    const decrypted = Buffer.from(Buffer.concat([
       decipher.update(ciphertext),
       decipher.final(),
-    ]) as Buffer;
+    ]));
 
     // Compat hacia atrás: detectamos si el plaintext lleva el header de padding
     // (4 bytes BE con longitud razonable + resto consistente). Si no, asumimos

@@ -22,6 +22,8 @@ interface CanonicalEnvelope {
     seq?: number;
     /** Para sobres `ephemeral_request`/`ephemeral_accept`: TTL propuesto/aceptado en segundos. */
     ttl?: number;
+    /** Contexto de reply-to: texto e id del mensaje al que se responde. */
+    replyTo?: { id: string; text: string; isMine: boolean } | null;
 }
 
 function canonicalize(envelope: CanonicalEnvelope): string {
@@ -31,6 +33,7 @@ function canonicalize(envelope: CanonicalEnvelope): string {
     if (envelope.type !== undefined) ordered.type = envelope.type;
     if (envelope.seq !== undefined) ordered.seq = envelope.seq;
     if (envelope.ttl !== undefined) ordered.ttl = envelope.ttl;
+    if (envelope.replyTo) ordered.replyTo = envelope.replyTo;
     return JSON.stringify(ordered);
 }
 
@@ -49,6 +52,8 @@ export interface SendMessageInput {
   plaintext: string;
   /** Timestamp opcional del emisor; si se omite, se usa Date.now() al iniciar el envío. */
   sentAt?: number;
+  /** Contexto del mensaje al que se responde, si es una respuesta. */
+  replyTo?: { id: string; text: string; isMine: boolean } | null;
 }
 
 /**
@@ -101,10 +106,10 @@ export class MessageFlowService {
     const sentAt = input.sentAt ?? Date.now();
     // Guardamos el mensaje INMEDIATAMENTE como PENDING. El icono en la UI será
     // un reloj (no un check). Solo cuando el server confirme se promueve a SENT.
-    await databaseService.saveDecryptedMessage(input.recipientId, input.plaintext, true, sentAt, 'PENDING');
+    await databaseService.saveDecryptedMessage(input.recipientId, input.plaintext, true, sentAt, 'PENDING', input.replyTo ?? null);
 
     try {
-      await this.dispatchToServer(input.recipientId, senderIdentity, recipientPublicKey, input.plaintext, sentAt);
+      await this.dispatchToServer(input.recipientId, senderIdentity, recipientPublicKey, input.plaintext, sentAt, input.replyTo);
       await databaseService.updateMessageStatus(input.recipientId, sentAt, 'SENT');
     } catch (err) {
       // Cualquier fallo en el envío (red, timeout, 5xx) → mensaje a la cola
@@ -126,6 +131,7 @@ export class MessageFlowService {
     recipientPublicKey: string,
     plaintext: string,
     sentAt: number,
+    replyTo?: { id: string; text: string; isMine: boolean } | null,
   ): Promise<void> {
     const seq = await databaseService.getNextOutgoingSeq(recipientId);
     const canonical: CanonicalEnvelope = {
@@ -134,6 +140,7 @@ export class MessageFlowService {
         text: plaintext,
         ts: sentAt,
         seq,
+        ...(replyTo ? { replyTo: { id: replyTo.id, text: replyTo.text, isMine: !replyTo.isMine } } : {}),
     };
     const sig = identityService.signNonce(senderIdentity.privateKey, canonicalize(canonical));
     const envelope = JSON.stringify({ ...canonical, sig });
@@ -195,20 +202,31 @@ export class MessageFlowService {
       return { senders: [], newContacts: [] };
     }
 
+    if (__DEV__) {
+      console.log(`[syncInbox] ${packets.length} paquete(s) recibido(s) para ${myId.slice(0, 12)}…`);
+    }
+
     const receivedFrom = new Set<string>();
     const newContacts = new Set<string>();
 
     for (const packet of packets) {
       try {
+        if (__DEV__) {
+          console.log(`[syncInbox] paquete: ${packet.length} bytes`);
+        }
         const decrypted = messageCryptoService.decryptWithPrivateKey(packet, localPrivateKey);
 
-        let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number };
+        let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number; replyTo?: { id: string; text: string; isMine: boolean } | null };
         try {
           envelope = JSON.parse(decrypted);
         } catch {
           // Payload sin envoltorio reconocible: descartar para no contaminar el historial
           // con mensajes huérfanos sin contactHash.
-          console.warn('[syncInbox] payload sin envoltorio descartado');
+          if (__DEV__) {
+            console.warn(`[syncInbox] payload sin envoltorio descartado — primeros 120 chars: ${decrypted.slice(0, 120)}`);
+          } else {
+            console.warn('[syncInbox] payload sin envoltorio descartado');
+          }
           continue;
         }
 
@@ -246,6 +264,7 @@ export class MessageFlowService {
             type: envelope.type,
             seq: envelope.seq,
             ttl: envelope.ttl,
+            replyTo: envelope.replyTo,
           });
           const signatureValid = identityService.verifySignature(signingKey, canonicalData, envelope.sig);
           if (!signatureValid) {
@@ -315,17 +334,24 @@ export class MessageFlowService {
 
         receivedFrom.add(contactHash);
         // Usar el timestamp del emisor para que el orden sea idéntico en ambos dispositivos
-        await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs);
+        await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs, undefined, envelope.replyTo ?? null);
       } catch (err) {
         // Paquete corrupto, formato antiguo o destinatario equivocado: lo descartamos para que
         // el ack lo borre del buzón y no rompa toda la sincronización.
-        console.warn('[syncInbox] paquete inválido descartado:', err);
+        if (__DEV__) {
+          console.warn('[syncInbox] paquete inválido (decrypt falló):', (err as Error)?.message ?? err);
+        } else {
+          console.warn('[syncInbox] paquete inválido descartado:', err);
+        }
       }
     }
 
     // Confirmar recepción al servidor SIEMPRE para que los paquetes corruptos se vacíen
     try {
       await messageApiService.ackMessages();
+      if (__DEV__) {
+        console.log('[syncInbox] ack exitoso');
+      }
     } catch (err) {
       console.warn('[syncInbox] ack falló:', err);
     }
@@ -433,6 +459,9 @@ export class MessageFlowService {
     const encryptedPayload = messageCryptoService.encryptForRecipient(envelope, recipientPublicKey);
 
     await messageApiService.sendMessage(recipientId, encryptedPayload);
+    if (__DEV__) {
+      console.log(`[sendHandshake] enviado a ${recipientId.slice(0, 12)}… (${encryptedPayload.length} bytes)`);
+    }
   }
 }
 

@@ -4,6 +4,7 @@ const KEY_SECURITY = 'hermnet.prefs.security';
 const KEY_NOTIFICATIONS = 'hermnet.prefs.notifications';
 const KEY_ACCESSIBILITY = 'hermnet.prefs.accessibility';
 const KEY_THEME = 'hermnet.prefs.theme';
+const KEY_CHAT = 'hermnet.prefs.chat';
 
 export type ThemeMode = 'auto' | 'light' | 'dark';
 
@@ -27,6 +28,12 @@ export interface SecurityPrefs {
      *  está rooteado/jailbreakado y avisa al usuario. Por defecto OFF para no
      *  molestar a usuarios técnicos legítimos. */
     paranoidMode?: boolean;
+    /** Efecto Matrix: ofusca los mensajes del chat con caracteres aleatorios.
+     *  Tap para revelar, doble-tap para re-ocultar. Por defecto ACTIVO. */
+    matrixReveal?: boolean;
+    /** Si el usuario ya ha visto el tooltip "toca un mensaje para revelarlo".
+     *  Se muestra una sola vez en toda la vida de la app. */
+    matrixHintShown?: boolean;
 }
 
 export interface NotificationPrefs {
@@ -42,6 +49,17 @@ export interface AccessibilityPrefs {
     reduceMotion: boolean;
 }
 
+export type BackgroundPattern = 'dots' | 'grid' | 'hexagons' | 'diagonal' | 'none';
+export type BubbleCorner = 'rounded' | 'square';
+
+export interface ChatPrefs {
+    outgoingBubbleColor: string;
+    incomingBubbleColor: string;
+    backgroundPattern: BackgroundPattern;
+    patternColor: string;
+    bubbleCorner: BubbleCorner;
+}
+
 // screenLock arranca SIEMPRE en true: el bloqueo de la app es obligatorio en
 // Hermnet por diseño. Lo dejamos en el shape por compatibilidad pero la UI
 // no expone el toggle.
@@ -49,6 +67,15 @@ const DEFAULT_SECURITY: SecurityPrefs = { biometric: false, screenLock: true, to
 const DEFAULT_NOTIFICATIONS: NotificationPrefs = { pushEnabled: true, preview: false, sound: true, vibration: true };
 const DEFAULT_ACCESSIBILITY: AccessibilityPrefs = {
     textSize: 'normal', highContrast: false, reduceMotion: false,
+};
+// Sentinel value meaning "use theme default". Stored as empty string.
+const THEME_DEFAULT = '';
+const DEFAULT_CHAT: ChatPrefs = {
+    outgoingBubbleColor: THEME_DEFAULT,
+    incomingBubbleColor: THEME_DEFAULT,
+    backgroundPattern: 'dots',
+    patternColor: THEME_DEFAULT,
+    bubbleCorner: 'rounded',
 };
 
 async function load<T>(key: string, fallback: T): Promise<T> {
@@ -78,12 +105,16 @@ class PrefsService {
     getThemePrefs = () => load<ThemePrefs>(KEY_THEME, { mode: 'auto' });
     setThemePrefs = (prefs: ThemePrefs) => save(KEY_THEME, prefs);
 
+    getChatPrefs = () => load<ChatPrefs>(KEY_CHAT, DEFAULT_CHAT);
+    setChatPrefs = (prefs: ChatPrefs) => save(KEY_CHAT, prefs);
+
     async clearAll(): Promise<void> {
         await Promise.all([
             SecureStore.deleteItemAsync(KEY_SECURITY),
             SecureStore.deleteItemAsync(KEY_NOTIFICATIONS),
             SecureStore.deleteItemAsync(KEY_ACCESSIBILITY),
             SecureStore.deleteItemAsync(KEY_THEME),
+            SecureStore.deleteItemAsync(KEY_CHAT),
         ]);
     }
 }

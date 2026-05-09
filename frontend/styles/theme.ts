@@ -62,7 +62,11 @@ export interface ThemeColors {
 
     // Chat
     incomingBubble: string;
+    incomingText: string;
+    outgoingText: string;
     chatPattern: string;
+    chatTimestamp: string;
+    inputText: string;
 
     // QR Scanner
     qrOverlayBg: string;
@@ -121,7 +125,11 @@ export const darkColors: ThemeColors = {
     replyBannerBg: '#1a2234',
 
     incomingBubble: '#1e2942',
+    incomingText: '#ffffff',
+    outgoingText: '#ffffff',
     chatPattern: '#2a3654',
+    chatTimestamp: 'rgba(255,255,255,0.6)',
+    inputText: '#ffffff',
 
     qrOverlayBg: 'rgba(0,0,0,0.6)',
 };
@@ -178,8 +186,12 @@ export const lightColors: ThemeColors = {
     sendBtnBg: '#2563eb',
     replyBannerBg: '#f3f4f6',
 
-    incomingBubble: '#e5e7eb',
-    chatPattern: '#9ca3af',
+    incomingBubble: '#dce1e9',
+    incomingText: '#1f2937',
+    outgoingText: '#ffffff',
+    chatPattern: '#d5dae3',
+    chatTimestamp: 'rgba(0,0,0,0.4)',
+    inputText: '#111827',
 
     qrOverlayBg: 'rgba(0,0,0,0.4)',
 };

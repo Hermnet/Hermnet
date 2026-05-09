@@ -28,7 +28,7 @@ export function createChatRoomStyles(c: ThemeColors) {
             paddingTop: 16, paddingBottom: 36, paddingHorizontal: 20,
         },
         modalHandle: {
-            width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)',
+            width: 40, height: 4, backgroundColor: c.borderLight,
             borderRadius: 2, alignSelf: 'center', marginBottom: 16,
         },
         modalHeader: {
@@ -65,17 +65,19 @@ export function createStyles(c: ThemeColors) {
         headerChatInfo: {
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: c.surfaceLight,
+            backgroundColor: c.bgSurface,
             borderRadius: 25,
             paddingVertical: 8,
-            paddingHorizontal: 15,
+            paddingHorizontal: 12,
             flex: 1,
+            borderWidth: 1,
+            borderColor: c.borderFaint,
         },
         headerAvatar: {
             width: 30,
             height: 30,
             borderRadius: 15,
-            backgroundColor: '#ffffff',
+            backgroundColor: c.bgElevated,
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 12,
@@ -83,7 +85,7 @@ export function createStyles(c: ThemeColors) {
         headerName: {
             fontSize: 16,
             fontWeight: 'bold',
-            color: c.textDark,
+            color: c.textPrimary,
         },
         messageRow: {
             flexDirection: 'row',
@@ -113,8 +115,13 @@ export function createStyles(c: ThemeColors) {
         },
         messageText: {
             fontSize: 15,
-            color: '#ffffff',
             lineHeight: 22,
+        },
+        messageTextRight: {
+            color: c.outgoingText,
+        },
+        messageTextLeft: {
+            color: c.incomingText,
         },
         inputContainer: {
             width: '100%',
@@ -143,7 +150,7 @@ export function createStyles(c: ThemeColors) {
             borderRadius: 20,
             minHeight: 44,
             maxHeight: 120,
-            color: '#ffffff',
+            color: c.inputText,
             paddingHorizontal: 16,
             paddingTop: 12,
             paddingBottom: 12,

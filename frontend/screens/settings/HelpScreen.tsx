@@ -30,7 +30,8 @@ const FAQ = [
 ];
 
 export default function HelpScreen({ onBack }: Props) {
-    const { colors } = useTheme();
+    const { colors, scheme } = useTheme();
+    const isDark = scheme === 'dark';
     const s = useMemo(() => createStyles(colors), [colors]);
 
     return (
@@ -65,7 +66,7 @@ export default function HelpScreen({ onBack }: Props) {
                         activeOpacity={0.7}
                         onPress={() => Linking.openURL('mailto:soporte@hermnet.app')}
                     >
-                        <View style={[s.rowIconWrap, { backgroundColor: '#3a2e10' }]}>
+                        <View style={[s.rowIconWrap, { backgroundColor: isDark ? '#3a2e10' : '#fef3c7' }]}>
                             <Mail size={17} color="#fbbf24" />
                         </View>
                         <Text style={s.rowLabel}>soporte@hermnet.app</Text>

@@ -2,10 +2,11 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Search, Settings, QrCode, ScanLine } from 'lucide-react-native';
+import { Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, ArchiveRestore, PinOff } from 'lucide-react-native';
 import { createStyles } from '../../styles/chatsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
+import { useHorizontalSlide } from '../../hooks/useHorizontalSlide';
 import ChatRoomScreen from './ChatRoomScreen';
 import SettingsScreen from '../settings/SettingsScreen';
 import QRScannerScreen from './QRScannerScreen';
@@ -16,15 +17,48 @@ import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
-// Theme colors now come from useTheme()
-import * as Clipboard from 'expo-clipboard';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
+import ContactAvatar from '../../components/ContactAvatar';
+import AvatarCustomizer from '../../components/AvatarCustomizer';
 
 type Chat = {
     id: string;
     name: string;
     unreadCount: number;
+    isPinned: boolean;
+    isMuted: boolean;
+    isArchived: boolean;
+    avatarBg: string | null;
+    avatarIcon: string | null;
+    lastMessage: string | null;
+    lastMessageIsMine: boolean;
+    lastMessageTime: number | null;
 };
+
+/** Format a timestamp into a relative/short label */
+function formatRelativeTime(ts: number): string {
+    const now = Date.now();
+    const diff = now - ts;
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return 'Ahora';
+    if (mins < 60) return `${mins} min`;
+    const hours = Math.floor(mins / 60);
+    const today = new Date();
+    const msgDate = new Date(ts);
+    const isToday = today.toDateString() === msgDate.toDateString();
+    if (isToday) {
+        return `${msgDate.getHours().toString().padStart(2, '0')}:${msgDate.getMinutes().toString().padStart(2, '0')}`;
+    }
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (yesterday.toDateString() === msgDate.toDateString()) return 'Ayer';
+    const days = Math.floor(diff / 86_400_000);
+    if (days < 7) {
+        const names = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        return names[msgDate.getDay()];
+    }
+    return `${msgDate.getDate()}/${msgDate.getMonth() + 1}`;
+}
 
 export default function ChatsScreen() {
     const { colors } = useTheme();
@@ -41,6 +75,9 @@ export default function ChatsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [pendingQRData, setPendingQRData] = useState<string | null>(null);
     const [aliasInput, setAliasInput] = useState('');
+    const [showArchived, setShowArchived] = useState(false);
+    const [contextMenu, setContextMenu] = useState<{ chat: Chat; y: number } | null>(null);
+    const [avatarChat, setAvatarChat] = useState<Chat | null>(null);
     // Cola de contactos entrantes a los que se debe pedir alias (alguien nos ha añadido)
     const [incomingContactQueue, setIncomingContactQueue] = useState<string[]>([]);
     const [incomingAliasInput, setIncomingAliasInput] = useState('');
@@ -52,10 +89,13 @@ export default function ChatsScreen() {
     const { showModal, modalNode } = useAppModal();
     const insets = useSafeAreaInsets();
 
-    const chatSlide     = useSlideAnim();
-    const settingsSlide = useSlideAnim();
+    const chatSlide     = useHorizontalSlide();
+    const settingsSlide = useHorizontalSlide();
     const qrSlide       = useSlideAnim();
     const showQRSlide   = useSlideAnim();
+
+    // Shared swipe progress (0→1) for WhatsApp-style parallax when swiping back from a chat
+    const chatSwipeProgress = useRef(new Animated.Value(0)).current;
 
     const fabMenuAnim = useRef(new Animated.Value(0)).current;
     const btnOpacity = fabMenuAnim;
@@ -81,16 +121,30 @@ export default function ChatsScreen() {
                 return additions.length > 0 ? [...prev, ...additions] : prev;
             });
         }
-        const contacts = await contactsService.getAllContacts();
+        const [contacts, lastMessages] = await Promise.all([
+            contactsService.getAllContacts(),
+            databaseService.getLastMessagePerContact(),
+        ]);
         const visible = contacts.filter(c => !c.isBlocked);
         const newSet = new Set(result.senders);
-        const chatsWithCounts = await Promise.all(visible.map(async c => ({
-            id: c.contactHash,
-            name: c.alias ?? c.contactHash.slice(5, 17),
-            unreadCount: newSet.has(c.contactHash)
-                ? await databaseService.getUnreadCount(c.contactHash)
-                : 0,
-        })));
+        const chatsWithCounts = await Promise.all(visible.map(async c => {
+            const last = lastMessages.get(c.contactHash);
+            return {
+                id: c.contactHash,
+                name: c.alias ?? c.contactHash.slice(5, 17),
+                unreadCount: newSet.has(c.contactHash)
+                    ? await databaseService.getUnreadCount(c.contactHash)
+                    : 0,
+                isPinned: c.isPinned,
+                isMuted: c.isMuted,
+                isArchived: c.isArchived,
+                avatarBg: c.avatarBg,
+                avatarIcon: c.avatarIcon,
+                lastMessage: last?.text ?? null,
+                lastMessageIsMine: last?.isMine ?? false,
+                lastMessageTime: last?.createdAt ?? null,
+            };
+        }));
         setChats(chatsWithCounts);
     }, [identity]);
 
@@ -132,20 +186,40 @@ export default function ChatsScreen() {
         setRefreshing(false);
     }, [loadChats, identity]);
 
-    const filteredChats = chats.filter(chat =>
-        chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredChats = useMemo(() => {
+        const q = searchQuery.toLowerCase();
+        return chats
+            .filter(chat => {
+                if (!chat.name.toLowerCase().includes(q)) return false;
+                // En búsqueda, mostrar todo (incluidos archivados)
+                if (q) return true;
+                return showArchived ? chat.isArchived : !chat.isArchived;
+            })
+            .sort((a, b) => {
+                // Fijados primero
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                // Luego por último mensaje (más reciente primero)
+                const tA = a.lastMessageTime ?? 0;
+                const tB = b.lastMessageTime ?? 0;
+                return tB - tA;
+            });
+    }, [chats, searchQuery, showArchived]);
 
     const handleChatPress = useCallback((id: string) => {
+        chatSwipeProgress.setValue(0);
         setActiveChatId(id);
         chatSlide.open();
         setChats(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c));
         databaseService.markAsRead(id).catch(() => {});
-    }, [chatSlide]);
+    }, [chatSlide, chatSwipeProgress]);
 
     const handleBack = useCallback(() => {
-        chatSlide.close(() => setActiveChatId(null));
-    }, [chatSlide]);
+        chatSlide.close(() => {
+            setActiveChatId(null);
+            chatSwipeProgress.setValue(0);
+        });
+    }, [chatSlide, chatSwipeProgress]);
 
     const handleOpenSettings = useCallback(() => {
         setShowSettings(true);
@@ -176,6 +250,14 @@ export default function ChatsScreen() {
                     id: c.contactHash,
                     name: c.alias ?? c.contactHash.slice(5, 17),
                     unreadCount: existing?.unreadCount ?? 0,
+                    isPinned: c.isPinned,
+                    isMuted: c.isMuted,
+                    isArchived: c.isArchived,
+                    avatarBg: c.avatarBg,
+                    avatarIcon: c.avatarIcon,
+                    lastMessage: existing?.lastMessage ?? null,
+                    lastMessageIsMine: existing?.lastMessageIsMine ?? false,
+                    lastMessageTime: existing?.lastMessageTime ?? null,
                 };
             });
         });
@@ -274,26 +356,86 @@ export default function ChatsScreen() {
         showQRSlide.close(() => setShowShowQR(false));
     }, [showQRSlide]);
 
+    const handleTogglePin = useCallback(async (chat: Chat) => {
+        setContextMenu(null);
+        await contactsService.setPinned(chat.id, !chat.isPinned);
+    }, []);
+
+    const handleToggleMute = useCallback(async (chat: Chat) => {
+        setContextMenu(null);
+        await contactsService.setMuted(chat.id, !chat.isMuted);
+    }, []);
+
+    const handleToggleArchive = useCallback(async (chat: Chat) => {
+        setContextMenu(null);
+        await contactsService.setArchived(chat.id, !chat.isArchived);
+    }, []);
+
+    const handleSaveAvatar = useCallback(async (bg: string | null, icon: string | null) => {
+        if (!avatarChat) return;
+        await contactsService.setAvatarColors(avatarChat.id, bg, icon);
+    }, [avatarChat]);
+
+    const archivedCount = useMemo(() => chats.filter(c => c.isArchived).length, [chats]);
+
     const renderItem = useCallback(({ item }: { item: Chat }) => (
         <TouchableOpacity
             style={styles.chatItem}
             activeOpacity={0.7}
             onPress={() => handleChatPress(item.id)}
+            onLongPress={(e) => {
+                const y = (e.nativeEvent as any).pageY ?? 300;
+                setContextMenu({ chat: item, y });
+            }}
+            delayLongPress={400}
             accessibilityLabel={`Abrir chat con ${item.name}`}
         >
-            <View style={styles.avatarContainer}>
-                <User size={20} color={colors.accentLight} />
-            </View>
-            <Text style={[styles.chatName, { fontSize: Math.round(16 * fontScale) }]}>{item.name}</Text>
-            {item.unreadCount > 0 && (
-                <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5 }]}>
-                    <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '700' }}>
-                        {item.unreadCount > 99 ? '99+' : item.unreadCount}
-                    </Text>
+            <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => setAvatarChat(item)}
+                accessibilityLabel="Personalizar avatar"
+            >
+                <ContactAvatar
+                    contactHash={item.id}
+                    alias={item.name}
+                    size={48}
+                    customBg={item.avatarBg}
+                    customIcon={item.avatarIcon}
+                />
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={[styles.chatName, { fontSize: Math.round(15 * fontScale), flex: 0, flexShrink: 1 }]} numberOfLines={1}>{item.name}</Text>
+                        {item.isPinned && <Pin size={12} color={colors.textHint} />}
+                        {item.isMuted && <BellOff size={12} color={colors.textHint} />}
+                    </View>
+                    {item.lastMessageTime != null && (
+                        <Text style={{ color: item.unreadCount > 0 ? colors.accentLight : colors.textHint, fontSize: 11, fontWeight: item.unreadCount > 0 ? '700' : '400', marginLeft: 8 }}>
+                            {formatRelativeTime(item.lastMessageTime)}
+                        </Text>
+                    )}
                 </View>
-            )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                    <Text
+                        style={{ flex: 1, color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint, fontSize: Math.round(13 * fontScale), lineHeight: Math.round(17 * fontScale) }}
+                        numberOfLines={1}
+                    >
+                        {item.lastMessage
+                            ? (item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage
+                            : 'Sin mensajes aún'}
+                    </Text>
+                    {item.unreadCount > 0 && (
+                        <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5, marginLeft: 8 }]}>
+                            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
+                                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            </View>
         </TouchableOpacity>
-    ), [handleChatPress, fontScale]);
+    ), [handleChatPress, fontScale, colors]);
 
     return (
         <KeyboardAvoidingView
@@ -333,16 +475,28 @@ export default function ChatsScreen() {
                     </View>
                 )}
 
-                {__DEV__ && (
+
+                {!showArchived && archivedCount > 0 && !searchQuery && (
                     <TouchableOpacity
-                        style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, alignItems: 'center' }}
-                        activeOpacity={0.8}
-                        onPress={async () => {
-                            const text = await Clipboard.getStringAsync();
-                            if (text) handleScannedQR(text);
-                        }}
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}
+                        activeOpacity={0.7}
+                        onPress={() => setShowArchived(true)}
                     >
-                        <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 13 }}>🐛 Pegar QR del portapapeles</Text>
+                        <Archive size={18} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>Archivados</Text>
+                        <View style={{ backgroundColor: colors.bgElevated, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700' }}>{archivedCount}</Text>
+                        </View>
+                    </TouchableOpacity>
+                )}
+                {showArchived && !searchQuery && (
+                    <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}
+                        activeOpacity={0.7}
+                        onPress={() => setShowArchived(false)}
+                    >
+                        <ArchiveRestore size={18} color={colors.accentLight} />
+                        <Text style={{ color: colors.accentLight, fontSize: 14, fontWeight: '600' }}>Volver a chats</Text>
                     </TouchableOpacity>
                 )}
 
@@ -421,6 +575,25 @@ export default function ChatsScreen() {
                 </View>
             </View>
 
+            {/* Dimming overlay: darkens list when chat is open, lightens on swipe-back */}
+            {activeChatId && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        {
+                            backgroundColor: '#000',
+                            zIndex: 9, elevation: 9,
+                            // Combine: entry dimming from slide AND inverse from swipe-back
+                            opacity: Animated.multiply(
+                                chatSlide.progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }),
+                                chatSwipeProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                            ),
+                        },
+                    ]}
+                    pointerEvents="none"
+                />
+            )}
+
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
@@ -429,9 +602,19 @@ export default function ChatsScreen() {
                 ]}
                 pointerEvents={activeChatId ? 'auto' : 'none'}
             >
-                {activeChatId && <ChatRoomScreen chatId={activeChatId} onBack={handleBack} />}
+                {activeChatId && <ChatRoomScreen chatId={activeChatId} onBack={handleBack} swipeProgress={chatSwipeProgress} />}
             </Animated.View>
 
+            {showSettings && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        { backgroundColor: '#000', zIndex: 19, elevation: 19 },
+                        settingsSlide.dimmingStyle,
+                    ]}
+                    pointerEvents="none"
+                />
+            )}
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
@@ -567,6 +750,83 @@ export default function ChatsScreen() {
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            {/* ── Context menu: long press en chat ── */}
+            <Modal
+                visible={!!contextMenu}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={() => setContextMenu(null)}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}
+                    activeOpacity={1}
+                    onPress={() => setContextMenu(null)}
+                >
+                    <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: colors.bgSurface, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: colors.borderLight }} onPress={() => {}}>
+                        {/* Header with contact name */}
+                        <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>
+                                {contextMenu?.chat.name}
+                            </Text>
+                        </View>
+
+                        {/* Pin */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
+                            activeOpacity={0.6}
+                            onPress={() => contextMenu && handleTogglePin(contextMenu.chat)}
+                        >
+                            {contextMenu?.chat.isPinned
+                                ? <PinOff size={20} color={colors.textSecondary} />
+                                : <Pin size={20} color={colors.textSecondary} />}
+                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                {contextMenu?.chat.isPinned ? 'Desfijar' : 'Fijar arriba'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Mute */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
+                            activeOpacity={0.6}
+                            onPress={() => contextMenu && handleToggleMute(contextMenu.chat)}
+                        >
+                            {contextMenu?.chat.isMuted
+                                ? <Bell size={20} color={colors.textSecondary} />
+                                : <BellOff size={20} color={colors.textSecondary} />}
+                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                {contextMenu?.chat.isMuted ? 'Activar notificaciones' : 'Silenciar'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Archive */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14, marginBottom: 4 }}
+                            activeOpacity={0.6}
+                            onPress={() => contextMenu && handleToggleArchive(contextMenu.chat)}
+                        >
+                            {contextMenu?.chat.isArchived
+                                ? <ArchiveRestore size={20} color={colors.textSecondary} />
+                                : <Archive size={20} color={colors.textSecondary} />}
+                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                {contextMenu?.chat.isArchived ? 'Desarchivar' : 'Archivar'}
+                            </Text>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* ── Avatar customizer ── */}
+            <AvatarCustomizer
+                visible={!!avatarChat}
+                onClose={() => setAvatarChat(null)}
+                onSave={handleSaveAvatar}
+                contactHash={avatarChat?.id ?? ''}
+                alias={avatarChat?.name ?? null}
+                currentBg={avatarChat?.avatarBg}
+                currentIcon={avatarChat?.avatarIcon}
+            />
 
             {modalNode}
         </KeyboardAvoidingView>

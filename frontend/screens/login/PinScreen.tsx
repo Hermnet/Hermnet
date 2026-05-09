@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Animated, Vibration, ScrollView } from 'react-native';
-import { Delete } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, Animated, Easing, Vibration, ScrollView, Dimensions } from 'react-native';
+import { Delete, ShieldCheck } from 'lucide-react-native';
 import { createStyles } from '../../styles/pinStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const PIN_LENGTH = 6;
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface PinScreenProps {
     mode?: 'setup' | 'login' | 'restore';
@@ -21,10 +22,38 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
 
     const shakeAnimation = useRef(new Animated.Value(0)).current;
 
+    // ── Transition animation for create → confirm ──
+    const transitionAnim = useRef(new Animated.Value(0)).current;
+    const stepIndicatorAnim = useRef(new Animated.Value(1)).current; // 1 = step 1, 2 = step 2
+
+    const headerTranslateX = transitionAnim.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [0, -SCREEN_WIDTH * 0.3, 0],
+    });
+    const headerOpacity = transitionAnim.interpolate({
+        inputRange: [0, 0.3, 0.7, 1],
+        outputRange: [1, 0, 0, 1],
+    });
+
     useEffect(() => {
         if (step === 'create' && pin.length === PIN_LENGTH) {
             setTimeout(() => {
-                setStep('confirm');
+                // Animate the transition from create to confirm
+                Animated.parallel([
+                    Animated.timing(transitionAnim, {
+                        toValue: 1, duration: 450,
+                        easing: Easing.bezier(0.4, 0, 0.2, 1),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(stepIndicatorAnim, {
+                        toValue: 2, duration: 350,
+                        easing: Easing.out(Easing.cubic),
+                        useNativeDriver: false,
+                    }),
+                ]).start(() => {
+                    setStep('confirm');
+                    transitionAnim.setValue(0);
+                });
             }, 300);
         } else if (step === 'confirm' && confirmPin.length === PIN_LENGTH) {
             handleConfirm();
@@ -87,6 +116,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
     ];
 
     const currentLength = (step === 'create' || step === 'login' || step === 'restore') ? pin.length : confirmPin.length;
+    const isSetupFlow = mode === 'setup';
 
     const renderDots = () => {
         const dots = [];
@@ -98,6 +128,7 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                     style={[
                         s.dot,
                         isFilled && s.dotFilled,
+                        isFilled && step === 'confirm' && !error && { backgroundColor: colors.successMsg || '#22c55e' },
                         error && isFilled && s.dotError
                     ]}
                 />
@@ -105,6 +136,12 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
         }
         return dots;
     };
+
+    // Step indicator for setup flow (1/2 → 2/2)
+    const stepIndicatorWidth = stepIndicatorAnim.interpolate({
+        inputRange: [1, 2],
+        outputRange: ['50%', '100%'],
+    });
 
     return (
         <View style={s.container}>
@@ -114,7 +151,45 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                <View style={s.header}>
+                {/* Step progress indicator — only during setup */}
+                {isSetupFlow && (
+                    <View style={{
+                        width: '60%', height: 3, borderRadius: 2,
+                        backgroundColor: colors.borderFaint || 'rgba(255,255,255,0.1)',
+                        alignSelf: 'center', marginBottom: 16, overflow: 'hidden',
+                    }}>
+                        <Animated.View style={{
+                            height: '100%', borderRadius: 2,
+                            backgroundColor: step === 'confirm' ? (colors.successMsg || '#22c55e') : colors.accentPrimary,
+                            width: stepIndicatorWidth,
+                        }} />
+                    </View>
+                )}
+
+                <Animated.View style={[s.header, {
+                    transform: [{ translateX: headerTranslateX }],
+                    opacity: headerOpacity,
+                }]}>
+                    {/* Step badge for setup */}
+                    {isSetupFlow && (
+                        <View style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 6,
+                            alignSelf: 'center', marginBottom: 10,
+                            backgroundColor: step === 'confirm'
+                                ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)',
+                            paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12,
+                        }}>
+                            {step === 'confirm' && <ShieldCheck size={14} color={colors.successMsg || '#22c55e'} />}
+                            <Text style={{
+                                color: step === 'confirm'
+                                    ? (colors.successMsg || '#22c55e') : colors.accentLight,
+                                fontSize: 11, fontWeight: '700', letterSpacing: 0.5,
+                            }}>
+                                {step === 'confirm' ? 'PASO 2 DE 2' : 'PASO 1 DE 2'}
+                            </Text>
+                        </View>
+                    )}
+
                     <Text style={s.title}>
                         {step === 'create' ? 'CREA TU PIN DE SEGURIDAD' : step === 'confirm' ? 'CONFIRMA TU PIN' : step === 'restore' ? 'CONTRASEÑA DE RESPALDO' : 'DESBLOQUEA TU BÓVEDA'}
                     </Text>
@@ -122,12 +197,12 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                         {step === 'create'
                             ? 'Este PIN blindará tu clave local. Si lo olvidas, perderás tu identidad.'
                             : step === 'confirm'
-                                ? 'Introduce el PIN nuevamente para confirmar tu bóveda.'
+                                ? 'Vuelve a introducir el mismo PIN para asegurar tu bóveda.'
                                 : step === 'restore'
                                     ? 'Introduce la contraseña con la que cifraste tu archivo de respaldo (.hnet).'
                                     : 'Introduce tu PIN de seguridad para acceder a tu identidad local.'}
                     </Text>
-                </View>
+                </Animated.View>
 
                 <Animated.View style={[s.dotsContainer, { transform: [{ translateX: shakeAnimation }] }]}>
                     {renderDots()}
