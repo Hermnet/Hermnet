@@ -1,6 +1,6 @@
 # Estado actual y pendiente
 
-Última revisión: 2026-04-15. Actualizar al completar tareas.
+Última revisión: 2026-05-08. Actualizar al completar tareas.
 
 ## Implementado
 ### Backend
@@ -11,6 +11,7 @@
 - `DataRetentionScheduler` (limpieza cron de buzones, challenges y blacklist).
 - Integración Firebase FCM (`NotificationService`).
 - `jwt.secret` validado en arranque (≥256 bits, fail-fast); override por env `JWT_SECRET`.
+- CORS configurable vía `CORS_ALLOWED_ORIGINS`.
 
 ### Frontend
 - Identity generation + SecureStore persistence.
@@ -18,8 +19,15 @@
 - Home → PIN → LoadingScreen → mailbox/ChatsScreen navegación.
 - ApiClient con autodetección de URL y re-auth en 401.
 - QR sharing / scanner (`ShowQRScreen`, `QRScannerScreen`).
-- Ajustes (sub-pantallas Security, Privacy, Notifications, etc.).
+- Ajustes (sub-pantallas Security, Privacy, Notifications, Accessibility, Help, Terms, Transfer — todas funcionales).
 - NetInfo wrapper.
+- **Personalización de chat** (`ChatCustomizationScreen`): color de burbujas salientes/entrantes, patrón de fondo (dots/grid/hexagons/diagonal/none), color del patrón, esquinas de burbujas (rounded/square). Usa `ChatPrefsContext` + `PrefsService`.
+- **Transiciones horizontales profesionales** (`useHorizontalSlide`): spring-based slide desde la derecha, estilo iOS/WhatsApp.
+- **Swipe-back gesture** en `ChatRoomScreen`: deslizar desde la izquierda cierra el chat revelando la lista de conversaciones detrás, con dimming animado y parallax.
+- **Onboarding carousel** actualizado: 5 diapositivas (Identidad Criptográfica, Cifrado Inquebrantable, Servidor Ciego, Contactos por QR, Bóveda Local) con animaciones únicas por slide.
+- **ChatBackground** con patrones SVG: dots, grid, hexagons, diagonal, none.
+- **RecoveryService** (.hnet): export/import identidad + contactos + mensajes con PBKDF2 + AES-256-GCM.
+- **AccessibilityContext**: font scale, high contrast mode, reduce motion.
 
 ## Pendiente / por verificar
 - [x] ~~**ACK de mensajes**~~ → añadido `POST /api/messages/ack` (cutoff opcional). Falta cliente: que `MessageFlowService` lo invoque tras procesar.
@@ -31,6 +39,9 @@
 - [x] ~~**CORS / hardening producción**~~: `jwt.secret` lee de env `JWT_SECRET` (fail-fast si vacío); DB credentials externalizadas; CORS configurable vía `CORS_ALLOWED_ORIGINS`.
 - [x] ~~**Settings funcionales**~~: todas las sub-pantallas son funcionales (Accessibility usa contexto real, Help tiene FAQ + mailto, Terms es contenido estático, Transfer integra RecoveryService).
 - [x] ~~**Limpiar warning SecureStore >2048 bytes**~~: resuelto en commit 73a3220 (identidad dividida en 3 keys separadas, cada una <2048 B).
+- [x] ~~**Personalización de chat**~~: implementado. `ChatCustomizationScreen` + `ChatPrefsContext` + `ChatBackground` SVG + integración en `MessageBubble`.
+- [x] ~~**Transiciones profesionales**~~: `useHorizontalSlide` reemplaza vault-reveal en navegación entre pantallas. Swipe-back gesture en ChatRoom.
+- [x] ~~**Onboarding carousel actualizado**~~: 5 slides con animaciones nuevas, contenido actualizado.
 
 ## Bugs conocidos
 - Ver `recent_fixes.md` (arreglados).

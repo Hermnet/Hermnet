@@ -12,6 +12,7 @@ import { messageFlowService } from '../services/MessageFlowService';
 import NetInfo from '@react-native-community/netinfo';
 import { AccessibilityProvider } from '../contexts/AccessibilityContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { ChatPrefsProvider } from '../contexts/ChatPrefsContext';
 import { BG_PRIMARY, ACCENT_PRIMARY, DANGER_TEXT, TEXT_PRIMARY, TEXT_SECONDARY } from '../styles/theme';
 
 type DbStatus = 'loading' | 'ready' | 'error';
@@ -175,9 +176,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <AccessibilityProvider>
-        <ThemedApp />
-      </AccessibilityProvider>
+      <ChatPrefsProvider>
+        <AccessibilityProvider>
+          <ThemedApp />
+        </AccessibilityProvider>
+      </ChatPrefsProvider>
     </ThemeProvider>
   );
 }

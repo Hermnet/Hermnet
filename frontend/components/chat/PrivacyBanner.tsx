@@ -1,14 +1,16 @@
 import React, { useCallback, useRef } from 'react';
 import { Text, TouchableOpacity, Animated, PanResponder } from 'react-native';
-import { Lock, X } from 'lucide-react-native';
+import { Lock, Eye, X } from 'lucide-react-native';
 import { ThemeColors } from '../../styles/theme';
 
 interface Props {
     colors: ThemeColors;
+    /** When true, shows the "tap to reveal" hint instead of the privacy message. */
+    matrixHint?: boolean;
     onDismiss: () => void;
 }
 
-export default function PrivacyBanner({ colors, onDismiss }: Props) {
+export default function PrivacyBanner({ colors, matrixHint, onDismiss }: Props) {
     const translateY = useRef(new Animated.Value(0)).current;
     const opacity = useRef(new Animated.Value(1)).current;
 
@@ -31,6 +33,18 @@ export default function PrivacyBanner({ colors, onDismiss }: Props) {
         },
     })).current;
 
+    const icon = matrixHint
+        ? <Eye size={14} color={colors.accentLight} style={{ marginTop: 2 }} />
+        : <Lock size={14} color={colors.accentLight} style={{ marginTop: 2 }} />;
+
+    const text = matrixHint
+        ? 'Toca un mensaje para revelarlo. Los mensajes se ocultan automáticamente para proteger tu privacidad.'
+        : 'Tus mensajes solo viven en este dispositivo y en el de tu contacto. Hermnet no los almacena. Si borras la conversación no podrá recuperarse.';
+
+    const label = matrixHint
+        ? 'Toca para revelar mensajes. Desliza arriba o pulsa la cruz para cerrar.'
+        : 'Aviso de privacidad. Desliza arriba o pulsa la cruz para cerrarlo.';
+
     return (
         <Animated.View
             {...pan.panHandlers}
@@ -49,12 +63,11 @@ export default function PrivacyBanner({ colors, onDismiss }: Props) {
                 transform: [{ translateY }],
                 opacity,
             }}
-            accessibilityLabel="Aviso de privacidad. Desliza arriba o pulsa la cruz para cerrarlo."
+            accessibilityLabel={label}
         >
-            <Lock size={14} color={colors.accentLight} style={{ marginTop: 2 }} />
+            {icon}
             <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 17, flex: 1 }}>
-                Tus mensajes solo viven en este dispositivo y en el de tu contacto.
-                Hermnet no los almacena. Si borras la conversación no podrá recuperarse.
+                {text}
             </Text>
             <TouchableOpacity onPress={animateOut} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Cerrar aviso">
                 <X size={16} color={colors.textHint} />

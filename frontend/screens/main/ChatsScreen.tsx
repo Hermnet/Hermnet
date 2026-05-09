@@ -6,6 +6,7 @@ import { Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, Archiv
 import { createStyles } from '../../styles/chatsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
+import { useHorizontalSlide } from '../../hooks/useHorizontalSlide';
 import ChatRoomScreen from './ChatRoomScreen';
 import SettingsScreen from '../settings/SettingsScreen';
 import QRScannerScreen from './QRScannerScreen';
@@ -16,7 +17,6 @@ import { messageFlowService } from '../../services/MessageFlowService';
 import { databaseService } from '../../services/DatabaseService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
-import * as Clipboard from 'expo-clipboard';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 import ContactAvatar from '../../components/ContactAvatar';
 import AvatarCustomizer from '../../components/AvatarCustomizer';
@@ -89,10 +89,13 @@ export default function ChatsScreen() {
     const { showModal, modalNode } = useAppModal();
     const insets = useSafeAreaInsets();
 
-    const chatSlide     = useSlideAnim();
-    const settingsSlide = useSlideAnim();
+    const chatSlide     = useHorizontalSlide();
+    const settingsSlide = useHorizontalSlide();
     const qrSlide       = useSlideAnim();
     const showQRSlide   = useSlideAnim();
+
+    // Shared swipe progress (0→1) for WhatsApp-style parallax when swiping back from a chat
+    const chatSwipeProgress = useRef(new Animated.Value(0)).current;
 
     const fabMenuAnim = useRef(new Animated.Value(0)).current;
     const btnOpacity = fabMenuAnim;
@@ -204,15 +207,19 @@ export default function ChatsScreen() {
     }, [chats, searchQuery, showArchived]);
 
     const handleChatPress = useCallback((id: string) => {
+        chatSwipeProgress.setValue(0);
         setActiveChatId(id);
         chatSlide.open();
         setChats(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c));
         databaseService.markAsRead(id).catch(() => {});
-    }, [chatSlide]);
+    }, [chatSlide, chatSwipeProgress]);
 
     const handleBack = useCallback(() => {
-        chatSlide.close(() => setActiveChatId(null));
-    }, [chatSlide]);
+        chatSlide.close(() => {
+            setActiveChatId(null);
+            chatSwipeProgress.setValue(0);
+        });
+    }, [chatSlide, chatSwipeProgress]);
 
     const handleOpenSettings = useCallback(() => {
         setShowSettings(true);
@@ -468,18 +475,6 @@ export default function ChatsScreen() {
                     </View>
                 )}
 
-                {__DEV__ && (
-                    <TouchableOpacity
-                        style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, alignItems: 'center' }}
-                        activeOpacity={0.8}
-                        onPress={async () => {
-                            const text = await Clipboard.getStringAsync();
-                            if (text) handleScannedQR(text);
-                        }}
-                    >
-                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>🐛 Pegar QR del portapapeles</Text>
-                    </TouchableOpacity>
-                )}
 
                 {!showArchived && archivedCount > 0 && !searchQuery && (
                     <TouchableOpacity
@@ -580,6 +575,25 @@ export default function ChatsScreen() {
                 </View>
             </View>
 
+            {/* Dimming overlay: darkens list when chat is open, lightens on swipe-back */}
+            {activeChatId && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        {
+                            backgroundColor: '#000',
+                            zIndex: 9, elevation: 9,
+                            // Combine: entry dimming from slide AND inverse from swipe-back
+                            opacity: Animated.multiply(
+                                chatSlide.progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }),
+                                chatSwipeProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                            ),
+                        },
+                    ]}
+                    pointerEvents="none"
+                />
+            )}
+
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,
@@ -588,9 +602,19 @@ export default function ChatsScreen() {
                 ]}
                 pointerEvents={activeChatId ? 'auto' : 'none'}
             >
-                {activeChatId && <ChatRoomScreen chatId={activeChatId} onBack={handleBack} />}
+                {activeChatId && <ChatRoomScreen chatId={activeChatId} onBack={handleBack} swipeProgress={chatSwipeProgress} />}
             </Animated.View>
 
+            {showSettings && (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        { backgroundColor: '#000', zIndex: 19, elevation: 19 },
+                        settingsSlide.dimmingStyle,
+                    ]}
+                    pointerEvents="none"
+                />
+            )}
             <Animated.View
                 style={[
                     StyleSheet.absoluteFill,

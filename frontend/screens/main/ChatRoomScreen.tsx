@@ -16,6 +16,7 @@ import { contactsService } from '../../services/ContactsService';
 import { prefsService } from '../../services/PrefsService';
 import { messageFlowService } from '../../services/MessageFlowService';
 import { ChatBackground } from '../../components/ChatBackground';
+import { useChatPrefs } from '../../contexts/ChatPrefsContext';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -31,12 +32,18 @@ import { useChatMessages } from '../../hooks/useChatMessages';
 export type { MsgData } from '../../components/chat';
 export type { MsgStatus } from '../../components/chat';
 
-export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void; chatId: string }) {
+export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
+    onBack: () => void;
+    chatId: string;
+    /** 0 = fully visible, 1 = fully dismissed. Parent uses this to animate parallax. */
+    swipeProgress?: Animated.Value;
+}) {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const sh = useMemo(() => createChatRoomStyles(colors), [colors]);
     const { width: screenWidth } = useWindowDimensions();
     const { fontScale, prefs: { highContrast } } = useAccessibility();
+    const { prefs: chatPrefs } = useChatPrefs();
     const { showModal, modalNode } = useAppModal();
     const insets = useSafeAreaInsets();
     const isAppActive = useIsAppActive();
@@ -60,9 +67,12 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
 
     // ── Matrix reveal state ──
     const [matrixEnabled, setMatrixEnabled] = useState(true);
-    const [matrixHintVisible, setMatrixHintVisible] = useState(false);
+    const [matrixHintBanner, setMatrixHintBanner] = useState(false);
     const matrixHintChecked = useRef(false);
     const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+    // Track message IDs that existed when the chat was opened so we can auto-reveal
+    // messages that arrive in real-time (only old messages stay scrambled).
+    const initialMsgIdsRef = useRef<Set<string> | null>(null);
 
     useEffect(() => {
         prefsService.getSecurityPrefs().then(p => {
@@ -70,22 +80,45 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         }).catch(() => {});
     }, []);
 
-    // Show matrix hint ONCE EVER
+    // Capture initial message IDs on first load so new arrivals can be auto-revealed
+    useEffect(() => {
+        if (initialMsgIdsRef.current === null && chat.allMessages.length > 0) {
+            initialMsgIdsRef.current = new Set(chat.allMessages.map(m => m.id));
+        }
+    }, [chat.allMessages]);
+
+    // Auto-reveal messages that arrive while the user is in the chat
+    useEffect(() => {
+        if (!matrixEnabled || !initialMsgIdsRef.current) return;
+        const newIds = chat.allMessages
+            .filter(m => !m.isMine && !initialMsgIdsRef.current!.has(m.id))
+            .map(m => m.id);
+        if (newIds.length > 0) {
+            setRevealedIds(prev => {
+                const next = new Set(prev);
+                let changed = false;
+                for (const id of newIds) {
+                    if (!next.has(id)) { next.add(id); changed = true; }
+                }
+                return changed ? next : prev;
+            });
+        }
+    }, [chat.allMessages, matrixEnabled]);
+
+    // Show matrix hint in the privacy banner area ONCE EVER
     useEffect(() => {
         if (chat.allMessages.length > 0 && matrixEnabled && !matrixHintChecked.current) {
             matrixHintChecked.current = true;
             prefsService.getSecurityPrefs().then(prefs => {
                 if (!prefs.matrixHintShown) {
-                    setMatrixHintVisible(true);
+                    setMatrixHintBanner(true);
                     prefsService.setSecurityPrefs({ ...prefs, matrixHintShown: true }).catch(() => {});
-                    setTimeout(() => setMatrixHintVisible(false), 5000);
                 }
             }).catch(() => {});
         }
     }, [chat.allMessages.length, matrixEnabled]);
 
     const revealMsg = useCallback((id: string) => {
-        setMatrixHintVisible(false);
         setRevealedIds(prev => {
             if (prev.has(id)) return prev;
             const next = new Set(prev);
@@ -103,10 +136,14 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         });
     }, []);
 
-    // Re-scramble on background
+    // Re-scramble on background — also reset initial IDs so returning to the chat
+    // treats all existing messages as "old" again (they re-scramble).
     const prevAppActive = useRef(isAppActive);
     useEffect(() => {
-        if (matrixEnabled && prevAppActive.current && !isAppActive) setRevealedIds(new Set());
+        if (matrixEnabled && prevAppActive.current && !isAppActive) {
+            setRevealedIds(new Set());
+            initialMsgIdsRef.current = null;
+        }
         prevAppActive.current = isAppActive;
     }, [isAppActive, matrixEnabled]);
 
@@ -208,25 +245,47 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
         }
     }, [chat.allMessages, highlightAnim]);
 
-    // ── Swipe to go back ──
+    // ── Swipe to go back (WhatsApp-style) ──
+    // dismissX tracks the absolute pixel offset; swipeProgress (0→1) is for the parent parallax.
     const dismissX = useRef(new Animated.Value(0)).current;
+    const swipeRef = useRef(swipeProgress);
+    swipeRef.current = swipeProgress;
+
     const globalSwipe = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, g) => g.dx > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
-        onPanResponderMove: (_, g) => { if (g.dx >= 0) dismissX.setValue(g.dx); },
+        onPanResponderMove: (_, g) => {
+            if (g.dx >= 0) {
+                dismissX.setValue(g.dx);
+                // Normalise to 0→1 for parent parallax
+                swipeRef.current?.setValue(Math.min(g.dx / screenWidth, 1));
+            }
+        },
         onPanResponderRelease: (_, g) => {
             const shouldClose = g.dx > screenWidth * 0.35 || g.vx > 0.5;
             if (shouldClose) {
-                Animated.timing(dismissX, {
-                    toValue: screenWidth, duration: 220,
-                    easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: true,
-                }).start(({ finished }) => { if (finished) onBack(); });
+                Animated.parallel([
+                    Animated.timing(dismissX, {
+                        toValue: screenWidth, duration: 220,
+                        easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: true,
+                    }),
+                    ...(swipeRef.current ? [Animated.timing(swipeRef.current, {
+                        toValue: 1, duration: 220,
+                        easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: true,
+                    })] : []),
+                ]).start(({ finished }) => { if (finished) onBack(); });
             } else {
-                Animated.spring(dismissX, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 }).start();
+                Animated.parallel([
+                    Animated.spring(dismissX, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 }),
+                    ...(swipeRef.current ? [Animated.spring(swipeRef.current, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 })] : []),
+                ]).start();
             }
         },
         onPanResponderTerminate: () => {
-            Animated.spring(dismissX, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 }).start();
+            Animated.parallel([
+                Animated.spring(dismissX, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 }),
+                ...(swipeRef.current ? [Animated.spring(swipeRef.current, { toValue: 0, useNativeDriver: true, friction: 9, tension: 90 })] : []),
+            ]).start();
         },
     })).current;
 
@@ -379,7 +438,7 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
     return (
         <Animated.View style={[styles.safeArea, { transform: [{ translateX: dismissX }] }]}>
             <View style={styles.container} {...globalSwipe.panHandlers}>
-                <ChatBackground color={colors.chatPattern} />
+                <ChatBackground color={chatPrefs.patternColor} pattern={chatPrefs.backgroundPattern} />
                 <Animated.View style={{ flex: 1, transform: [{ translateY: keyboardOffset }] }}>
                     <FlatList
                         ref={chat.flatListRef}
@@ -422,22 +481,6 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                             }, 100);
                         }}
                     />
-
-                    {matrixHintVisible && (
-                        <View style={{
-                            position: 'absolute', bottom: insets.bottom + 90, alignSelf: 'center',
-                            backgroundColor: colors.accentPrimary,
-                            borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10,
-                            flexDirection: 'row', alignItems: 'center', gap: 8,
-                            shadowColor: colors.accentPrimary, shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.4, shadowRadius: 8, elevation: 6, zIndex: 9,
-                        }}>
-                            <Lock size={14} color="#fff" />
-                            <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>
-                                Toca un mensaje para revelarlo
-                            </Text>
-                        </View>
-                    )}
 
                     {chat.hasUnreadBelow && !chat.isAtBottom && (
                         <TouchableOpacity
@@ -489,9 +532,20 @@ export default function ChatRoomScreen({ onBack, chatId }: { onBack: () => void;
                     </TouchableOpacity>
                 </View>
 
-                {showPrivacyBanner && (
+                {(showPrivacyBanner || matrixHintBanner) && (
                     <View style={{ position: 'absolute', top: headerHeight + 18, left: 16, right: 16, zIndex: 5, alignItems: 'center' }} pointerEvents="box-none">
-                        <PrivacyBanner colors={colors} onDismiss={handleDismissPrivacyBanner} />
+                        <PrivacyBanner
+                            colors={colors}
+                            matrixHint={matrixHintBanner && !showPrivacyBanner}
+                            onDismiss={() => {
+                                if (showPrivacyBanner) {
+                                    handleDismissPrivacyBanner();
+                                    // After dismissing privacy banner, if matrix hint was pending, show it next
+                                } else {
+                                    setMatrixHintBanner(false);
+                                }
+                            }}
+                        />
                     </View>
                 )}
 

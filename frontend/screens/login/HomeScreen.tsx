@@ -39,6 +39,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
     const fadePinAnim        = useRef(new Animated.Value(0)).current;
     const translateYPinAnim  = useRef(new Animated.Value(40)).current;
     const slideLoadingAnim   = useRef(new Animated.Value(height)).current;
+    const exitFadeAnim       = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         const checkExistingVault = async () => {
@@ -121,7 +122,15 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
             const result = await bootstrapPromiseRef.current!;
             await authSessionService.setPinHash(hashPin(pin, result.identity.id));
             await authStoreLogin(result.identity, result.jwtToken);
-            if (onAuthSuccess) onAuthSuccess();
+            // Smooth fade-out before navigating to chats
+            Animated.timing(exitFadeAnim, {
+                toValue: 0,
+                duration: 400,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }).start(() => {
+                if (onAuthSuccess) onAuthSuccess();
+            });
         } catch {
             showModal({
                 type: 'error',
@@ -145,7 +154,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                 ],
             });
         }
-    }, [authStoreLogin, onAuthSuccess, showModal, slideLoadingAnim]);
+    }, [authStoreLogin, onAuthSuccess, showModal, slideLoadingAnim, exitFadeAnim]);
 
     const handleLoginComplete = useCallback(async (pin: string) => {
         setLoginLoading(true);
@@ -279,7 +288,11 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
                 <Animated.View
                     style={[
                         StyleSheet.absoluteFill,
-                        { transform: [{ translateY: slideLoadingAnim }], zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary }
+                        {
+                            transform: [{ translateY: slideLoadingAnim }],
+                            opacity: exitFadeAnim,
+                            zIndex: 10, elevation: 10, backgroundColor: colors.bgPrimary,
+                        }
                     ]}
                 >
                     <LoadingScreen onFinish={handleLoadingFinish} />

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Check, Clock, AlertCircle } from 'lucide-react-native';
 import { createStyles } from '../../styles/chatRoomStyles';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useChatPrefs } from '../../contexts/ChatPrefsContext';
 import MatrixText from '../MatrixText';
 import { MsgData, MsgStatus, formatTime, getDynamicTextProps } from './types';
 
@@ -33,18 +34,36 @@ const MessageBubble = React.memo(({
     fontScale, highContrast, revealed, onReveal, onHide,
 }: BubbleProps) => {
     const { colors } = useTheme();
+    const { prefs: chatPrefs } = useChatPrefs();
     const s = useMemo(() => createStyles(colors), [colors]);
     const { fontSize, lineHeight, maxLines, needsTruncation } = useMemo(
         () => getDynamicTextProps(msg.text, !!msg.replyTo, fontScale),
         [msg.text, msg.replyTo, fontScale]
     );
 
-    const hcBubbleStyle = highContrast
+    // Custom bubble colors from chat prefs (user-chosen colors always win)
+    const hasCustomOut = chatPrefs.outgoingBubbleColor !== colors.accentPrimary;
+    const hasCustomIn  = chatPrefs.incomingBubbleColor !== colors.incomingBubble;
+    const hasCustomColor = msg.isMine ? hasCustomOut : hasCustomIn;
+
+    // High-contrast bubble bg only applies when user has NOT chosen a custom color
+    const hcBubbleStyle = (highContrast && !hasCustomColor)
         ? (msg.isMine ? { backgroundColor: '#dbeafe' } : { backgroundColor: '#dcfce7' })
         : null;
-    const hcTextColor = highContrast
+    // When user has custom colors, always use default theme text (white on dark bubbles).
+    // High-contrast dark text only makes sense on the light HC bubble backgrounds.
+    const hcTextColor = (highContrast && !hasCustomColor)
         ? (msg.isMine ? '#1e3a8a' : '#14532d')
         : (msg.isMine ? colors.outgoingText : colors.incomingText);
+
+    // Custom bubble colors & corners from chat prefs
+    const customBubbleStyle = {
+        backgroundColor: msg.isMine ? chatPrefs.outgoingBubbleColor : chatPrefs.incomingBubbleColor,
+        borderRadius: chatPrefs.bubbleRadius,
+        ...(msg.isMine
+            ? { borderBottomRightRadius: chatPrefs.bubbleRadiusTail }
+            : { borderBottomLeftRadius: chatPrefs.bubbleRadiusTail }),
+    };
 
     const handleTap = useCallback(() => {
         if (revealed) onHide(msg.id);
@@ -67,6 +86,7 @@ const MessageBubble = React.memo(({
                     s.messageBubble,
                     msg.isMine ? s.messageBubbleRight : s.messageBubbleLeft,
                     hcBubbleStyle,
+                    customBubbleStyle,
                 ]}>
                     {msg.replyTo && (
                         <TouchableOpacity
