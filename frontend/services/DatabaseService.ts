@@ -250,8 +250,8 @@ export class DatabaseService {
     const limit = options.limit ?? 50;
     return this.withDb(async (db) => {
       const sql = options.beforeMsgId !== undefined
-        ? 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? AND msg_id < ? ORDER BY created_at DESC, msg_id DESC LIMIT ?;'
-        : 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? ORDER BY created_at DESC, msg_id DESC LIMIT ?;';
+        ? 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? AND msg_id < ? ORDER BY msg_id DESC LIMIT ?;'
+        : 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? ORDER BY msg_id DESC LIMIT ?;';
       const params = options.beforeMsgId !== undefined
         ? [contactHash, options.beforeMsgId, limit]
         : [contactHash, limit];
@@ -414,11 +414,10 @@ export class DatabaseService {
         `SELECT m.contact_hash, m.plaintext, m.is_mine, m.created_at
          FROM messages_history m
          INNER JOIN (
-           SELECT contact_hash, MAX(created_at) AS max_ts
+           SELECT contact_hash, MAX(msg_id) AS max_id
            FROM messages_history
            GROUP BY contact_hash
-         ) latest ON m.contact_hash = latest.contact_hash AND m.created_at = latest.max_ts
-         GROUP BY m.contact_hash;`
+         ) latest ON m.contact_hash = latest.contact_hash AND m.msg_id = latest.max_id;`
       );
       const map = new Map<string, { text: string; isMine: boolean; createdAt: number }>();
       for (const r of rows ?? []) {

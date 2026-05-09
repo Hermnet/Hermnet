@@ -409,7 +409,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                         onScrollToReply={handleScrollToReply}
                         fontScale={fontScale}
                         highContrast={highContrast}
-                        revealed={!matrixEnabled || revealedIds.has(item.id)}
+                        revealed={!matrixEnabled || item.isMine || revealedIds.has(item.id)}
                         onReveal={revealMsg}
                         onHide={hideMsg}
                     />
