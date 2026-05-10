@@ -106,6 +106,12 @@ public class AuthController {
         return header;
     }
 
+    /**
+     * Maps domain validation errors to clear 400 responses for auth endpoints.
+     *
+     * @param e validation or authentication-domain exception
+     * @return response with the user-facing error message
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleBadRequests(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());

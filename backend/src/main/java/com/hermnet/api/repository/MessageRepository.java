@@ -16,16 +16,15 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     /**
      * Retrieves all messages for a specific recipient hash, ordered by creation
-     * time (newest first).
+     * time (oldest first).
      * 
      * This method is used when a client polls for new messages. The ordering
-     * ensures
-     * that the most recent communications appear at the top of the list.
+     * ensures the client processes a mailbox in enqueue order.
      * 
      * @param recipientHash The hashed ID of the user to retrieve messages for
-     * @return A list of messages for the recipient, ordered by createdAt descending
+     * @return A list of messages for the recipient, ordered by createdAt ascending
      */
-    List<Message> findByRecipientHashOrderByCreatedAtDesc(String recipientHash);
+    List<Message> findByRecipientHashOrderByCreatedAtAscMessageIdAsc(String recipientHash);
 
     /**
      * Deletes all messages created before a specific timestamp.
@@ -49,5 +48,12 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      */
     long deleteByRecipientHashAndCreatedAtLessThanEqual(String recipientHash, LocalDateTime cutoff);
 
+    /**
+     * Deletes all queued mailbox rows for a recipient after the client confirms
+     * they have been processed.
+     *
+     * @param recipientHash hashed id of the recipient
+     * @return number of deleted rows
+     */
     long deleteByRecipientHash(String recipientHash);
 }

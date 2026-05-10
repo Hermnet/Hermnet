@@ -2,6 +2,7 @@ package com.hermnet.api.controller;
 
 import com.hermnet.api.dto.AckRequest;
 import com.hermnet.api.dto.AckResponse;
+import com.hermnet.api.dto.MailboxMessageResponse;
 import com.hermnet.api.dto.SendMessageRequest;
 import com.hermnet.api.model.Message;
 import com.hermnet.api.model.User;
@@ -61,19 +62,21 @@ public class MessageController {
     /**
      * Retrieves messages for a user.
      *
-     * Returns a list of encrypted payloads intended for the user, ordered by
-     * arrival time (newest first).
+     * Returns encrypted mailbox entries intended for the user, ordered by
+     * arrival time (oldest first). The client processes in this order and ACKs
+     * up to the newest returned timestamp, so messages that arrive during sync
+     * are preserved for the next poll.
      *
      * @param myId The user's ID hash to retrieve messages for.
      * @return List of encrypted payloads (as byte arrays / Base64 strings).
      */
     @GetMapping
     @Transactional(readOnly = true)
-    public ResponseEntity<List<byte[]>> getMessages(@RequestParam String myId) {
-        List<Message> messages = messageRepository.findByRecipientHashOrderByCreatedAtDesc(myId);
+    public ResponseEntity<List<MailboxMessageResponse>> getMessages(@RequestParam String myId) {
+        List<Message> messages = messageRepository.findByRecipientHashOrderByCreatedAtAscMessageIdAsc(myId);
 
-        List<byte[]> payloads = messages.stream()
-                .map(Message::getPayload)
+        List<MailboxMessageResponse> payloads = messages.stream()
+                .map(message -> new MailboxMessageResponse(message.getPayload(), message.getCreatedAt()))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(payloads);
