@@ -1,4 +1,4 @@
-import QuickCrypto from "react-native-quick-crypto";
+import QuickCrypto from './CryptoService';
 
 /**
  * Interface representing a user's cryptographic identity.

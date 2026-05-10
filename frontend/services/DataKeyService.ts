@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import QuickCrypto from 'react-native-quick-crypto';
+import QuickCrypto from './CryptoService';
 import { Buffer } from 'buffer';
 
 /**

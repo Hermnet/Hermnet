@@ -91,6 +91,8 @@ export class DatabaseService {
       `ALTER TABLE contacts_vault ADD COLUMN avatar_icon TEXT;`,
       // Reply-to context: JSON string with { id, text, isMine } of the replied message
       `ALTER TABLE messages_history ADD COLUMN reply_to_json TEXT;`,
+      // Secuencia del remitente para dedupe estable de mensajes entrantes.
+      `ALTER TABLE messages_history ADD COLUMN transport_seq INTEGER;`,
     ];
     for (const sql of migrations) {
       await (this.db as any).runAsync(sql).catch(() => {});
@@ -190,13 +192,21 @@ export class DatabaseService {
     createdAt?: number,
     status?: MessageStatus,
     replyTo?: { id: string; text: string; isMine: boolean } | null,
+    transportSeq?: number,
   ): Promise<void> {
     const ts = createdAt ?? Date.now();
     await this.withDb(async (db) => {
-      // Dedupe contra reintentos / sync concurrentes. Como el ciphertext se reaplica con
-      // IV aleatorio en cada cifrado, no podemos comparar la celda directamente; en su
-      // lugar comparamos (contacto, ts, dirección) que es único en la práctica.
-      if (createdAt !== undefined) {
+      // Dedupe contra reintentos / sync concurrentes. Para mensajes entrantes
+      // preferimos el seq firmado del emisor; así dos mensajes enviados en el
+      // mismo milisegundo no colisionan.
+      if (!isMine && typeof transportSeq === 'number') {
+        const existing = await (db as any).getFirstAsync(
+          'SELECT msg_id FROM messages_history WHERE contact_hash = ? AND is_mine = 0 AND transport_seq = ? LIMIT 1;',
+          [contactHash, transportSeq]
+        );
+        if (existing) return;
+      }
+      if (createdAt !== undefined && (isMine || typeof transportSeq !== 'number')) {
         const existing = await (db as any).getFirstAsync(
           'SELECT msg_id FROM messages_history WHERE contact_hash = ? AND created_at = ? AND is_mine = ? LIMIT 1;',
           [contactHash, ts, isMine ? 1 : 0]
@@ -216,8 +226,8 @@ export class DatabaseService {
       const finalStatus = status ?? (isMine ? 'SENT' : 'DELIVERED');
       const replyJson = replyTo ? JSON.stringify(replyTo) : null;
       await (db as any).runAsync(
-        'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json) VALUES (?, ?, ?, ?, ?, ?, ?);',
-        [contactHash, stored, isMine ? 1 : 0, ts, finalStatus, expiresAt, replyJson]
+        'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json, transport_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
+        [contactHash, stored, isMine ? 1 : 0, ts, finalStatus, expiresAt, replyJson, transportSeq ?? null]
       );
     });
   }
@@ -240,21 +250,28 @@ export class DatabaseService {
    * Devuelve los mensajes más recientes del contacto, paginados.
    * @param contactHash hash del contacto
    * @param options.limit máximo a devolver (defecto 50)
-   * @param options.beforeMsgId si se indica, devuelve mensajes con msg_id estrictamente menor
-   *                            (para cargar páginas más antiguas al hacer scroll arriba)
+   * @param options.beforeCursor si se indica, usa su msgId como cursor local.
+   *                             El chat ordena por inserción local (msg_id DESC)
+   *                             para que los mensajes no cambien de posición por
+   *                             pequeñas diferencias de reloj entre dispositivos.
    */
   async getMessagesByContact(
     contactHash: string,
-    options: { limit?: number; beforeMsgId?: number } = {}
-  ): Promise<Array<{ id: string; text: string; isMine: boolean; createdAt: number; status: 'pending' | 'sent' | 'failed'; replyTo?: { id: string; text: string; isMine: boolean } | null }>> {
+    options: { limit?: number; beforeMsgId?: number; beforeCursor?: { createdAt: number; msgId: number } } = {}
+  ): Promise<Array<{ id: string; text: string; isMine: boolean; createdAt: number; isRead: boolean; status: 'pending' | 'sent' | 'failed'; replyTo?: { id: string; text: string; isMine: boolean } | null }>> {
     const limit = options.limit ?? 50;
     return this.withDb(async (db) => {
-      const sql = options.beforeMsgId !== undefined
-        ? 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? AND msg_id < ? ORDER BY msg_id DESC LIMIT ?;'
-        : 'SELECT msg_id, plaintext, is_mine, created_at, status, reply_to_json FROM messages_history WHERE contact_hash = ? ORDER BY msg_id DESC LIMIT ?;';
-      const params = options.beforeMsgId !== undefined
-        ? [contactHash, options.beforeMsgId, limit]
-        : [contactHash, limit];
+      let sql = 'SELECT msg_id, plaintext, is_mine, created_at, is_read, status, reply_to_json FROM messages_history WHERE contact_hash = ?';
+      let params: Array<string | number> = [contactHash];
+      if (options.beforeCursor) {
+        sql += ' AND msg_id < ?';
+        params.push(options.beforeCursor.msgId);
+      } else if (options.beforeMsgId !== undefined) {
+        sql += ' AND msg_id < ?';
+        params.push(options.beforeMsgId);
+      }
+      sql += ' ORDER BY msg_id DESC LIMIT ?;';
+      params.push(limit);
       const rows = await (db as any).getAllAsync(sql, params);
       return (rows ?? []).map((r: any) => {
         // Mapeamos el status almacenado (mayúsculas, schema legado) al modelo UI
@@ -271,6 +288,7 @@ export class DatabaseService {
           text: this.safeDecrypt(r.plaintext),
           isMine: r.is_mine === 1,
           createdAt: r.created_at ?? 0,
+          isRead: r.is_mine === 1 || r.is_read === 1,
           status: uiStatus,
           replyTo,
         };
@@ -408,10 +426,10 @@ export class DatabaseService {
    * Returns the most recent message for each contact in a single query.
    * Much more efficient than N separate queries.
    */
-  async getLastMessagePerContact(): Promise<Map<string, { text: string; isMine: boolean; createdAt: number }>> {
+  async getLastMessagePerContact(): Promise<Map<string, { text: string; isMine: boolean; isRead: boolean; createdAt: number }>> {
     return this.withDb(async (db) => {
       const rows = await (db as any).getAllAsync(
-        `SELECT m.contact_hash, m.plaintext, m.is_mine, m.created_at
+        `SELECT m.contact_hash, m.plaintext, m.is_mine, m.is_read, m.created_at
          FROM messages_history m
          INNER JOIN (
            SELECT contact_hash, MAX(msg_id) AS max_id
@@ -419,11 +437,12 @@ export class DatabaseService {
            GROUP BY contact_hash
          ) latest ON m.contact_hash = latest.contact_hash AND m.msg_id = latest.max_id;`
       );
-      const map = new Map<string, { text: string; isMine: boolean; createdAt: number }>();
+      const map = new Map<string, { text: string; isMine: boolean; isRead: boolean; createdAt: number }>();
       for (const r of rows ?? []) {
         map.set(r.contact_hash, {
           text: this.safeDecrypt(r.plaintext),
           isMine: r.is_mine === 1,
+          isRead: r.is_mine === 1 || r.is_read === 1,
           createdAt: r.created_at,
         });
       }
@@ -532,7 +551,12 @@ export class DatabaseService {
    * conectividad. Usamos `sync_queue` como tabla genérica con `task_type`
    * para diferenciar futuros tipos de tareas.
    */
-  async enqueueOutgoing(recipientId: string, plaintext: string, sentAt: number, replyTo: string | null = null): Promise<void> {
+  async enqueueOutgoing(
+    recipientId: string,
+    plaintext: string,
+    sentAt: number,
+    replyTo: { id: string; text: string; isMine: boolean } | null = null,
+  ): Promise<void> {
     await this.withDb(async (db) => {
       const payload = JSON.stringify({ recipientId, plaintext, sentAt, replyTo });
       await (db as any).runAsync(
@@ -542,7 +566,7 @@ export class DatabaseService {
     });
   }
 
-  async getQueuedOutgoing(): Promise<Array<{ taskId: number; recipientId: string; plaintext: string; sentAt: number; replyTo: string | null }>> {
+  async getQueuedOutgoing(): Promise<Array<{ taskId: number; recipientId: string; plaintext: string; sentAt: number; replyTo: { id: string; text: string; isMine: boolean } | null }>> {
     return this.withDb(async (db) => {
       const rows = await (db as any).getAllAsync(
         `SELECT task_id, task_payload FROM sync_queue WHERE task_type = 'send_message' ORDER BY task_id ASC;`

@@ -1,4 +1,4 @@
-import QuickCrypto from 'react-native-quick-crypto';
+import QuickCrypto from './CryptoService';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { authSessionService } from './AuthSessionService';

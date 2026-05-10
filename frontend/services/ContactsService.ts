@@ -1,4 +1,4 @@
-import QuickCrypto from 'react-native-quick-crypto';
+import QuickCrypto from './CryptoService';
 import { databaseService } from './DatabaseService';
 
 export interface Contact {
