@@ -6,6 +6,8 @@ logs/
 ## Archivos de entorno
 .env
 .env.*
+!.env.example
+!**/.env.example
 
 ## Claves y credenciales
 backend/src/main/resources/*firebase-adminsdk-*.json
@@ -16,6 +18,14 @@ backend/src/main/resources/*firebase-adminsdk-*.json
 .vscode/
 CLAUDE.md
 
+## Artefactos de build nativos
+**/android/build/
+**/android/.gradle/
+**/ios/build/
+**/ios/Pods/
+
+## Node
+node_modules/
+
 ## Contexto privado (no se sube)
 docs/.context/
-
