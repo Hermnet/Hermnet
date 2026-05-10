@@ -37,17 +37,19 @@ interface Props {
     onCancelReply: () => void;
     isSending: boolean;
     bottomInset: number;
+    keyboardVisible?: boolean;
 }
 
-const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending, bottomInset }: Props) => {
+const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending, bottomInset, keyboardVisible = false }: Props) => {
     const { colors: c } = useTheme();
     const s = useMemo(() => createStyles(c), [c]);
     const remaining = MAX_LENGTH - value.length;
     const showCounter = value.length >= COUNTER_THRESHOLD;
     const counterColor = remaining <= 20 ? c.dangerText : c.textMuted;
+    const bottomPadding = Math.max(bottomInset, 12) + 8;
 
     return (
-        <View style={[s.inputContainer, { paddingBottom: Math.max(bottomInset, 12) + 8 }]}>
+        <View style={[s.inputContainer, { paddingBottom: bottomPadding }]}>
             {replyingTo && (
                 <ReplyBanner msg={replyingTo} contactName={contactName} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
             )}

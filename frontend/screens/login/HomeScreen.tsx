@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { View, Image, TouchableOpacity, Text, Animated, StyleSheet, Dimensions, Easing, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { Eye, EyeOff } from 'lucide-react-native';
-import QuickCrypto from 'react-native-quick-crypto';
+import QuickCrypto from '../../services/CryptoService';
 import ShimmerText from './ShimmerText';
 import LoadingScreen from './LoadingScreen';
 import PinScreen from './PinScreen';
@@ -158,6 +158,8 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
 
     const handleLoginComplete = useCallback(async (pin: string) => {
         setLoginLoading(true);
+        let cachedIdentity: Awaited<ReturnType<typeof authSessionService.getIdentity>> = null;
+        let cachedJwt: string | null = null;
 
         // Pre-check PIN de pánico ANTES de cualquier otra cosa. Si el usuario lo
         // introduce, ejecutamos el wipe completo y mostramos el mismo error que
@@ -179,6 +181,20 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
         }
 
         try {
+            const storedHash = await authSessionService.getPinHash();
+            [cachedIdentity, cachedJwt] = await Promise.all([
+                authSessionService.getIdentity(),
+                authSessionService.getJwtToken(),
+            ]);
+            if (!cachedIdentity || !storedHash) {
+                showModal({ type: 'error', title: 'Error de autenticación', message: 'No se pudo verificar tu identidad local.' });
+                return;
+            }
+            if (hashPin(pin, cachedIdentity.id) !== storedHash) {
+                showModal({ type: 'error', title: 'PIN incorrecto', message: 'No se pudo acceder a tu bóveda local.' });
+                return;
+            }
+
             const result = await authFlowService.bootstrapLogin();
             await authStoreLogin(result.identity, result.jwtToken);
             if (onAuthSuccess) onAuthSuccess();
@@ -188,16 +204,7 @@ export default function HomeScreen({ onAuthSuccess }: { onAuthSuccess?: () => vo
             // El JWT puede no existir (lo limpió un logout previo) o estar caducado;
             // se obtendrá uno nuevo automáticamente cuando vuelva la red, vía el
             // unauthorizedHandler en cualquier request 401/403.
-            const [cachedIdentity, cachedJwt, storedHash] = await Promise.all([
-                authSessionService.getIdentity(),
-                authSessionService.getJwtToken(),
-                authSessionService.getPinHash(),
-            ]);
-            if (cachedIdentity && storedHash) {
-                if (hashPin(pin, cachedIdentity.id) !== storedHash) {
-                    showModal({ type: 'error', title: 'PIN incorrecto', message: 'No se pudo acceder a tu bóveda local.' });
-                    return;
-                }
+            if (cachedIdentity) {
                 // authStoreLogin requiere un string para el JWT — pasamos cadena vacía
                 // si no hay cache. La app trabajará offline hasta que se obtenga uno nuevo.
                 await authStoreLogin(cachedIdentity, cachedJwt ?? '');

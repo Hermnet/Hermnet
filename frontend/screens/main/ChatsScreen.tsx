@@ -20,6 +20,7 @@ import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { useAccessibility } from '../../contexts/AccessibilityContext';
 import ContactAvatar from '../../components/ContactAvatar';
 import AvatarCustomizer from '../../components/AvatarCustomizer';
+import MatrixText from '../../components/MatrixText';
 
 type Chat = {
     id: string;
@@ -32,6 +33,7 @@ type Chat = {
     avatarIcon: string | null;
     lastMessage: string | null;
     lastMessageIsMine: boolean;
+    lastMessageIsRead: boolean;
     lastMessageTime: number | null;
 };
 
@@ -126,15 +128,13 @@ export default function ChatsScreen() {
             databaseService.getLastMessagePerContact(),
         ]);
         const visible = contacts.filter(c => !c.isBlocked);
-        const newSet = new Set(result.senders);
         const chatsWithCounts = await Promise.all(visible.map(async c => {
             const last = lastMessages.get(c.contactHash);
+            const unreadCount = await databaseService.getUnreadCount(c.contactHash);
             return {
                 id: c.contactHash,
                 name: c.alias ?? c.contactHash.slice(5, 17),
-                unreadCount: newSet.has(c.contactHash)
-                    ? await databaseService.getUnreadCount(c.contactHash)
-                    : 0,
+                unreadCount,
                 isPinned: c.isPinned,
                 isMuted: c.isMuted,
                 isArchived: c.isArchived,
@@ -142,6 +142,7 @@ export default function ChatsScreen() {
                 avatarIcon: c.avatarIcon,
                 lastMessage: last?.text ?? null,
                 lastMessageIsMine: last?.isMine ?? false,
+                lastMessageIsRead: last?.isRead ?? true,
                 lastMessageTime: last?.createdAt ?? null,
             };
         }));
@@ -257,6 +258,7 @@ export default function ChatsScreen() {
                     avatarIcon: c.avatarIcon,
                     lastMessage: existing?.lastMessage ?? null,
                     lastMessageIsMine: existing?.lastMessageIsMine ?? false,
+                    lastMessageIsRead: existing?.lastMessageIsRead ?? true,
                     lastMessageTime: existing?.lastMessageTime ?? null,
                 };
             });
@@ -417,14 +419,27 @@ export default function ChatsScreen() {
                     )}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
-                    <Text
-                        style={{ flex: 1, color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint, fontSize: Math.round(13 * fontScale), lineHeight: Math.round(17 * fontScale) }}
-                        numberOfLines={1}
-                    >
-                        {item.lastMessage
-                            ? (item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage
-                            : 'Sin mensajes aún'}
-                    </Text>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                        {item.lastMessage ? (
+                            <MatrixText
+                                text={(item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage}
+                                revealed={item.unreadCount > 0 || !item.lastMessageIsRead}
+                                style={{
+                                    color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint,
+                                    fontSize: Math.round(13 * fontScale),
+                                    lineHeight: Math.round(17 * fontScale),
+                                }}
+                                numberOfLines={1}
+                            />
+                        ) : (
+                            <Text
+                                style={{ color: colors.textHint, fontSize: Math.round(13 * fontScale), lineHeight: Math.round(17 * fontScale) }}
+                                numberOfLines={1}
+                            >
+                                Sin mensajes aún
+                            </Text>
+                        )}
+                    </View>
                     {item.unreadCount > 0 && (
                         <View style={[styles.unreadBadge, { minWidth: 20, paddingHorizontal: 5, marginLeft: 8 }]}>
                             <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
@@ -606,25 +621,24 @@ export default function ChatsScreen() {
             </Animated.View>
 
             {showSettings && (
-                <Animated.View
+                <View
                     style={[
                         StyleSheet.absoluteFill,
-                        { backgroundColor: '#000', zIndex: 19, elevation: 19 },
-                        settingsSlide.dimmingStyle,
+                        { backgroundColor: '#000', opacity: 0.45, zIndex: 19, elevation: 19 },
                     ]}
                     pointerEvents="none"
                 />
             )}
-            <Animated.View
-                style={[
-                    StyleSheet.absoluteFill,
-                    settingsSlide.style,
-                    { zIndex: 20, elevation: 20, backgroundColor: colors.bgPrimary },
-                ]}
-                pointerEvents={showSettings ? 'auto' : 'none'}
-            >
-                {showSettings && <SettingsScreen onBack={handleCloseSettings} />}
-            </Animated.View>
+            {showSettings && (
+                <View
+                    style={[StyleSheet.absoluteFill, { zIndex: 20, elevation: 20 }]}
+                    pointerEvents="box-none"
+                >
+                    <Animated.View style={[StyleSheet.absoluteFill, settingsSlide.style]}>
+                        <SettingsScreen onBack={handleCloseSettings} />
+                    </Animated.View>
+                </View>
+            )}
 
             <Animated.View
                 style={[

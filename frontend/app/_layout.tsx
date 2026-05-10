@@ -31,13 +31,11 @@ export default function RootLayout() {
         const result = await authFlowService.bootstrapLogin();
         await useAuthStore.getState().login(result.identity, result.jwtToken);
       } catch (err: any) {
-        // Solo expulsamos al usuario si el JWT está realmente revocado/expirado
-        // por el servidor. Si estamos sin red, mantenemos la sesión para que
-        // pueda seguir usando la app offline; el reintento ocurrirá automáticamente
-        // cuando vuelva la conectividad.
-        const isNetworkErr = /network|timeout|fetch/i.test(String(err?.message ?? ''));
-        if (!isNetworkErr) {
-          await useAuthStore.getState().logout();
+        // Un 401/403 durante el arranque no debe mandar al usuario de vuelta
+        // al PIN si ya tiene identidad local. La app puede seguir funcionando
+        // offline y reintentará el bootstrap en la siguiente request.
+        if (__DEV__) {
+          console.warn('[Auth] reauth fallida, se mantiene la sesión local:', err?.message ?? err);
         }
       }
     });

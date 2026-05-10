@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal,
     KeyboardAvoidingView, Platform, StatusBar, FlatList, PanResponder, ListRenderItemInfo,
-    useWindowDimensions, Animated, Keyboard, Easing, KeyboardEvent,
+    useWindowDimensions, Animated, Easing, Keyboard, KeyboardEvent,
 } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,6 +60,8 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     const [aliasInput, setAliasInput] = useState('');
     const [showChatMenu, setShowChatMenu] = useState(false);
     const [showPrivacyBanner, setShowPrivacyBanner] = useState(false);
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const keyboardOffset = useRef(new Animated.Value(0)).current;
 
     // ── Reply highlight state ──
     const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
@@ -70,9 +72,11 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     const [matrixHintBanner, setMatrixHintBanner] = useState(false);
     const matrixHintChecked = useRef(false);
     const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
-    // Track message IDs that existed when the chat was opened so we can auto-reveal
-    // messages that arrive in real-time (only old messages stay scrambled).
-    const initialMsgIdsRef = useRef<Set<string> | null>(null);
+    // Baseline de apertura: lo que ya estaba leído al entrar queda camuflado.
+    // Los no leídos y lo que aparezca después de esta marca se revela.
+    const initialMsgIdsRef = useRef<Set<string>>(new Set());
+    const initialLatestTsRef = useRef(0);
+    const baselineCapturedRef = useRef(false);
 
     useEffect(() => {
         prefsService.getSecurityPrefs().then(p => {
@@ -80,18 +84,34 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
         }).catch(() => {});
     }, []);
 
-    // Capture initial message IDs on first load so new arrivals can be auto-revealed
-    useEffect(() => {
-        if (initialMsgIdsRef.current === null && chat.allMessages.length > 0) {
-            initialMsgIdsRef.current = new Set(chat.allMessages.map(m => m.id));
-        }
-    }, [chat.allMessages]);
+    const shouldAutoReveal = useCallback((msg: MsgData) => {
+        if (msg.status === 'pending' || msg.status === 'failed') return true;
+        if (!msg.isMine && msg.isRead === false) return true;
+        if (!baselineCapturedRef.current) return false;
+        const isNewId = !initialMsgIdsRef.current.has(msg.id);
+        const isNewerThanOpening = (msg.createdAt ?? 0) >= initialLatestTsRef.current;
+        return isNewId && isNewerThanOpening;
+    }, []);
 
-    // Auto-reveal messages that arrive while the user is in the chat
+    // Capture initial IDs after the first DB load. This is the camouflage
+    // boundary for the lifetime of this chat screen.
     useEffect(() => {
-        if (!matrixEnabled || !initialMsgIdsRef.current) return;
+        if (!chat.isInitialLoaded) return;
+        if (baselineCapturedRef.current) return;
+        initialMsgIdsRef.current = new Set(chat.allMessages.map(m => m.id));
+        initialLatestTsRef.current = chat.allMessages.reduce(
+            (max, m) => Math.max(max, m.createdAt ?? 0),
+            0,
+        );
+        baselineCapturedRef.current = true;
+    }, [chat.allMessages, chat.isInitialLoaded]);
+
+    // Auto-reveal unread messages and messages created during this open chat
+    // session. Older messages loaded by pagination stay camouflaged.
+    useEffect(() => {
+        if (!matrixEnabled || !baselineCapturedRef.current) return;
         const newIds = chat.allMessages
-            .filter(m => !m.isMine && !initialMsgIdsRef.current!.has(m.id))
+            .filter(shouldAutoReveal)
             .map(m => m.id);
         if (newIds.length > 0) {
             setRevealedIds(prev => {
@@ -103,7 +123,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                 return changed ? next : prev;
             });
         }
-    }, [chat.allMessages, matrixEnabled]);
+    }, [chat.allMessages, matrixEnabled, shouldAutoReveal]);
 
     // Show matrix hint in the privacy banner area ONCE EVER
     useEffect(() => {
@@ -142,10 +162,15 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     useEffect(() => {
         if (matrixEnabled && prevAppActive.current && !isAppActive) {
             setRevealedIds(new Set());
-            initialMsgIdsRef.current = null;
+            initialMsgIdsRef.current = new Set(chat.allMessages.map(m => m.id));
+            initialLatestTsRef.current = chat.allMessages.reduce(
+                (max, m) => Math.max(max, m.createdAt ?? 0),
+                0,
+            );
+            baselineCapturedRef.current = true;
         }
         prevAppActive.current = isAppActive;
-    }, [isAppActive, matrixEnabled]);
+    }, [chat.allMessages, isAppActive, matrixEnabled]);
 
     // ── Privacy banner ──
     useEffect(() => {
@@ -163,25 +188,31 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     }, []);
 
     // ── Keyboard sync ──
-    const keyboardOffset = useRef(new Animated.Value(0)).current;
     useEffect(() => {
-        const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-        const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-        const onShow = (e: KeyboardEvent) => {
+        if (Platform.OS !== 'ios') return;
+        const updateKeyboard = (e: KeyboardEvent) => {
+            setKeyboardVisible(true);
             Animated.timing(keyboardOffset, {
                 toValue: -Math.max(e.endCoordinates.height - insets.bottom, 0),
-                duration: e.duration ?? 250, easing: Easing.bezier(0.17, 0.59, 0.4, 0.77), useNativeDriver: true,
+                duration: Math.max(100, Math.round((e.duration ?? 250) * 0.6)),
+                easing: Easing.bezier(0.17, 0.59, 0.4, 0.77),
+                useNativeDriver: true,
             }).start();
         };
-        const onHide = (e: KeyboardEvent) => {
+        const hideKeyboard = (e: KeyboardEvent) => {
             Animated.timing(keyboardOffset, {
-                toValue: 0, duration: e.duration ?? 250,
-                easing: Easing.bezier(0.17, 0.59, 0.4, 0.77), useNativeDriver: true,
-            }).start();
+                toValue: 0,
+                duration: Math.max(45, Math.round((e.duration ?? 250) * 0.28)),
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }).start(() => setKeyboardVisible(false));
         };
-        const subShow = Keyboard.addListener(showEvt, onShow);
-        const subHide = Keyboard.addListener(hideEvt, onHide);
-        return () => { subShow.remove(); subHide.remove(); };
+        const subShow = Keyboard.addListener('keyboardWillShow', updateKeyboard);
+        const subHide = Keyboard.addListener('keyboardWillHide', hideKeyboard);
+        return () => {
+            subShow.remove();
+            subHide.remove();
+        };
     }, [insets.bottom, keyboardOffset]);
 
     // ── Callbacks ──
@@ -409,7 +440,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                         onScrollToReply={handleScrollToReply}
                         fontScale={fontScale}
                         highContrast={highContrast}
-                        revealed={!matrixEnabled || item.isMine || revealedIds.has(item.id)}
+                        revealed={!matrixEnabled || revealedIds.has(item.id) || shouldAutoReveal(item)}
                         onReveal={revealMsg}
                         onHide={hideMsg}
                     />
@@ -429,7 +460,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                 )}
             </>
         );
-    }, [chat.allMessages, chat.contactName, handleLongPress, handleReadMore, handleScrollToReply, fontScale, highContrast, matrixEnabled, revealedIds, revealMsg, hideMsg, colors, highlightedMsgId, highlightAnim]);
+    }, [chat.allMessages, chat.contactName, handleLongPress, handleReadMore, handleScrollToReply, fontScale, highContrast, matrixEnabled, revealedIds, revealMsg, hideMsg, colors, highlightedMsgId, highlightAnim, shouldAutoReveal]);
 
     const headerTopPad = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : Math.max(insets.top, 12) + 4;
     const headerHeight = headerTopPad + 50;
@@ -511,6 +542,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                         onCancelReply={handleCancelReply}
                         isSending={chat.isSending}
                         bottomInset={insets.bottom}
+                        keyboardVisible={keyboardVisible}
                     />
                 </Animated.View>
 

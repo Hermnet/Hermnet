@@ -7,6 +7,7 @@ export type MsgData = {
     text: string;
     isMine: boolean;
     createdAt?: number;
+    isRead?: boolean;
     replyTo?: { id: string; text: string; isMine: boolean } | null;
     status?: MsgStatus;
 };

@@ -14,12 +14,41 @@ interface UseChatMessagesOptions {
     showModal: (opts: any) => void;
 }
 
+function numericMsgId(msg: MsgData): number {
+    const id = parseInt(msg.id, 10);
+    return Number.isFinite(id) ? id : Number.MAX_SAFE_INTEGER;
+}
+
+function compareMessagesNewestFirst(a: MsgData, b: MsgData): number {
+    const idDiff = numericMsgId(b) - numericMsgId(a);
+    if (idDiff !== 0) return idDiff;
+    return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+}
+
+function mergeMessagesNewestFirst(...groups: MsgData[][]): MsgData[] {
+    const byId = new Map<string, MsgData>();
+    for (const group of groups) {
+        for (const msg of group) {
+            byId.set(msg.id, { ...byId.get(msg.id), ...msg });
+        }
+    }
+    return Array.from(byId.values()).sort(compareMessagesNewestFirst);
+}
+
+function isNewerThan(a: MsgData, b: MsgData | undefined): boolean {
+    if (!b) return true;
+    const idDiff = numericMsgId(a) - numericMsgId(b);
+    if (idDiff !== 0) return idDiff > 0;
+    return (a.createdAt ?? 0) > (b.createdAt ?? 0);
+}
+
 export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMessagesOptions) {
     const [dbMessages, setDbMessages] = useState<MsgData[]>([]);
     const [pendingSends, setPendingSends] = useState<MsgData[]>([]);
     const [contactName, setContactName] = useState<string>(chatId.slice(5, 17));
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isInitialLoaded, setIsInitialLoaded] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isAtBottom, setIsAtBottom] = useState(true);
@@ -28,7 +57,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     const { identity } = useAuthStore();
     const isAppActive = useIsAppActive();
     const isMountedRef = useRef(true);
-    const isSendingRef = useRef(false);
+    const activeSendsRef = useRef(0);
     const pendingSeqRef = useRef(0);
     const isAtBottomRef = useRef(true);
     const flatListRef = useRef<FlatList<MsgData>>(null);
@@ -41,13 +70,11 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
 
     // Lista combinada: pending + histórico, dedup
     const allMessages = useMemo<MsgData[]>(() => {
-        if (pendingSends.length === 0) return dbMessages.map(m => ({ ...m, status: m.status ?? 'sent' }));
+        const normalizedDb = dbMessages.map(m => ({ ...m, status: m.status ?? 'sent' as MsgStatus }));
+        if (pendingSends.length === 0) return mergeMessagesNewestFirst(normalizedDb);
         const dbKeys = new Set(dbMessages.map(m => `${m.isMine ? 1 : 0}|${m.text}|${m.createdAt ?? 0}`));
         const stillPending = pendingSends.filter(p => !dbKeys.has(`${p.isMine ? 1 : 0}|${p.text}|${p.createdAt ?? 0}`));
-        return [
-            ...stillPending,
-            ...dbMessages.map(m => ({ ...m, status: m.status ?? 'sent' as MsgStatus })),
-        ];
+        return mergeMessagesNewestFirst(stillPending, normalizedDb);
     }, [dbMessages, pendingSends]);
 
     // Carga inicial + alias
@@ -62,20 +89,24 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
 
     // Carga inicial paginada
     useEffect(() => {
+        setIsInitialLoaded(false);
         databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE })
             .then(history => {
-                if (history.length > 0) setDbMessages(history);
+                setDbMessages(mergeMessagesNewestFirst(history));
                 setHasMore(history.length === PAGE_SIZE);
+                databaseService.markAsRead(chatId).catch(() => {});
             })
-            .catch(() => {});
-        databaseService.markAsRead(chatId).catch(() => {});
+            .catch(() => {})
+            .finally(() => { if (isMountedRef.current) setIsInitialLoaded(true); });
 
         if (identity) {
             messageFlowService.syncInbox(identity.id, identity.privateKey)
                 .then(() => databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE }))
                 .then(history => {
                     if (!isMountedRef.current) return;
-                    if (history.length > 0) setDbMessages(history);
+                    setDbMessages(mergeMessagesNewestFirst(history));
+                    setHasMore(history.length === PAGE_SIZE);
+                    databaseService.markAsRead(chatId).catch(() => {});
                 })
                 .catch(() => {});
         }
@@ -98,14 +129,15 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     const handleLoadMore = useCallback(async () => {
         if (isLoadingMore || !hasMore || dbMessages.length === 0) return;
         const oldest = dbMessages[dbMessages.length - 1];
-        const oldestMsgId = parseInt(oldest.id, 10);
+        const oldestMsgId = numericMsgId(oldest);
         if (!Number.isFinite(oldestMsgId)) return;
         setIsLoadingMore(true);
         try {
             const older = await databaseService.getMessagesByContact(chatId, {
-                limit: PAGE_SIZE, beforeMsgId: oldestMsgId,
+                limit: PAGE_SIZE,
+                beforeCursor: { createdAt: oldest.createdAt ?? 0, msgId: oldestMsgId },
             });
-            if (older.length > 0) setDbMessages(prev => [...prev, ...older]);
+            if (older.length > 0) setDbMessages(prev => mergeMessagesNewestFirst(prev, older));
             setHasMore(older.length === PAGE_SIZE);
         } catch {} finally { setIsLoadingMore(false); }
     }, [chatId, dbMessages, hasMore, isLoadingMore]);
@@ -131,19 +163,14 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
                             && prev[0]?.text === recent[0].text
                             && prev[0]?.isMine === recent[0].isMine
                             && prev[0]?.createdAt === recent[0].createdAt) return prev;
-                        const prevTopTs = prev[0]?.createdAt ?? 0;
-                        receivedNew = recent.some(m => !m.isMine && (m.createdAt ?? 0) > prevTopTs);
-                        return recent;
+                        const prevTop = prev[0];
+                        receivedNew = recent.some(m => !m.isMine && isNewerThan(m, prevTop));
+                        return mergeMessagesNewestFirst(recent);
                     }
                     if (recent.length === 0) return prev;
-                    const oldestRecentMsgId = parseInt(recent[recent.length - 1].id, 10);
-                    const olderThanRecent = prev.filter(m => {
-                        const id = parseInt(m.id, 10);
-                        return Number.isFinite(id) && id < oldestRecentMsgId;
-                    });
-                    const prevTopTs = prev[0]?.createdAt ?? 0;
-                    receivedNew = recent.some(m => !m.isMine && (m.createdAt ?? 0) > prevTopTs);
-                    return [...recent, ...olderThanRecent];
+                    const prevTop = prev[0];
+                    receivedNew = recent.some(m => !m.isMine && isNewerThan(m, prevTop));
+                    return mergeMessagesNewestFirst(prev, recent);
                 });
                 if (receivedNew) {
                     if (isAtBottomRef.current) {
@@ -160,7 +187,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
 
     // Envío interno
     const sendInternal = useCallback((text: string, sentAt: number, tempId: string, replyToCtx: MsgData['replyTo']) => {
-        isSendingRef.current = true;
+        activeSendsRef.current += 1;
         setIsSending(true);
         messageFlowService.sendMessage({ recipientId: chatId, plaintext: text, sentAt, replyTo: replyToCtx ?? null })
             .then(async () => {
@@ -169,13 +196,8 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
                     const recent = await databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE });
                     if (!isMountedRef.current) return;
                     setDbMessages(prev => {
-                        if (prev.length <= PAGE_SIZE) return recent;
-                        const oldestRecentMsgId = parseInt(recent[recent.length - 1]?.id ?? '0', 10);
-                        const olderThanRecent = prev.filter(m => {
-                            const id = parseInt(m.id, 10);
-                            return Number.isFinite(id) && id < oldestRecentMsgId;
-                        });
-                        return [...recent, ...olderThanRecent];
+                        if (prev.length <= PAGE_SIZE) return mergeMessagesNewestFirst(recent);
+                        return mergeMessagesNewestFirst(prev, recent);
                     });
                 } catch {}
             })
@@ -187,14 +209,14 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
                 showModal({ type: 'error', title: 'Error al enviar', message: `El mensaje no se pudo entregar.${detail}` });
             })
             .finally(() => {
-                isSendingRef.current = false;
-                if (isMountedRef.current) setIsSending(false);
+                activeSendsRef.current = Math.max(activeSendsRef.current - 1, 0);
+                if (isMountedRef.current) setIsSending(activeSendsRef.current > 0);
             });
     }, [chatId, showModal]);
 
     const handleSend = useCallback((newMessage: string, replyingTo: MsgData | null) => {
         const text = newMessage.trim();
-        if (!text || isSendingRef.current) return;
+        if (!text) return;
         const sentAt = Date.now();
         const seq = pendingSeqRef.current++;
         const replyToCtx = replyingTo ? { id: replyingTo.id, text: replyingTo.text, isMine: replyingTo.isMine } : null;
@@ -208,7 +230,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     }, [sendInternal]);
 
     const handleRetry = useCallback((failedMsg: MsgData) => {
-        if (failedMsg.status !== 'failed' || isSendingRef.current) return;
+        if (failedMsg.status !== 'failed') return;
         setPendingSends(prev => prev.map(m => m.id === failedMsg.id ? { ...m, status: 'pending' } : m));
         sendInternal(failedMsg.text, failedMsg.createdAt ?? Date.now(), failedMsg.id, failedMsg.replyTo ?? null);
     }, [sendInternal]);
@@ -219,8 +241,9 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
         try {
             await messageFlowService.syncInbox(identity.id, identity.privateKey);
             const history = await databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE });
-            if (history.length > 0) setDbMessages(history);
+            setDbMessages(mergeMessagesNewestFirst(history));
             setHasMore(history.length === PAGE_SIZE);
+            databaseService.markAsRead(chatId).catch(() => {});
         } catch {} finally { setIsRefreshing(false); }
     }, [identity, chatId, isRefreshing]);
 
@@ -250,7 +273,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
 
     return {
         allMessages, dbMessages, contactName, setContactName,
-        isSending, isRefreshing, isLoadingMore, hasMore,
+        isSending, isRefreshing, isLoadingMore, isInitialLoaded, hasMore,
         isAtBottom, hasUnreadBelow,
         flatListRef,
         handleSend, handleRetry, handleRefresh, handleLoadMore,

@@ -4,7 +4,7 @@ import { useAppModal } from '../../components/AppModal';
 import { ArrowLeft, Fingerprint, Users, X } from 'lucide-react-native';
 let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
 try { LocalAuthentication = require('expo-local-authentication'); } catch { /* Expo Go */ }
-import QuickCrypto from 'react-native-quick-crypto';
+import QuickCrypto from '../../services/CryptoService';
 import { createStyles } from '../../styles/settingsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { prefsService, SecurityPrefs } from '../../services/PrefsService';
