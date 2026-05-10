@@ -3,11 +3,13 @@ package com.hermnet.api.config;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +25,7 @@ import java.nio.charset.StandardCharsets;
  * 3. Application Default Credentials (ADC).
  */
 @Configuration
+@Slf4j
 public class FirebaseConfig {
 
     @Value("${firebase.service.account.path:}")
@@ -35,28 +38,48 @@ public class FirebaseConfig {
      * Initializes the FirebaseApp bean.
      * 
      * @return The initialized FirebaseApp instance.
-     * @throws IOException If there is an error reading the credentials.
      */
     @Bean
-    public FirebaseApp firebaseApp() throws IOException {
+    public FirebaseApp firebaseApp() {
         if (FirebaseApp.getApps().isEmpty()) {
-            GoogleCredentials credentials;
-
-            if (serviceAccountJson != null && !serviceAccountJson.isEmpty()) {
-                credentials = GoogleCredentials.fromStream(
-                        new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8)));
-            } else if (serviceAccountPath != null && !serviceAccountPath.isEmpty()) {
-                credentials = GoogleCredentials.fromStream(new FileInputStream(serviceAccountPath));
-            } else {
-                credentials = GoogleCredentials.getApplicationDefault();
+            GoogleCredentials credentials = resolveCredentials();
+            if (credentials == null) {
+                log.warn("Firebase credentials not configured. Push notifications are disabled for this run.");
+                return null;
             }
 
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(credentials)
-                    .build();
-
-            return FirebaseApp.initializeApp(options);
+            try {
+                FirebaseOptions options = FirebaseOptions.builder()
+                        .setCredentials(credentials)
+                        .build();
+                return FirebaseApp.initializeApp(options);
+            } catch (IllegalStateException e) {
+                log.warn("Firebase could not be initialized. Push notifications are disabled: {}", e.getMessage());
+                return null;
+            }
         }
         return FirebaseApp.getInstance();
+    }
+
+    private GoogleCredentials resolveCredentials() {
+        try {
+            if (serviceAccountJson != null && !serviceAccountJson.isBlank()) {
+                return GoogleCredentials.fromStream(
+                        new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8)));
+            }
+
+            if (serviceAccountPath != null && !serviceAccountPath.isBlank()) {
+                File credentialsFile = new File(serviceAccountPath);
+                if (credentialsFile.isFile()) {
+                    return GoogleCredentials.fromStream(new FileInputStream(credentialsFile));
+                }
+                log.info("Firebase service account file not found at {}", serviceAccountPath);
+            }
+
+            return GoogleCredentials.getApplicationDefault();
+        } catch (IOException e) {
+            log.info("Firebase credentials unavailable: {}", e.getMessage());
+            return null;
+        }
     }
 }

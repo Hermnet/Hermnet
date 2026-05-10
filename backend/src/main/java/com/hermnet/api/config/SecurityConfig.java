@@ -37,6 +37,13 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:}")
     private String allowedOrigins;
 
+    /**
+     * Creates the stateless HTTP security chain used by the API.
+     *
+     * @param http mutable Spring Security builder
+     * @return configured security filter chain
+     * @throws Exception if Spring Security cannot build the chain
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -48,12 +55,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/messages/**").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(ipAnonymizationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(rateLimitFilter, IpAnonymizationFilter.class)
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    /**
+     * Builds CORS rules for API requests.
+     *
+     * @return CORS configuration source registered for {@code /api/**}
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

@@ -27,6 +27,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final int maxRequestsPerWindow;
     private final Duration windowDuration;
 
+    /**
+     * Builds the filter with repository-backed counters and safe defaults when
+     * configuration values are invalid.
+     *
+     * @param rateLimitBucketRepository persistence for per-client buckets
+     * @param maxRequestsPerWindow      maximum requests allowed in one window
+     * @param windowSeconds             rate-limit window length in seconds
+     */
     public RateLimitFilter(
             RateLimitBucketRepository rateLimitBucketRepository,
             @Value("${app.security.rate-limit.max-requests-per-window:60}") int maxRequestsPerWindow,
@@ -37,6 +45,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.windowDuration = Duration.ofSeconds(safeWindowSeconds);
     }
 
+    /**
+     * Applies the rate limit before protected controller code executes.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
