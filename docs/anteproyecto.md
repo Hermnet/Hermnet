@@ -1,207 +1,111 @@
-﻿<p align="center"><img src="./images/portada.png" width="500" /></p>
+# Anteproyecto Hermnet
 
+## 1. Resumen
 
+Hermnet es una aplicación móvil de mensajería privada cuyo objetivo es demostrar una arquitectura de comunicación con servidor ciego. El servidor no almacena conversaciones en claro ni conoce el contenido de los mensajes. Su papel es autenticar, transportar payloads cifrados y limpiar datos temporales.
 
-<h2 align="center">ÍNDICE</h2>
+El proyecto nace como trabajo final de DAM y está preparado también como portfolio técnico: combina React Native, Expo, Spring Boot, PostgreSQL, SQLite, criptografía aplicada, tests automatizados y documentación técnica.
 
-1. [El Flujo de la Aplicación: De principio a fin](#1-el-flujo-de-la-aplicación-de-principio-a-fin)
-2. [Resumen de Tecnologías](#2-resumen-de-tecnologías)
-3. [Estructura de las Bases de Datos](#3-estructura-de-las-bases-de-datos)
-4. [Boceto Conceptual de la Interfaz](#4-boceto-conceptual-de-la-interfaz)
+## 2. Objetivos
 
+- Crear una app de mensajería funcional para Android/iOS.
+- Evitar registro con teléfono, email o contraseña.
+- Generar identidades criptográficas en el dispositivo.
+- Cifrar mensajes extremo a extremo.
+- Mantener el historial solo en el dispositivo.
+- Usar el backend como buzón temporal zero-knowledge.
+- Permitir backup cifrado `.hnet`.
+- Facilitar arranque del proyecto tras clonar el repositorio.
+- Alcanzar alta calidad de backend con tests y cobertura superior al 98%.
 
-<div style="text-align: justify; text-indent: 20px;">
+## 3. Flujo de Usuario
 
-# 1. El Flujo de la Aplicación: De principio a fin
+### Crear Identidad
 
-### Paso 1: Tu Pasaporte Digital (Identidad)
+Al abrir la app por primera vez, el dispositivo genera un par RSA-2048. La clave privada queda en SecureStore y la clave pública se registra en el backend. El HNET-id se deriva del fingerprint SHA-256 de la clave pública.
 
-Al abrir la app por primera vez, no te pedimos ni tu número de teléfono ni tu correo. El móvil genera automáticamente un Par de Claves (una privada que nunca sale de tu teléfono y una pública que es como tu dirección). Con estas llaves, se crea tu ID de Hermnet, un código único que es tu única identidad en el sistema.
+### Añadir Contactos
 
-### Paso 2: El Saludo Secreto (Contactos)
+Los contactos se añaden por QR. La app valida que la clave pública corresponde al HNET-id recibido, evitando asociar claves falsas a identidades ajenas.
 
-Para hablar con alguien, simplemente escaneas su código QR. En ese instante, vuestros teléfonos intercambian las "direcciones públicas" necesarias para enviaros mensajes de forma segura, sin que ningún servidor central registre quién es amigo de quién.
+### Enviar Mensajes
 
-### Paso 3: El Mensajero Fantasma (Envío de Mensajes)
+El mensaje se empaqueta en un sobre JSON y se cifra con AES-256-GCM. La clave AES efímera se cifra con RSA-OAEP-SHA256 usando la clave pública del receptor. El backend solo recibe un payload opaco.
 
-Cuando escribes un mensaje, ocurre lo siguiente:
+### Recibir Mensajes
 
-1. **Cifrado**: El texto se bloquea con un candado matemático que solo el receptor puede abrir.
-2. **El Camión de Transporte**: La app elige una imagen de una galería de fotos generadas por IA que ya están descargadas en tu móvil.
-3. **Camuflaje**: El mensaje cifrado se "inyecta" bit a bit dentro de los píxeles de esa imagen. Para el ojo humano, la foto no ha cambiado en nada.
-4. **Entrega Ciega**: El servidor recibe la imagen, pero no sabe que lleva un mensaje dentro; simplemente la entrega al destinatario y luego la borra.
+La app consulta su buzón, descifra localmente los payloads, valida anti-spoofing y anti-replay, guarda el mensaje en SQLite y envía un ACK para borrar lo procesado del servidor.
 
-### Paso 4: La Alarma Silenciosa (Notificaciones)
+### Recuperar Datos
 
-Cuando te llega un mensaje, recibes una notificación que no dice nada ("Tienes un nuevo mensaje"). Tu móvil, en silencio, descarga la imagen, extrae el texto oculto, lo descifra y solo entonces te muestra el contenido real.
+El usuario puede exportar un archivo `.hnet` cifrado con contraseña. Este archivo contiene identidad, contactos y mensajes para migrar de dispositivo o restaurar.
 
-### Paso 5: La Caja Fuerte (Cierre y Respaldo)
+## 4. Stack Técnico
 
-Tus mensajes se guardan solo en tu móvil, en una Bóveda Local protegida. Si pierdes el móvil, puedes recuperar tu cuenta importando un archivo de respaldo seguro (.hnet) cifrado con tu contraseña, el cual puedes exportar previamente desde los Ajustes.
+| Área | Tecnología |
+|---|---|
+| App móvil | React Native, Expo SDK 54, TypeScript |
+| Navegación | Expo Router |
+| Estado | Zustand |
+| Persistencia local | Expo SQLite, Expo SecureStore |
+| Criptografía cliente | `react-native-quick-crypto` |
+| Backend | Java 17, Spring Boot, Spring Security |
+| Persistencia backend | PostgreSQL |
+| Auth | Challenge-response + JWT HS256 |
+| Push | Firebase Admin SDK opcional |
+| Tests | JUnit, JaCoCo, Jest, TypeScript strict |
 
+## 5. Bases de Datos
 
-## 2. Resumen de Tecnologías
+### Backend
 
-Para construir esta fortaleza digital y garantizar que el sistema sea escalable, rápido y totalmente privado, utilizaremos un ecosistema de herramientas de última generación:
+- `users`: HNET-id, clave pública, push token opcional.
+- `auth_challenges`: nonces temporales para login.
+- `mailbox`: payloads cifrados en tránsito.
+- `token_blacklist`: JWT revocados.
+- `rate_limit_buckets`: rate limit por IP anonimizada.
 
-### Frontend (Aplicación Móvil y Escritorio)
+### Dispositivo
 
-El cliente es el encargado de realizar los procesos más pesados para liberar al servidor de cualquier conocimiento sobre los datos.
+- `contacts_vault`: contactos y preferencias locales.
+- `messages_history`: historial de mensajes local.
+- `sync_queue`: cola offline.
+- `incoming_seq`: control anti-replay.
+- Preferencias y datos sensibles repartidos entre SQLite y SecureStore.
 
-*   **React Native / Expo**: Marco de trabajo principal para desarrollar una aplicación nativa que funcione con fluidez tanto en Android como en iOS.
-*   **SQLite con Cifrado**: Motor de base de datos local para la Bóveda de Mensajes. Los datos se almacenan bajo una capa de cifrado en reposo para que sean ilegibles si se extrae el archivo del móvil.
-*   **Bibliotecas Criptográficas**: Uso de `react-native-quick-crypto` y `tweetnacl` para gestionar de forma segura las llaves privadas en el búnker del móvil (SecureStore).
+## 6. Seguridad
 
-### Backend (Servidor de Mensajería)
+- No hay contraseñas remotas.
+- La clave privada no sale del dispositivo.
+- El servidor no descifra mensajes.
+- AES-GCM detecta manipulación de payloads.
+- El HNET-id se verifica contra la clave pública recibida.
+- JWT con `jti` revocable.
+- IP anonimizada y rate limiting.
+- Push notifications sin contenido sensible.
 
-El servidor actúa como un nodo de paso ciego, diseñado para ser rápido y no dejar rastro.
+## 7. Alcance
 
-*   **Java & Spring Boot**: El núcleo del servidor. Proporciona una arquitectura robusta para manejar las peticiones, los buzones temporales y la seguridad mediante Spring Security.
-*   **MySQL**: Sistema de gestión de base de datos relacional que aloja las 9 tablas técnicas del servidor, optimizado para búsquedas rápidas de buzones y gestión de seguridad.
-*   **JWT (JSON Web Tokens)**: Sistema de autenticación para sesiones efímeras que se renuevan cada 5 minutos, garantizando que el acceso sea de "usar y tirar".
+Implementado:
 
-### Seguridad, Criptografía y Red
+- identidad criptográfica local;
+- login challenge-response;
+- mensajes E2EE;
+- QR de contactos;
+- chat local con historial;
+- cola offline;
+- backup `.hnet`;
+- camuflaje visual de mensajes;
+- ajustes de seguridad, apariencia y transferencia;
+- backend con cobertura superior al 98%.
 
-El corazón técnico de Hermnet que garantiza la confidencialidad extremo a extremo.
+Fuera de alcance actual:
 
-*   **RSA-2048 + OAEP-SHA256**: Criptografía asimétrica usada para generar la identidad del usuario (par de claves local), firmar challenges de autenticación y encapsular las claves de sesión.
-*   **AES-256-GCM**: Estándar de cifrado simétrico autenticado. Cifra el contenido de cada mensaje con una clave efímera y produce un tag de integridad que detecta cualquier manipulación.
-*   **Cifrado híbrido (AES + RSA)**: Combina la velocidad de AES con la gestión de claves de RSA. AES cifra el sobre completo, RSA cifra solo la clave AES de 32 bytes — el único lugar donde la limitación de tamaño de RSA-OAEP no es un problema.
-*   **Verificación de fingerprint del HNET-id**: Cada identidad es `SHA-256(public_key)[0:16]`; al recibir una clave por QR o por handshake, el receptor recalcula y verifica el fingerprint, bloqueando intentos de suplantación.
-*   **Protocolo de Notificaciones "Blind Push"**: Uso de Firebase (FCM) para enviar avisos vacíos que despiertan la app sin revelar metadatos sensibles a Google o Apple.
+- esteganografía en imágenes;
+- deep links de invitación;
+- cliente de escritorio;
+- silent refresh proactivo.
 
+## 8. Valor del Proyecto
 
-## 3. Estructura de las Bases de Datos
-
-Hemos diseñado una arquitectura de Persistencia Dual basada en el principio de "Conocimiento Cero".
-
-*   **En el Servidor (PostgreSQL/MySQL)**: Actúa como un "Cartero Ciego". Solo almacena datos efímeros, retos criptográficos y listas de control. No guarda historial de chats ni perfiles personales.
-*   **En tu Móvil (SQLite)**: Es "La Bóveda". Aquí reside realmente la aplicación: tu identidad, tus claves privadas y tus conversaciones, todo cifrado en reposo bajo tu PIN o biometría.
-
-### 4.1 Base de Datos del Servidor (Backend)
-
-<table border="1" style="border-collapse: collapse; width: 100%;">
-  <thead>
-    <tr>
-      <th>Tabla</th>
-      <th>Propiedad Clave</th>
-      <th>Descripción Breve</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>users</strong></td>
-      <td><code>id_hash</code>, <code>public_key</code></td>
-      <td>Directorio público. Permite encontrar usuarios y verificar sus firmas digitales.</td>
-    </tr>
-    <tr>
-      <td><strong>auth_challenges</strong></td>
-      <td><code>nonce</code>, <code>expires_at</code></td>
-      <td>Almacena los retos temporales para el inicio de sesión seguro (sin contraseñas).</td>
-    </tr>
-    <tr>
-      <td><strong>token_blacklist</strong></td>
-      <td><code>jti</code></td>
-      <td>Lista de tokens de sesión revocados o robados para impedir accesos no autorizados.</td>
-    </tr>
-    <tr>
-      <td><strong>mailbox</strong></td>
-      <td><code>recipient_hash</code>, <code>image_blob</code></td>
-      <td>Buzón de tránsito. Guarda temporalmente las imágenes con mensajes ocultos hasta su entrega.</td>
-    </tr>
-    <tr>
-      <td><strong>app_versions</strong></td>
-      <td><code>version_code</code></td>
-      <td>Control de infraestructura. Permite bloquear versiones antiguas ante fallos de seguridad.</td>
-    </tr>
-    <tr>
-      <td><strong>rate_limit_buckets</strong></td>
-      <td><code>ip_hash</code></td>
-      <td>Defensa Anti-DDoS. Controla el tráfico de usuarios anónimos mediante hashes diarios.</td>
-    </tr>
-  </tbody>
-</table>
-<p align="center"><img src="./images/tabla_bd_host.png" /></p>
-
-
-### 4.2 Bóveda Local en el Dispositivo (SQLite)
-
-<table border="1" style="border-collapse: collapse; width: 100%;">
-  <thead>
-    <tr>
-      <th>Tabla</th>
-      <th>Propiedad Clave</th>
-      <th>Descripción Breve</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>key_store</strong></td>
-      <td><code>encrypted_sk</code></td>
-      <td>El Búnker. Guarda tu Clave Privada cifrada con la llave derivada de tu PIN/Biometría.</td>
-    </tr>
-    <tr>
-      <td><strong>contacts_vault</strong></td>
-      <td><code>contact_hash</code>, <code>public_key</code></td>
-      <td>Tu agenda segura. Guarda las llaves públicas necesarias para enviar mensajes cifrados.</td>
-    </tr>
-    <tr>
-      <td><strong>messages_history</strong></td>
-      <td><code>content_encrypted</code></td>
-      <td>Historial de chats local. Los mensajes se guardan cifrados y solo se abren al entrar.</td>
-    </tr>
-    <tr>
-      <td><strong>media_attachments</strong></td>
-      <td><code>file_path</code></td>
-      <td>Gestión optimizada de archivos adjuntos (fotos/audios) para no saturar la base de datos principal.</td>
-    </tr>
-    <tr>
-      <td><strong>sync_queue</strong></td>
-      <td><code>task_payload</code></td>
-      <td>Cola de tareas "Offline-First". Guarda mensajes para enviarlos cuando recuperes la cobertura.</td>
-    </tr>
-    <tr>
-      <td><strong>app_settings</strong></td>
-      <td><code>config_key</code></td>
-      <td>Preferencias de usuario no sensibles (tema oscuro, configuración de notificaciones).</td>
-    </tr>
-  </tbody>
-</table>
-<p align="center"><img src="./images/tabla_bd.png" /></p>
-
-
-## 4. Boceto Conceptual de la Interfaz
-
-A continuación se presenta el flujo visual de la aplicación, diseñado para ser minimalista y centrado en la privacidad desde el primer momento.
-
-<p align="center"><img src="./images/mock.png" width="500"/></p>
-
-### Descripción de Pantallas y Flujo de Usuario
-
-El diseño de **Hermnet** sigue una filosofía de "Privacidad por Defecto", guiando al usuario a través de un proceso seguro y transparente:
-
-1.  **Inicio (Bienvenida)**:
-    *   Pantalla minimalista con el logotipo de Hermnet.
-    *   Botón único: **"Generar Clave Privada"**. Deja claro que no hay registro en servidor, sino generación local de credenciales.
-
-2.  **Generación de Identidad ("Identidad Matemática")**:
-    *   Pantalla educativa que explica el cambio de paradigma: "Olvida los correos y contraseñas".
-    *   Barra de progreso indicando "Generando Clave Privada...", mostrando que el dispositivo está calculando las llaves criptográficas en ese instante.
-
-3.  **Lista de Chats (Home)**:
-    *   Barra de búsqueda superior para filtrar contactos y acceso rápido a **Ajustes** (engranaje).
-    *   Lista limpia de contactos recientes.
-    *   Botón flotante con el escudo de Hermnet para acciones principales (nuevo chat).
-
-4.  **Chat Individual**:
-    *   Interfaz oscura para reducir fatiga visual (*Dark Mode* nativo).
-    *   Burbujas de mensaje diferenciadas por color.
-    *   Cabecera con el nombre/alias del contacto y botón de retorno.
-
-5.  **Ajustes**:
-    *   Menú organizado en secciones: Cuenta, Soporte y Datos.
-    *   Opciones críticas visibles: **Transferir Archivos**, **Cerrar Sesión** y zona de peligro con **Eliminar Cuenta** (botón rojo), garantizando el derecho al olvido.
-
-6.  **Seguridad al Compartir (QR)**:
-    *   Modal de alerta antes de mostrar el código QR personal.
-    *   Mensaje: **"¿Estás seguro de compartir tu QR?"**. Añade una capa de fricción intencional para evitar compartir la identidad por error o bajo coacción.
+Hermnet demuestra integración real entre móvil, backend, criptografía aplicada, persistencia local, seguridad operativa y experiencia de usuario. Es un proyecto adecuado para evaluación académica y para mostrar en portfolio profesional porque cubre arquitectura, producto, calidad de código, testing y documentación.

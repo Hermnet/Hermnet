@@ -1,83 +1,75 @@
-# Diagrama de Casos de Uso del Sistema Hermnet
-
-Este diagrama representa las interacciones funcionales del sistema Hermnet, diseñado bajo la arquitectura de "Servidor Ciego" (Blind Server). En este modelo, el servidor actúa únicamente como un intermediario de transporte ciego, sin conocimiento del contenido de los mensajes ni de la identidad real de los usuarios.
+# Casos de Uso
 
 ```mermaid
 flowchart TD
-    classDef actor fill:#E1E1E1,stroke:#333,stroke-width:2px,color:#000,font-weight:bold
-    classDef identidad fill:#00A3FF,stroke:#005E93,stroke-width:2px,color:#fff,font-weight:bold
-    classDef transaccion fill:#00E676,stroke:#008F49,stroke-width:2px,color:#000,font-weight:bold
-    classDef mantenimiento fill:#FF5252,stroke:#A30000,stroke-width:2px,color:#fff,font-weight:bold
-    classDef sistema fill:#121212,stroke:#00A3FF,stroke-width:1px,color:#00A3FF,stroke-dasharray: 5 5
+    User((Usuario móvil))
+    Backend[Backend Spring Boot]
+    DB[(PostgreSQL)]
+    Local[(SQLite + SecureStore)]
+    FCM[Firebase FCM opcional]
 
-    %% Actores Externos
-    User((Usuario Móvil)):::actor
-    PushServer((Servidor FCM/APNs)):::actor
-    CronJob((Scheduler Sistema)):::actor
+    User --> UC1[Crear identidad local]
+    UC1 --> Local
+    UC1 --> UC2[Registrar publicKey]
+    UC2 --> Backend --> DB
 
-    subgraph ServidorCiego [HERMNET BACKEND - NÚCLEO SEGURO]
-        direction TB
-        
-        subgraph GrupoIdentidad [Acceso y Seguridad]
-            UC1([Registro Identidad<br/>ID Hash + PubKey]):::identidad
-            UC2([Autenticación<br/>Challenge-Response]):::identidad
-            UC5([Revocación JWT<br/>Blacklist]):::identidad
-        end
+    User --> UC3[Iniciar sesión]
+    UC3 --> UC4[Firmar challenge]
+    UC4 --> Backend
 
-        subgraph GrupoMensajeria [Transporte de Paquetes]
-            UC3([Envio Stego-Packet<br/>Validación 1.5MB]):::transaccion
-            UC4([Descarga Mensajes<br/>Entrega y Purga]):::transaccion
-        end
+    User --> UC5[Escanear QR]
+    UC5 --> Local
 
-        subgraph GrupoLimpieza [Mantenimiento Crítico]
-            UC6([Purga por TTL<br/>Borrado tras 48h]):::mantenimiento
-        end
-    end
+    User --> UC6[Enviar mensaje]
+    UC6 --> UC7[Cifrar E2EE]
+    UC7 --> Backend
+    Backend --> DB
+    Backend -. push ciega .-> FCM
 
-    %% Relaciones de Usuario
-    User ==> UC1
-    User ==> UC2
-    User ==> UC3
-    User ==> UC4
-    User ==> UC5
+    User --> UC8[Sincronizar inbox]
+    UC8 --> Backend
+    Backend --> UC9[Devolver payloads opacos]
+    UC9 --> UC10[Descifrar localmente]
+    UC10 --> Local
+    UC10 --> UC11[ACK de mensajes]
+    UC11 --> Backend
 
-    %% Relaciones de Sistema
-    UC3 -.->|Notificación Ciega| PushServer
-    CronJob ==> UC6
-    UC4 -.->|Eliminación Instantánea| Mailbox[(DB Mailbox)]
-
-    %% Notas de Seguridad
-    note1[Validación: Magic Number PNG] --- UC3
-    note2[Límite: Máx 50 msg/user] --- UC3
-
-    %% Estilo del contenedor principal
-    style ServidorCiego fill:#0D1117,color:#fff,stroke-width:3px
+    User --> UC12[Exportar backup .hnet]
+    UC12 --> Local
 ```
 
-## Descripción de Actores
+## Actores
 
-*   **Usuario Móvil**: El cliente final que utiliza la aplicación Hermnet. Posee la clave privada RSA necesaria para descifrar los payloads cifrados extremo a extremo dirigidos a su HNET-id.
-*   **Servidor FCM/APNs**: Servicios externos de notificación (Firebase / Apple) que reciben alertas de "Nuevo Mensaje" sin contenido sensible, solo para despertar la aplicación del destinatario.
-*   **Scheduler Sistema (CronJob)**: Un proceso interno del servidor que se ejecuta periódicamente para mantener la higiene y seguridad de la base de datos.
+- **Usuario móvil**: crea identidad, añade contactos, envía y recibe mensajes.
+- **Backend**: autentica, transporta payloads cifrados y limpia datos temporales.
+- **Firebase FCM**: opcional; solo despierta la app con una señal vacía.
 
-## Descripción de Casos de Uso
+## Casos Principales
 
-El sistema se divide en tres grupos lógicos para garantizar la seguridad y el rendimiento:
+### Crear Identidad
 
-### 1. Grupo de Identidad (Acceso y Seguridad)
-Este módulo gestiona la confianza cero entre el cliente y el servidor.
+La app genera RSA-2048 localmente, deriva el HNET-id desde la clave pública y guarda la identidad en SecureStore.
 
-*   **Registro de Identidad**: El usuario registra su `ID Hash` (un identificador anónimo) y su `Public Key`. No se almacenan correos, teléfonos ni contraseñas.
-*   **Autenticación (Challenge-Response)**: Para iniciar sesión, el servidor envía un "reto" (nonce aleatorio) que el usuario debe firmar con su clave privada. Esto permite autenticar sin jamás enviar la clave privada por la red.
-*   **Revocación (Blacklist)**: Permite invalidar tokens JWT comprometidos o cerrar sesiones activas, añadiéndolos a una lista negra (`BlacklistedToken`) en el servidor.
+### Autenticarse
 
-### 2. Grupo de Mensajería (Transporte de Paquetes)
-El núcleo de la funcionalidad de "buzón muerto" (Dead Drop).
+El usuario firma un nonce temporal. El servidor verifica la firma y emite JWT.
 
-*   **Envío de Stego-Packet**: El usuario sube una imagen (PNG) que contiene el mensaje cifrado oculto. El servidor valida que sea una imagen válida y que no supere el tamaño máximo (1.5MB), pero **no puede** leer el contenido.
-*   **Descarga de Mensajes**: El usuario consulta su buzón usando su hash. Al descargar los mensajes, estos pueden ser opcionalmente eliminados del servidor inmediatamente para garantizar *Forward Secrecy*.
+### Añadir Contacto
 
-### 3. Grupo de Limpieza (Mantenimiento Crítico)
-Procesos automáticos para evitar la retención de datos.
+El usuario escanea un QR con HNET-id y clave pública. La app recalcula el fingerprint y rechaza claves que no correspondan al ID.
 
-*   **Purga por TTL (Time-to-Live)**: El scheduler elimina automáticamente cualquier mensaje o challenge de autenticación que tenga más de 48 horas de antigüedad, asegurando que el servidor no se convierta en un historial permanente de comunicaciones.
+### Enviar Mensaje
+
+La app cifra el sobre con AES-256-GCM + RSA-OAEP-SHA256, guarda copia local y envía el payload opaco al backend.
+
+### Recibir Mensaje
+
+La app descarga payloads, descifra localmente, valida anti-spoofing/anti-replay, guarda en SQLite y envía ACK.
+
+### Usar Offline
+
+Si no hay red, los envíos quedan en `sync_queue` y se reintentan cuando vuelve la conexión.
+
+### Exportar/Importar Backup
+
+`RecoveryService` genera un archivo `.hnet` cifrado con PBKDF2 + AES-256-GCM.

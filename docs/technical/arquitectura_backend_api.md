@@ -1,89 +1,89 @@
-## Arquitectura Backend y Definición de API
+# Arquitectura Backend y API
 
-<div style="text-align: justify; text-indent: 20px;">
+El backend de Hermnet es un servidor ciego. Su responsabilidad es autenticar usuarios, transportar payloads cifrados y limpiar datos temporales. No conoce el contenido de los mensajes.
 
+## 1. Componentes
 
-## 1. Función y Responsabilidad del Servidor
+| Paquete | Responsabilidad |
+|---|---|
+| `controller` | Expone endpoints REST |
+| `service` | Lógica de autenticación, usuarios, notificaciones, retención y revocación |
+| `repository` | Acceso a datos con Spring Data JPA |
+| `model` | Entidades JPA |
+| `dto` | Contratos de entrada/salida con validación |
+| `security` | JWT y filtro de autenticación |
+| `config` | CORS, filtros, Firebase, migraciones y anonimización IP |
 
-El servidor de Hermnet implementa una arquitectura de **"Dumb Relay" (Relé Pasivo)**. Su función se limita estrictamente al transporte y almacenamiento temporal de blobs de datos cifrados, desacoplando la lógica de seguridad y negocio, que reside en el cliente (Thick Client).
+## 2. Endpoints
 
-El backend no procesa, no indexa y no analiza el contenido de los mensajes. Actúa como un búfer de sincronización asíncrona entre pares.
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | No | Registra HNET-id, clave pública y push token opcional |
+| `POST` | `/api/auth/challenge` | No | Genera nonce temporal para login |
+| `POST` | `/api/auth/login` | No | Verifica firma RSA y devuelve JWT |
+| `POST` | `/api/auth/refresh` | Bearer | Revoca token actual y emite uno nuevo |
+| `POST` | `/api/auth/logout` | Bearer | Revoca token actual |
+| `POST` | `/api/messages` | JWT | Guarda un payload cifrado para el receptor |
+| `GET` | `/api/messages?myId=...` | JWT | Devuelve payloads cifrados pendientes |
+| `POST` | `/api/messages/ack` | JWT | Borra mensajes ya procesados por el receptor |
 
-### A. Autenticación (Protocolo Challenge-Response)
-*   **POST /api/v1/auth/challenge**
-    *   **Input:** `{ "id_hash": "HNET-7a..." }`
-    *   **Lógica:** Genera un nonce aleatorio, lo guarda en `auth_challenges` y lo devuelve.
-    *   **Output:** `{ "nonce": "a1b2...", "expires_in": 30 }`
-*   **POST /api/v1/auth/verify**
-    *   **Input:** `{ "id_hash": "...", "signature": "..." }`
-    *   **Lógica:** Verifica la firma Ed25519 con la `public_key`. Si es válida, emite JWT.
-    *   **Output:** `{ "token": "eyJhbGci...", "refresh_token": "..." }`
+## 3. Seguridad
 
-### B. Gestión de Identidad
-*   **POST /api/v1/users/register**
-    *   **Input:** `{ "id_hash": "...", "public_key": "..." }`
-    *   **Lógica:** Registra al usuario en el directorio público users.
-*   **PUT /api/v1/users/push-token**
-    *   **Header:** `Authorization: Bearer <JWT>`
-    *   **Input:** `{ "push_token": "fcm_token_..." }`
-    *   **Lógica:** Asocia el token de notificación al hash del usuario para las alertas ciegas.
+- Sesiones stateless.
+- CSRF desactivado para API REST.
+- `/api/auth/**` público; `/api/messages/**` autenticado.
+- JWT HS256 con `jti`.
+- Blacklist de tokens revocados.
+- Rate limit por cliente anonimizado.
+- IP anonimizada antes de aplicar rate limit.
+- CORS configurable por `CORS_ALLOWED_ORIGINS`.
 
-### C. Transporte de Mensajes (Mailbox)
-*   **POST /api/v1/messages/send**
-    *   **Header:** `Authorization: Bearer <JWT>`
-    *   **Type:** Multipart/Form-Data
-    *   **Input:** file (Imagen PNG 1.5MB), `recipient_hash`.
-    *   **Lógica:**
-        1.  Verifica tamaño exacto (1.5MB).
-        2.  Guarda el BLOB en `mailbox`.
-        3.  Dispara "Blind Push" al destinatario.
-    *   **Output:** 200 OK.
-*   **GET /api/v1/messages/sync**
-    *   **Header:** `Authorization: Bearer <JWT>`
-    *   **Lógica:** Busca en mailbox mensajes donde `recipient_hash == user.id`.
-    *   **Output:** Array de imágenes PNG.
-*   **POST /api/v1/messages/ack**
-    *   **Input:** `{ "message_ids": [101, 102] }`
-    *   **Lógica:** Borrado físico inmediato de los mensajes entregados.
+## 4. Mensajes
 
-## 2. Seguridad de Red y Anonimato (Puntos 10 y 12)
+El servidor recibe:
 
-### A. El Escudo Ciego (IP Anonymization) [Punto 10]
-El servidor nunca debe conocer la IP real del usuario de forma persistente.
-*   **Filtro de Aplicación:** Antes de llegar al Controlador, un Filter intercepta la petición.
-*   **Hashing Diario:**
-    *   Calculamos:
-    *   $$Hash = \text{SHA-256}(\text{IP Real} + \text{Salt del Día})$$
-    *   El "Salt" se rota cada 24 horas automáticamente.
-*   **Uso:** Este hash solo se usa para el Rate Limiting (evitar ataques DDoS) durante el día. Al día siguiente, es imposible vincular la actividad pasada con la IP.
-*   **Zero-Log Policy:** Configuración de Logback para excluir `%ip` y `X-Forwarded-For`.
+```json
+{
+  "recipientId": "HNET-...",
+  "payload": "base64..."
+}
+```
 
-### B. Gestión de Tokens (JTI y Blacklist) [Punto 12]
-Para mitigar el robo de sesiones:
-*   **JTI Único:** Cada JWT emitido lleva un ID único (uuid).
-*   **Middleware de Validación:** En cada request, el servidor comprueba si el `jti` está en la tabla `token_blacklist`.
-*   **Si está en la lista negra** $\rightarrow$ 401 Unauthorized (aunque la fecha de expiración sea válida).
-*   **Rotación Silenciosa (Silent Refresh):**
-    *   Los tokens duran muy poco (ej. 5 min).
-    *   Cuando falta 1 minuto, la app pide uno nuevo automáticamente.
-    *   El servidor invalida el anterior (lo mete en la Blacklist) y entrega el nuevo.
+Guarda el payload como `bytea` en `mailbox`. El payload es opaco: no se parsea, no se descifra y no se indexa por contenido.
 
-## 3. Notificaciones Push Ciegas (Blind Push) [Punto 13]
-El reto es avisar sin revelar nada a Google/Apple.
+Al leer, el servidor devuelve `MailboxMessageResponse` con:
 
-*   **Trigger:** El servidor recibe un POST en `/messages/send`.
-*   **Payload Vacío:** Construye una notificación que NO contiene texto, ni nombre del emisor, ni preview de la imagen.
-*   **JSON enviado a FCM/APNs:** `{ "action": "sync_new_msg" }`.
-*   **Efecto en el Móvil:**
-    *   La notificación no muestra nada en pantalla.
-    *   Despierta a la app en segundo plano (Background Task).
-    *   La app descarga el payload cifrado y lo descifra localmente con la clave privada.
-    *   Solo entonces la app lanza una notificación local: "Tienes un nuevo mensaje cifrado".
+- `payload`;
+- `createdAt`.
 
-## 4. Política de Privacidad Técnica (Data Sanitization)
+El cliente usa `createdAt` como cutoff de ACK para evitar borrar mensajes que llegaron durante una sincronización.
 
-El servidor implementa medidas activas para minimizar la huella de datos:
-*   **Cero Inspección del Payload:** El servidor jamás decodifica el campo `payload` cifrado; lo persiste y reenvía como un blob binario opaco. Cualquier intento de inspección sería estéril (AES-GCM produce ciphertext indistinguible de ruido aleatorio).
-*   **Integridad de Byte:** Garantía de inmutabilidad del payload — se devuelve byte-exact al receptor para que la verificación de `authTag` GCM tenga éxito.
+## 5. Firebase
 
-</div>
+Firebase Admin SDK es opcional en desarrollo.
+
+Si no hay credenciales:
+
+- el backend arranca;
+- `NotificationService` omite el envío de push;
+- la mensajería sigue funcionando por polling.
+
+Si hay credenciales, el backend envía una push data-only con:
+
+```json
+{ "action": "SYNC_REQUIRED" }
+```
+
+## 6. Retención de Datos
+
+`DataRetentionScheduler` limpia periódicamente:
+
+- mensajes antiguos en `mailbox`;
+- challenges expirados;
+- tokens revocados ya expirados.
+
+La app confirma entrega con `/api/messages/ack`, por lo que el servidor no se convierte en historial permanente.
+
+## 7. Calidad
+
+`mvn verify` ejecuta tests y JaCoCo. El build falla si la cobertura de líneas del backend baja del 98%.

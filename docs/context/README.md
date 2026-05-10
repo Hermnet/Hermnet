@@ -1,23 +1,23 @@
-# Contexto para Claude
+# Contexto Interno del Proyecto
 
-Índice de archivos. Lee SOLO los que necesites según la tarea.
+Estos archivos son notas rápidas para mantenimiento. La documentación pública vive en `README.md` y `docs/technical/`.
 
-| Archivo | Cuándo leerlo |
+| Archivo | Uso |
 |---|---|
-| `project_overview.md` | Qué es Hermnet, objetivos, usuarios |
-| `stack.md` | Lenguajes, frameworks, librerías clave |
-| `backend.md` | Endpoints REST, modelo BD, filters, seguridad |
-| `frontend.md` | Estructura Expo Router, services, screens, store |
-| `auth_flow.md` | Registro, challenge, login JWT |
-| `messaging_flow.md` | Envío/recepción de mensajes con cifrado híbrido |
-| `crypto.md` | Primitivas crypto y libs usadas |
-| `dev_setup.md` | Cómo arrancar back/front, IPs, puertos |
-| `conventions.md` | Commits, idioma, workflow git |
-| `status.md` | Qué está implementado y qué falta (ACTUALIZABLE) |
-| `recent_fixes.md` | Bugs ya arreglados para no repetir investigación (ACTUALIZABLE) |
+| `project_overview.md` | Visión, objetivos y alcance |
+| `stack.md` | Stack y versiones principales |
+| `backend.md` | API, seguridad y persistencia backend |
+| `frontend.md` | Estructura de app, servicios y pantallas |
+| `auth_flow.md` | Registro, challenge, login, refresh y PIN |
+| `messaging_flow.md` | Envío, recepción, ACK, cola y orden |
+| `crypto.md` | Primitivas y formato de cifrado |
+| `dev_setup.md` | Arranque local y comandos |
+| `conventions.md` | Convenciones de código y documentación |
+| `status.md` | Estado actual verificado |
+| `recent_fixes.md` | Bugs recientes resueltos |
 
-**Reglas**:
-- Mantén cada archivo < 50 líneas. Si crece, divide por tema.
-- Actualiza `status.md` y `recent_fixes.md` cuando terminen tareas relevantes.
-- No dupliques info que ya esté en `/docs/technical/`; en ese caso referencia el archivo original.
-- Documentación del proyecto en español, código en inglés.
+Reglas:
+
+- Mantener los archivos cortos.
+- Actualizar `status.md` al cerrar tareas grandes.
+- No duplicar detalles largos si ya están en `docs/technical/`.

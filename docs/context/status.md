@@ -1,47 +1,46 @@
-# Estado actual y pendiente
+# Estado Actual
 
-Última revisión: 2026-05-08. Actualizar al completar tareas.
+Última revisión: 2026-05-10.
+
+## Verificado
+
+- Backend `mvn verify`: correcto.
+- Cobertura backend JaCoCo: 99.28%.
+- Umbral backend obligatorio: 98% líneas.
+- Frontend `npx tsc --noEmit`: correcto.
+- Frontend Jest: 9 suites, 33 tests.
 
 ## Implementado
+
 ### Backend
-- Auth completo: `/api/auth/register`, `/challenge`, `/login` con JWT HS256 (incluye claim `jti`).
-- Refresh / logout: `/api/auth/refresh`, `/api/auth/logout` revocan el `jti` actual via `TokenBlacklistService`.
-- Mensajería: `POST /api/messages`, `GET /api/messages?myId=...`, `POST /api/messages/ack` (borra mensajes del usuario autenticado, opcional `cutoff`).
-- Filtros: anonimización IP, rate limit, JWT (consulta blacklist).
-- `DataRetentionScheduler` (limpieza cron de buzones, challenges y blacklist).
-- Integración Firebase FCM (`NotificationService`).
-- `jwt.secret` validado en arranque (≥256 bits, fail-fast); override por env `JWT_SECRET`.
-- CORS configurable vía `CORS_ALLOWED_ORIGINS`.
+
+- Registro, challenge, login, refresh y logout.
+- JWT HS256 con `jti` y blacklist.
+- Mensajería con buzón opaco: send, fetch, ack con cutoff.
+- Firebase opcional para push ciega.
+- IP anonymization con HMAC-SHA256 y sal rotativa.
+- Rate limit por cliente anonimizado.
+- Retención periódica de mailbox, challenges y blacklist.
+- Migración `stego_packet -> payload`.
 
 ### Frontend
-- Identity generation + SecureStore persistence.
-- PIN setup / login con hash local.
-- Home → PIN → LoadingScreen → mailbox/ChatsScreen navegación.
-- ApiClient con autodetección de URL y re-auth en 401.
-- QR sharing / scanner (`ShowQRScreen`, `QRScannerScreen`).
-- Ajustes (sub-pantallas Security, Privacy, Notifications, Accessibility, Help, Terms, Transfer — todas funcionales).
-- NetInfo wrapper.
-- **Personalización de chat** (`ChatCustomizationScreen`): color de burbujas salientes/entrantes, patrón de fondo (dots/grid/hexagons/diagonal/none), color del patrón, esquinas de burbujas (rounded/square). Usa `ChatPrefsContext` + `PrefsService`.
-- **Transiciones horizontales profesionales** (`useHorizontalSlide`): spring-based slide desde la derecha, estilo iOS/WhatsApp.
-- **Swipe-back gesture** en `ChatRoomScreen`: deslizar desde la izquierda cierra el chat revelando la lista de conversaciones detrás, con dimming animado y parallax.
-- **Onboarding carousel** actualizado: 5 diapositivas (Identidad Criptográfica, Cifrado Inquebrantable, Servidor Ciego, Contactos por QR, Bóveda Local) con animaciones únicas por slide.
-- **ChatBackground** con patrones SVG: dots, grid, hexagons, diagonal, none.
-- **RecoveryService** (.hnet): export/import identidad + contactos + mensajes con PBKDF2 + AES-256-GCM.
-- **AccessibilityContext**: font scale, high contrast mode, reduce motion.
 
-## Pendiente / por verificar
-- [x] ~~**ACK de mensajes**~~ → añadido `POST /api/messages/ack` (cutoff opcional). Falta cliente: que `MessageFlowService` lo invoque tras procesar.
-- [x] ~~**Refresh token / rotación**~~ → backend listo (`POST /api/auth/refresh`). Falta cliente: silent refresh periódico antes de expirar.
-- [x] **Chat flow real** en `ChatRoomScreen`: integración E2E con `MessageFlowService` (envío + recepción + dedup + estados pending/sent/failed + reintento).
-- [x] ~~**Recovery file .hnet**~~: implementado `RecoveryService.ts` (export/import con PBKDF2 + AES-256-GCM). `TransferScreen` y `HomeScreen` integrados con picker de archivos y diálogo de contraseña.
-- ~~**The Bridge (PC P2P)**~~: fuera del alcance del TFG.
-- [ ] **Tests frontend**: cobertura parcial; revisar y ampliar (backend ya en 121 tests verdes).
-- [x] ~~**CORS / hardening producción**~~: `jwt.secret` lee de env `JWT_SECRET` (fail-fast si vacío); DB credentials externalizadas; CORS configurable vía `CORS_ALLOWED_ORIGINS`.
-- [x] ~~**Settings funcionales**~~: todas las sub-pantallas son funcionales (Accessibility usa contexto real, Help tiene FAQ + mailto, Terms es contenido estático, Transfer integra RecoveryService).
-- [x] ~~**Limpiar warning SecureStore >2048 bytes**~~: resuelto en commit 73a3220 (identidad dividida en 3 keys separadas, cada una <2048 B).
-- [x] ~~**Personalización de chat**~~: implementado. `ChatCustomizationScreen` + `ChatPrefsContext` + `ChatBackground` SVG + integración en `MessageBubble`.
-- [x] ~~**Transiciones profesionales**~~: `useHorizontalSlide` reemplaza vault-reveal en navegación entre pantallas. Swipe-back gesture en ChatRoom.
-- [x] ~~**Onboarding carousel actualizado**~~: 5 slides con animaciones nuevas, contenido actualizado.
+- Identidad RSA-2048 local.
+- PIN local y biometría.
+- QR de contactos con validación anti-spoofing.
+- Cifrado híbrido E2EE.
+- Cola offline de mensajes.
+- ACK de inbox tras procesar.
+- Orden estable por `msg_id`.
+- Camuflaje visual de mensajes antiguos.
+- Chat list con unread count y preview camuflada.
+- Backup `.hnet`.
+- Ajustes, apariencia, seguridad y transferencia.
+- Tor-ready Android con fallback clearnet.
 
-## Bugs conocidos
-- Ver `recent_fixes.md` (arreglados).
+## Fuera de Alcance
+
+- Esteganografía PNG.
+- Deep links de invitación.
+- Cliente escritorio.
+- Silent refresh proactivo.

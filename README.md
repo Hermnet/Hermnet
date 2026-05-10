@@ -1,67 +1,149 @@
 <p align="center">
-  <img src="./docs/images/logo.png" alt="Hermnet Logo" width="500" style="filter: drop-shadow(0 0 0.5px white);"/>
+  <img src="./docs/images/logo.png" alt="Hermnet Logo" width="420" />
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
   <img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" />
-  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=spring&logoColor=white" />
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" />
   <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" />
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" />
-</p> 
-
-<h3 align="center"><em>Privacidad por Diseño y Cifrado de Extremo a Extremo</em></h3>
-
-<p align="center">  
-  <a href="./docs/anteproyecto.md"><strong>[Leer el Anteproyecto Completo]</strong></a>
 </p>
 
-<h3 align="center">Índice</h3>
+<h3 align="center"><em>Mensajería privada con servidor ciego y cifrado de extremo a extremo</em></h3>
 
+## Qué Es Hermnet
 
-| Módulo | Descripción Técnica |
-| :--- | :--- |
-| **[Especificación Detallada](./docs/technical/descripcion_detallada.md)** | **Documento Maestro:** Especificación técnica completa del sistema. |
-| **[Generación de Identidad](./docs/technical/generacion_identidad.md)** | Generación de claves Ed25519 y protección del almacén local. |
-| **[Protocolo de Autenticación](./docs/technical/protocolo_autenticacion.md)** | Protocolo Challenge-Response Zero-Knowledge. |
-| **[Intercambio de Claves P2P](./docs/technical/intercambio_claves_p2p.md)** | Vinculación segura mediante códigos QR y Deep Links. |
-| **[Esquema de Base de Datos](./docs/technical/esquema_base_datos.md)** | Estructura relacional del servidor y persistencia efímera. |
-| **[Cifrado Híbrido (E2EE)](./docs/technical/cifrado_hibrido_e2ee.md)** | Motor criptográfico híbrido (AES-256-GCM + RSA-OAEP). |
-| **[Arquitectura Backend API](./docs/technical/arquitectura_backend_api.md)** | Especificación de la API REST y políticas de privacidad. |
+Hermnet es una app móvil de mensajería privada desarrollada como proyecto final de DAM. Su idea principal es sencilla: el servidor transporta mensajes, pero no puede leerlos.
 
-<div style="text-align: justify; text-indent: 20px;">
+La identidad no depende de teléfono ni correo. Cada usuario genera en su dispositivo un par de claves RSA-2048. El identificador `HNET-...` se deriva de la clave pública, y los mensajes se cifran extremo a extremo con un esquema híbrido AES-256-GCM + RSA-OAEP-SHA256.
 
-**Hermnet** es una aplicación de mensajería instantánea desarrollada con un enfoque prioritario en la seguridad y la privacidad del usuario. A diferencia de las plataformas convencionales, Hermnet implementa una arquitectura de "Conocimiento Cero" en la que el servidor solo transporta blobs binarios cifrados sin poder leerlos.
+## Highlights Técnicos
 
-### Origen del Nombre
+- **Cifrado E2EE híbrido**: AES-256-GCM para el contenido y RSA-OAEP-SHA256 para encapsular la clave efímera.
+- **Servidor zero-knowledge**: Spring Boot solo guarda payloads cifrados opacos en un buzón temporal.
+- **Autenticación sin contraseña**: challenge-response firmado con la clave privada del usuario y JWT HS256 con blacklist por `jti`.
+- **Identidad sin datos personales**: no hay teléfono, email ni contraseñas en servidor.
+- **Base local cifrada**: historial, contactos y preferencias viven en SQLite local, con cifrado en reposo desde la app.
+- **Cola offline**: los envíos se encolan y reintentan cuando vuelve la conexión.
+- **Camuflaje visual de mensajes**: los mensajes antiguos se ocultan al reabrir el chat, manteniendo visibles los nuevos/no leídos.
+- **Blind push opcional**: Firebase puede despertar la app sin enviar texto ni preview del mensaje.
+- **Tor-ready en Android**: módulo nativo local para enrutar por hidden service cuando está disponible, con fallback clearnet.
+- **Calidad verificada**: backend con JaCoCo y umbral obligatorio de cobertura; frontend con TypeScript estricto y tests Jest.
 
-El nombre **Hermnet** surge de la combinación de dos conceptos clave que definen la identidad del proyecto:
+## Stack
 
-* **Herm**: Deriva de **Hermes**, el dios de la mitología griega, conocido como el mensajero de los dioses. También hace referencia al término **Hermético**, simbolizando un sistema cerrado, seguro e impenetrable.
-* **Net**: Abreviatura de **Network** (Red), en referencia a la infraestructura sobre la cual se construye el sistema.
+| Capa | Tecnología |
+|---|---|
+| App móvil | Expo SDK 54, React Native 0.81, TypeScript |
+| Criptografía móvil | `react-native-quick-crypto` con fallback JS controlado |
+| Estado/local | Zustand, Expo SecureStore, Expo SQLite |
+| Backend | Java 17, Spring Boot, Spring Security, Maven |
+| Base de datos servidor | PostgreSQL |
+| Tests | JUnit + JaCoCo, Jest + jest-expo, TypeScript strict |
 
-En conjunto, **Hermnet** representa una red de mensajería protegida, diseñada para asegurar que la comunicación fluya de manera eficiente y segura, resguardando la integridad de los datos en todo momento.
+## Arranque Rápido
 
-### Filosofía y Tecnología
+Requisitos principales:
 
-La premisa fundamental de Hermnet es que la privacidad no debe depender de la confianza en un tercero, sino de la solidez matemática y tecnológica.
+- Node.js + npm.
+- Java 17 o superior.
+- Maven.
+- Docker Desktop abierto.
+- Android Studio o Xcode si vas a compilar la app nativa.
 
-1. **Cifrado Híbrido E2EE**: Cada mensaje se cifra extremo a extremo combinando AES-256-GCM (contenido) y RSA-OAEP-SHA256 (clave de sesión). El servidor sólo ve un blob binario opaco.
-2. **Identidad Soberana**: El sistema no requiere datos personales (teléfono o correo). La identidad se basa exclusivamente en un par de claves RSA generadas en el dispositivo del usuario; el HNET-id es el fingerprint SHA-256 de la clave pública, verificable en cada intercambio.
-3. **Arquitectura "Zero Knowledge"**: El servidor actúa únicamente como un canal de transmisión ciego. No almacena historiales de chat, listas de contactos ni claves privadas.
+Después de clonar:
 
-### Objetivo del Proyecto
+```bash
+bash scripts/bootstrap.sh
+bash scripts/doctor.sh
+```
 
-El objetivo principal es proporcionar una herramienta robusta y accesible para usuarios que requieren un nivel elevado de confidencialidad, como periodistas, activistas o profesionales de la seguridad. Hermnet busca democratizar el acceso a tecnologías de privacidad avanzada, garantizando la confidencialidad, integridad y autenticidad de las comunicaciones en un entorno digital cada vez más vigilado.
+Arrancar backend:
 
-</div>
+```bash
+bash dev.sh backend
+```
 
----
+Arrancar Metro:
 
-<p align="center">
-  <strong>Desarrollado por:</strong><br>
-  <a href="https://github.com/franciscorodalf">@franciscorodalf</a>  •  <a href="https://github.com/alvarogrlp">@alvarogrlp</a>
-</p>
+```bash
+bash dev.sh metro
+```
+
+Compilar app nativa:
+
+```bash
+bash dev.sh android
+# o
+bash dev.sh ios
+```
+
+> Hermnet no está pensada para Expo Go porque usa módulos nativos. La primera vez hay que crear un development build con Android/iOS.
+
+Guía completa: [docs/guia_arranque.md](./docs/guia_arranque.md).
+
+## Firebase
+
+El JSON de Firebase Admin SDK es opcional en desarrollo. Si falta, el backend arranca igualmente y desactiva las push notifications.
+
+Para activar push, coloca el JSON en:
+
+```text
+backend/src/main/resources/hermnet-6d85d-firebase-adminsdk-fbsvc-fdf1bb4af7.json
+```
+
+O configura otra ruta en `backend/.env`:
+
+```env
+FIREBASE_SERVICE_ACCOUNT_PATH=/ruta/al/firebase-admin.json
+```
+
+El JSON no debe subirse a Git.
+
+## Verificación
+
+Backend:
+
+```bash
+cd backend
+mvn verify
+```
+
+El build falla si la cobertura de líneas del backend baja del 98%.
+
+Frontend:
+
+```bash
+cd frontend
+npx tsc --noEmit
+npm test -- --runInBand
+```
+
+Estado verificado en la última limpieza:
+
+- Backend: `mvn verify` correcto.
+- Cobertura backend: `99.28%`.
+- Frontend TypeScript: correcto.
+- Frontend tests: `9` suites, `33` tests.
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [Guía de arranque](./docs/guia_arranque.md) | Instalación, Firebase, comandos y problemas comunes |
+| [Descripción técnica](./docs/technical/descripcion_detallada.md) | Visión técnica completa del sistema |
+| [Cifrado híbrido E2EE](./docs/technical/cifrado_hibrido_e2ee.md) | Formato del paquete cifrado y flujo crypto |
+| [Autenticación](./docs/technical/protocolo_autenticacion.md) | Challenge-response, JWT y PIN local |
+| [Arquitectura backend](./docs/technical/arquitectura_backend_api.md) | API REST, seguridad y servidor ciego |
+| [Base de datos](./docs/technical/esquema_base_datos.md) | Tablas del backend y SQLite local |
+| [Intercambio de claves](./docs/technical/intercambio_claves_p2p.md) | QR, fingerprint y validación anti-spoofing |
+| [Casos de uso](./docs/technical/casos-uso.md) | Funcionalidades principales del sistema |
+
+## Autoría
+
+Proyecto desarrollado por:
+
+- [@franciscorodalf](https://github.com/franciscorodalf)
+- [@alvarogrlp](https://github.com/alvarogrlp)

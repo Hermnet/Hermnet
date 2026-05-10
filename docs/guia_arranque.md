@@ -1,162 +1,182 @@
-# Guía de arranque del proyecto (Backend + Frontend)
+# Guía de Arranque
 
-Esta guía está pensada para levantar Hermnet en local de forma rápida y sin sorpresas.
+Esta guía está pensada para clonar Hermnet en una máquina nueva y dejarlo listo para desarrollar sin pelearse con la configuración.
 
-## 1) Requisitos previos
+## 1. Requisitos
 
-- **Git**
-- **Docker Desktop** (para PostgreSQL)
-- **Java 21**
-- **Maven 3.9+**
-- **Node.js 18+** (recomendado LTS)
-- **npm 9+**
-- **Emulador Android** (Android Studio) o **Simulador iOS** (Xcode, solo macOS)
-- ⚠️ **Expo Go no es compatible** — la app usa módulos nativos (`react-native-quick-crypto`, `expo-local-authentication`) que requieren un development build
+- Git.
+- Node.js + npm.
+- Java 17 o superior.
+- Maven.
+- Docker Desktop.
+- Android Studio con emulador si vas a probar Android.
+- Xcode si vas a probar iOS.
 
-## 2) Estructura y puertos
+Hermnet no funciona en Expo Go porque usa módulos nativos. Hay que compilar un development build con `expo run:android` o `expo run:ios`.
 
-- Backend Spring Boot: `http://localhost:8080`
-- Base de datos PostgreSQL (Docker): `localhost:5432`
-- Frontend Expo: puerto dinámico de Expo (según CLI)
+## 2. Inicialización Recomendada
 
-## 3) Arrancar backend
+Desde la raíz del repositorio:
 
-### 3.1 Levantar PostgreSQL con Docker
+```bash
+bash scripts/bootstrap.sh
+bash scripts/doctor.sh
+```
 
-Desde la carpeta `backend`:
+`bootstrap.sh` prepara el entorno:
+
+- crea `backend/.env` desde `backend/.env.example` si no existe;
+- crea `frontend/.env` desde `frontend/.env.example` si no existe;
+- detecta la IP local y actualiza `EXPO_PUBLIC_DEV_MACHINE_IP`;
+- instala dependencias del frontend si falta `node_modules`;
+- comprueba herramientas base;
+- avisa si falta el JSON de Firebase.
+
+`doctor.sh` revisa el estado del entorno y marca en verde/amarillo/rojo lo que falta.
+
+## 3. Firebase
+
+Firebase es opcional para desarrollo. Si no configuras el JSON, el backend arranca igual y solo desactiva las push notifications.
+
+Para activar push notifications, coloca el JSON descargado en:
+
+```text
+backend/src/main/resources/hermnet-6d85d-firebase-adminsdk-fbsvc-fdf1bb4af7.json
+```
+
+O apunta a otra ruta desde `backend/.env`:
+
+```env
+FIREBASE_SERVICE_ACCOUNT_PATH=/ruta/absoluta/firebase-admin.json
+```
+
+El JSON no se sube a Git.
+
+## 4. Arrancar Backend
+
+Desde la raíz:
+
+```bash
+bash dev.sh backend
+```
+
+Este comando levanta PostgreSQL con Docker y arranca Spring Boot en:
+
+```text
+http://localhost:8080
+```
+
+Si prefieres hacerlo manual:
 
 ```bash
 cd backend
 docker compose up -d
-```
-
-Con esta configuración:
-- DB: `hermnet_blind_db`
-- Usuario: `alvaro_admin`
-- Password: `alvaro_admin`
-
-### 3.2 Configurar variables obligatorias (JWT + Firebase)
-
-El backend necesita:
-
-1. **JWT secret** válido (recomendado mínimo 32 caracteres).
-2. **Credenciales Firebase** (para inicializar `FirebaseApp`).
-
-En macOS/Linux, en la **misma terminal** donde arrancas el backend:
-
-```bash
-export JWT_SECRET='cambia-esto-por-una-clave-larga-y-segura-de-32-o-mas-caracteres'
-export FIREBASE_SERVICE_ACCOUNT_PATH='/ruta/absoluta/a/tu/hermnet-*-firebase-adminsdk-*.json'
-```
-
-Notas importantes sobre Firebase:
-
-- El fichero JSON **no debe subirse al repositorio**. Ya existe una entrada en `.gitignore` (`backend/src/main/resources/*firebase-adminsdk-*.json`) que lo protege.
-- Guarda ese JSON solo en tu máquina (por ejemplo en `backend/src/main/resources/` o en otra ruta segura) y apunta `FIREBASE_SERVICE_ACCOUNT_PATH` a su ruta absoluta.
-- Spring Boot mapea `FIREBASE_SERVICE_ACCOUNT_PATH` → `firebase.service.account.path`, que es lo que lee `FirebaseConfig`.
-
-### 3.3 Ejecutar API Spring Boot
-
-Desde `backend`:
-
-```bash
 mvn spring-boot:run
 ```
 
-Si prefieres pasar las propiedades explícitamente por línea de comando:
+## 5. Arrancar Frontend
+
+En otra terminal:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments="--jwt.secret=$JWT_SECRET --firebase.service.account.path=$FIREBASE_SERVICE_ACCOUNT_PATH"
+bash dev.sh metro
 ```
 
-Cuando arranque bien, la API quedará disponible en `http://localhost:8080`.
-
-## 4) Arrancar frontend (Expo)
-
-> ⚠️ **Importante:** la app usa módulos nativos (`react-native-quick-crypto`, `expo-local-authentication`) que **no funcionan en Expo Go**. Es obligatorio usar un development build con `expo run:android` / `expo run:ios`. Solo hay que hacerlo **una vez**; las siguientes sesiones pueden arrancar con `npx expo start` sobre la build ya instalada.
-
-Desde la carpeta `frontend`:
+Primera compilación nativa:
 
 ```bash
-cd ../frontend
-npm install
+bash dev.sh android
+# o
+bash dev.sh ios
 ```
 
-Configura la URL del backend (el cliente usa `EXPO_PUBLIC_API_BASE_URL`):
+Después de compilar una vez, normalmente basta con dejar Metro abierto y recargar la app.
+
+## 6. Atajos
+
+Backend + Metro:
 
 ```bash
-export EXPO_PUBLIC_API_BASE_URL='http://localhost:8080'
+bash dev.sh
 ```
 
-### Primera vez (o tras instalar nuevas dependencias nativas)
-
-Compila e instala la app con los módulos nativos enlazados:
+Solo backend:
 
 ```bash
-# Android (emulador o dispositivo físico)
-npx expo run:android
-
-# iOS (solo macOS, simulador o dispositivo)
-npx expo run:ios
+bash dev.sh backend
 ```
 
-### Arranques posteriores
-
-Una vez instalada la build nativa, basta con:
+Solo Metro:
 
 ```bash
-npx expo start
+bash dev.sh metro
 ```
 
-## 5) Importante según dónde corra la app
-
-- **iOS Simulator (macOS):** suele funcionar `http://localhost:8080`.
-- **Android Emulator:** usa normalmente `http://10.0.2.2:8080`.
-- **Dispositivo físico:** usa la IP de tu máquina en LAN, por ejemplo `http://192.168.1.50:8080`.
-
-Ejemplo para Android Emulator:
+Actualizar IP local si cambias de WiFi:
 
 ```bash
-export EXPO_PUBLIC_API_BASE_URL='http://10.0.2.2:8080'
+bash scripts/bootstrap.sh
 ```
 
-## 6) Comprobaciones rápidas
-
-- API viva:
+O solo la IP:
 
 ```bash
-curl -i http://localhost:8080/api/auth/challenge
+bash set-local-ip.sh
 ```
 
-Debe responder (aunque sea 400/405 según método/body), lo importante es que el servidor conteste.
-
-- Frontend apuntando a la API correcta: revisa que `EXPO_PUBLIC_API_BASE_URL` coincide con tu entorno (simulador/dispositivo).
-
-## 7) Ejecutar tests (opcional)
+## 7. Verificación
 
 Backend:
 
 ```bash
 cd backend
-mvn test
+mvn verify
 ```
 
 Frontend:
 
 ```bash
 cd frontend
-npm test
+npx tsc --noEmit
+npm test -- --runInBand
 ```
 
-## 8) Problemas comunes
+## 8. Problemas Comunes
 
-- **Error JWT / firma inválida:** define `JWT_SECRET` largo y estable.
-- **Fallo al iniciar Firebase:** revisa ruta/permisos de `service-account.json` o `GOOGLE_APPLICATION_CREDENTIALS`.
-- **El móvil no conecta con localhost:** usa IP LAN de tu Mac, no `localhost`.
-- **Puerto 5432 ocupado:** cambia el mapeo en `backend/docker-compose.yml` o libera el puerto.
-- **"NitroModules not found" o rutas sin default export:** estás arrancando con Expo Go. Ejecuta `npx expo run:android` (o `run:ios`) para compilar el development build con los módulos nativos. Después ya puedes usar `npx expo start`.
-- **Cambios en dependencias nativas sin efecto:** si instalas un nuevo paquete con módulo nativo, vuelve a ejecutar `npx expo run:android` / `run:ios` para recompilar.
+### El móvil no conecta con el backend
 
----
+- Android Emulator usa normalmente `http://10.0.2.2:8080`.
+- iOS Simulator suele aceptar `http://localhost:8080`.
+- Dispositivo físico necesita la IP LAN de tu máquina, por ejemplo `http://192.168.1.50:8080`.
 
-Si quieres, puedo añadir una segunda guía tipo "comando único" con scripts (`Makefile` o scripts npm) para levantar todo con 1-2 comandos.
+El script `bootstrap.sh` intenta dejar esta IP preparada en `frontend/.env`.
+
+### Error NitroModules o módulo nativo no encontrado
+
+Estás usando Expo Go o una build vieja. Ejecuta:
+
+```bash
+bash dev.sh android
+# o
+bash dev.sh ios
+```
+
+Cada vez que instales o cambies dependencias nativas, recompila la app.
+
+### Firebase no arranca
+
+En desarrollo no bloquea el backend. Si quieres push notifications, revisa que `FIREBASE_SERVICE_ACCOUNT_PATH` apunta a un JSON real.
+
+### Puerto 5432 ocupado
+
+PostgreSQL local o Docker ya están usando el puerto. Libera el puerto o cambia el mapeo en `backend/docker-compose.yml`.
+
+### Cambia la red WiFi y deja de funcionar
+
+Ejecuta:
+
+```bash
+bash scripts/bootstrap.sh
+```
+
+Esto actualiza `EXPO_PUBLIC_DEV_MACHINE_IP`.

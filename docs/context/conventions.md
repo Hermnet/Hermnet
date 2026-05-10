@@ -1,33 +1,32 @@
-# Convenciones del proyecto
+# Convenciones
 
 ## Idioma
-- **Documentación y commits** en español.
-- **Código** (nombres, comentarios) en inglés.
-- Textos visibles en la UI en español.
 
-## Commits
-Estilo observado en `git log`:
-- `Se añade <cosa> #<issue>`
-- `<Acción imperativa descriptiva> #<issue>` (p. ej. `Conectar front`, `Optimizacion frontend`)
-- SIEMPRE terminan con `#<numero-issue>`.
-- Autor: `alvarogrlp <alvarogarciaprof@gmail.com>`.
-- **No añadir** `Co-Authored-By: Claude`.
+- Documentación en español.
+- UI en español.
+- Código, nombres de variables y APIs internas en inglés.
 
-## Workflow Git
-- Rama principal: `main` (protegida; normalmente se mergea vía PR).
-- PRs con plantilla `Se añade ... #<issue> (#<pr>)`.
-- Rebase preferido sobre merge commits para mantener historial lineal.
+## Código
 
-## Issues
-- Existen issues numerados (#54, #56, #58, #59, #60, #61, #62...). Cada commit debe vincular al issue relevante.
-- No tengo acceso directo a GitHub Issues vía `gh` (requiere auth). Pedir al usuario el contexto si hace falta.
+- Mantener cambios acotados.
+- Preferir patrones existentes del repo.
+- Añadir comentarios solo cuando expliquen una decisión no obvia.
+- No subir secretos, `.env` reales ni JSON de Firebase.
+
+## Git
+
+- Rama principal: `main`.
+- Evitar incluir artefactos generados (`build/`, `.gradle/`, `.expo/`, etc.).
+- Antes de enseñar/subir el repo, revisar `git status --short`.
 
 ## Tests
-- Frontend: Jest + `jest-expo`, suite en `frontend/__tests__/`.
-- Backend: JUnit (estándar Spring Boot) — revisar `backend/src/test/` si existe.
-- Actualmente no bloquean pipeline visible.
 
-## Estilo
-- **Sin comentarios evidentes** — solo cuando el "por qué" no es obvio.
-- **No añadir** features, refactors o abstracciones no pedidas.
-- **No** escribir archivos `.md` de resumen de cambios salvo que se pidan.
+- Backend: `mvn verify`.
+- Frontend tipos: `npx tsc --noEmit`.
+- Frontend tests: `npm test -- --runInBand`.
+
+## Documentación
+
+- `README.md` debe ser la portada pública.
+- `docs/guia_arranque.md` debe ser la guía práctica de setup.
+- `docs/technical/` debe describir la implementación real, no ideas antiguas.

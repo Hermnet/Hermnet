@@ -1,29 +1,34 @@
-# Flujo de mensajería
-
-Orquestado en `MessageFlowService` (frontend). Servidor opaco: `byte[]` in / `byte[]` out.
+# Flujo de Mensajería
 
 ## Envío
-1. Usuario escribe mensaje en `ChatRoomScreen`.
-2. `MessageFlowService.sendMessage()` construye un sobre JSON: `{from, pk, text, ts}`.
-3. `MessageCryptoService.encryptForRecipient()` aplica cifrado híbrido:
-   - Genera clave AES-256 efímera + IV.
-   - Cifra el sobre con AES-256-GCM (incluye tag de autenticación de 16 B).
-   - Cifra la clave AES (32 B) con RSA-OAEP-SHA256 usando la `publicKey` del receptor.
-   - Empaqueta `[2B longitud RSA][RSA(AES-key)][12B IV][16B tag][ciphertext]`.
-4. `MessageApiService.sendMessage()` → `POST /api/messages` con `{recipientId, payload}` (payload base64).
-5. Backend guarda en `mailbox.payload` y dispara push silenciosa FCM (`NotificationService.sendSyncNotification`).
-6. El emisor guarda el mensaje en su SQLite local con `created_at = ts` (mismo timestamp que el receptor).
+
+1. `ChatRoomScreen` llama a `MessageFlowService.sendMessage`.
+2. Se construye sobre JSON con `from`, `pk`, `text`, `ts`, `seq` y firma si aplica.
+3. `MessageCryptoService` cifra con AES-256-GCM + RSA-OAEP-SHA256.
+4. `MessageApiService` llama `POST /api/messages`.
+5. Se guarda copia local en SQLite.
+6. Si falla por red, se encola en `sync_queue`.
 
 ## Recepción
-1. Polling cada 2 s (o push silenciosa) → `MessageFlowService.syncInbox()`.
-2. `GET /api/messages?myId=...` → lista de payloads (base64 → `Uint8Array`).
-3. `MessageCryptoService.decryptWithPrivateKey()` con la clave privada local: descifra la clave AES con RSA y luego el ciphertext con AES-GCM (verifica tag).
-4. Parsea el sobre JSON. Si trae `pk`, verifica que el `HNET-id` corresponda al fingerprint SHA-256 de esa pk (anti-spoofing). Si no cuadra, descarta.
-5. Auto-añade el contacto si era desconocido y notifica a la UI vía la cola `newContacts`.
-6. Guarda en `messages_history` con `created_at = envelope.ts`.
-7. `POST /api/messages/ack` para que el servidor borre el buzón consumido.
 
-## Notas
-- Cada paquete enviado pesa ~800 B (la pk del emisor inflada por base64), constante para todos los mensajes y handshakes.
-- El servidor nunca decodifica el `payload` — para él es un blob opaco.
-- Detalle criptográfico: `docs/technical/cifrado_hibrido_e2ee.md`.
+1. Polling/push llama a `syncInbox`.
+2. `GET /api/messages?myId=...`.
+3. Se descifra cada payload localmente.
+4. Se valida anti-spoofing: `from` debe coincidir con fingerprint de `pk`.
+5. Se valida anti-replay con `seq`.
+6. Se guarda en `messages_history`.
+7. Se envía `POST /api/messages/ack` con cutoff.
+
+## Orden
+
+El historial local se ordena por `msg_id`, no por minuto/timestamp, para evitar que mensajes del mismo minuto cambien de posición.
+
+## Camuflaje Visual
+
+- Mensajes recibidos/enviados mientras el chat está abierto: visibles.
+- Mensajes antiguos al reabrir: camuflados.
+- Mensajes nuevos no leídos: visibles hasta ser leídos.
+
+## Chat List
+
+Muestra contador de no leídos y preview camuflada cuando el último mensaje ya debe estar oculto.

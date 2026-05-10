@@ -1,147 +1,106 @@
-## Estructura de Persistencia y Modelado de Datos
+# Esquema de Base de Datos
 
-<div style="text-align: justify; text-indent: 20px;">
+Hermnet separa la persistencia en dos mundos:
 
+- Backend PostgreSQL: buzón temporal y seguridad.
+- Frontend SQLite: identidad operativa, contactos, historial y preferencias.
 
-## 1. Modelo de Persistencia de Conocimiento Cero
-
-La arquitectura de datos de Hermnet sigue el principio de **Zero-Knowledge Architecture**. El servidor actúa como un relé de almacenamiento temporal (Store-and-Forward) para bloques de datos cifrados, desacoplando la transmisión de mensajes del conocimiento de su contenido.
-
-El diseño de la base de datos prioriza:
-*   **Efimeridad:** Los datos sensibles (mensajes) tienen un ciclo de vida limitado y se eliminan tras su entrega.
-*   **Seguridad:** Minimización de metadatos persistentes.
-*   **Integridad:** Estructuras optimizadas para la validación criptográfica y el enrutamiento.
-
-## 2. Esquema Relacional de Base de Datos
-
-El sistema backend gestiona un conjunto reducido de tablas para soportar la autenticación, el enrutamiento y la seguridad operativa.
-
-### Diagrama Entidad-Relación
-
-
+## 1. Backend PostgreSQL
 
 ```mermaid
 erDiagram
     users ||--o{ auth_challenges : "auth"
-    users ||--o{ mailbox : "receive"
-    
     users {
-        VARCHAR(64) id_hash PK
-        TEXT public_key 
-        TEXT push_token 
-        TIMESTAMP created_at
+        varchar id_hash PK
+        text public_key
+        text push_token
+        timestamp created_at
     }
-    
+
     auth_challenges {
-        BIGSERIAL challenge_id PK
-        VARCHAR(64) user_hash FK
-        VARCHAR(64) nonce 
-        TIMESTAMP expires_at
+        bigint challenge_id PK
+        varchar nonce
+        varchar user_hash FK
+        timestamp expires_at
     }
-    
+
     mailbox {
-        BIGSERIAL message_id PK
-        VARCHAR(64) recipient_hash FK
-        LONGBLOB payload 
-        TIMESTAMP created_at
+        bigint message_id PK
+        varchar recipient_hash
+        bytea payload
+        timestamp created_at
     }
 
     token_blacklist {
-        VARCHAR(36) jti PK
-        VARCHAR(20) revoked_reason
-        TIMESTAMP expires_at
+        varchar jti PK
+        varchar revoked_reason
+        timestamp expires_at
     }
 
     rate_limit_buckets {
-        VARCHAR(64) ip_hash PK 
-        INT request_count
-        TIMESTAMP reset_time
+        varchar ip_hash PK
+        int request_count
+        timestamp reset_time
     }
 ```
 
+### `users`
 
+| Columna | Tipo | Uso |
+|---|---|---|
+| `id_hash` | `varchar(64)` | HNET-id del usuario |
+| `public_key` | `text` | Clave pública RSA-2048 |
+| `push_token` | `text` | Token FCM opcional |
+| `created_at` | `timestamp` | Fecha de alta |
 
-### A. Tabla `users` (Directorio Público)
-La única tabla persistente. Necesaria para validar firmas y enrutar.
+### `auth_challenges`
 
-| Columna | Tipo SQL | Restricciones | Para qué sirve (Lógica) |
-| :--- | :--- | :--- | :--- |
-| `id_hash` | VARCHAR(64) | PK, Not Null | El ID (HNET-7a...). Validar siempre formato con Regex. |
-| `public_key` | TEXT | Not Null | La llave pública para el cifrado asimétrico. |
-| `push_token` | TEXT | Nullable | Token de Firebase/APNs para notificaciones ciegas. |
-| `created_at` | TIMESTAMP | Default NOW() | Fecha de alta técnica. |
+| Columna | Tipo | Uso |
+|---|---|---|
+| `challenge_id` | `bigint` | ID interno |
+| `nonce` | `varchar(64)` | Reto temporal |
+| `user_hash` | `varchar(64)` | Usuario que solicita login |
+| `expires_at` | `timestamp` | Caducidad del reto |
 
-### B. Tabla `auth_challenges` (Login Zero-Knowledge)
-Tabla volátil para el protocolo de entrada sin contraseñas.
+### `mailbox`
 
-| Columna | Tipo SQL | Restricciones | Para qué sirve (Lógica) |
-| :--- | :--- | :--- | :--- |
-| `challenge_id` | BIGSERIAL | PK, AutoInc | ID interno. |
-| `user_hash` | VARCHAR(64) | FK -> users | Quién hace login. |
-| `nonce` | VARCHAR(64) | Unique | El reto aleatorio que el móvil debe firmar. |
-| `expires_at` | TIMESTAMP | Not Null | TTL estricto (30 seg). Cron job de limpieza por minuto. |
+| Columna | Tipo | Uso |
+|---|---|---|
+| `message_id` | `bigint` | Orden técnico de inserción |
+| `recipient_hash` | `varchar(64)` | Destinatario |
+| `payload` | `bytea` | Blob cifrado E2EE |
+| `created_at` | `timestamp` | Momento de entrada |
 
-### C. Tabla `token_blacklist` (Seguridad de Sesión)
-Lista negra para invalidar sesiones antes de tiempo.
+### `token_blacklist`
 
-| Columna | Tipo SQL | Restricciones | Para qué sirve (Lógica) |
-| :--- | :--- | :--- | :--- |
-| `jti` | VARCHAR(36) | PK | UUID del Token JWT revocado. |
-| `revoked_reason` | VARCHAR(20) | Nullable | 'LOGOUT', 'SECURITY'. |
-| `expires_at` | TIMESTAMP | Not Null | Fecha fin del token original. |
+| Columna | Tipo | Uso |
+|---|---|---|
+| `jti` | `varchar(36)` | ID del JWT revocado |
+| `revoked_reason` | `varchar(20)` | Motivo: `LOGOUT`, `REFRESH`, etc. |
+| `expires_at` | `timestamp` | Caducidad natural del token |
 
-### D. Tabla `mailbox` (Buzón de Payloads Cifrados)
-Almacena los blobs binarios cifrados extremo a extremo. El servidor nunca decodifica su contenido.
+### `rate_limit_buckets`
 
-| Columna | Tipo SQL | Restricciones | Para qué sirve (Lógica) |
-| :--- | :--- | :--- | :--- |
-| `message_id` | BIGSERIAL | PK | ID del paquete. |
-| `recipient_hash` | VARCHAR(64) | Indexado | Destinatario del paquete. Crear Índice B-Tree. |
-| `payload` | LONGBLOB | Not Null | Payload cifrado híbrido AES-256-GCM + RSA-OAEP. Opaco para el servidor. |
-| `created_at` | TIMESTAMP | Default NOW() | Fecha de recepción. |
+| Columna | Tipo | Uso |
+|---|---|---|
+| `ip_hash` | `varchar(64)` | Cliente anonimizado |
+| `request_count` | `int` | Peticiones en ventana |
+| `reset_time` | `timestamp` | Fin de ventana |
 
-**Control de Integridad de Payloads:**
-*   El DTO `SendMessageRequest` valida que el `payload` no sea nulo ni vacío (`@NotNull`, `@Size(min=1)`). El servidor no inspecciona el contenido — el cliente garantiza la integridad criptográfica con AES-GCM y desecha en recepción cualquier payload que no autentique correctamente.
+## 2. Frontend SQLite
 
-### E. Tabla `rate_limit_buckets` (Defensa Anti-Abuso)
-Control de tráfico para usuarios anónimos.
+Tablas principales:
 
-| Columna | Tipo SQL | Restricciones | Para qué sirve (Lógica) |
-| :--- | :--- | :--- | :--- |
-| `ip_hash` | VARCHAR(64) | PK | Hash diario de la IP (SHA-256 + Salt). |
-| `request_count` | INT | Default 0 | Contador de peticiones. |
-| `reset_time` | TIMESTAMP | Not Null | Cuándo se reinicia el contador. |
+| Tabla | Uso |
+|---|---|
+| `contacts_vault` | Contactos, clave pública, alias cifrado y preferencias |
+| `messages_history` | Historial local por contacto |
+| `sync_queue` | Cola offline de mensajes pendientes |
+| `incoming_seq` | Control anti-replay |
+| `pending_ephemeral` | Propuestas de mensajes temporales |
 
-## 3. Control de Escenarios y Errores (Edge Cases)
+SQLite local es la fuente de verdad del historial. El backend solo guarda mensajes en tránsito.
 
-Instrucciones para que el programador blinde el código ante ataques comunes.
+## 3. Migraciones
 
-### Escenario 1: Intento de subir "Archivos Basura"
-*   **Situación:** Un atacante intenta inundar el buzón con payloads enormes para agotar el disco.
-*   **Control (Tamaño máximo):** Spring Boot aplica el límite `spring.servlet.multipart.max-request-size` y la validación Jakarta `@Size` a nivel DTO.
-    *   Si `payload.length > LIMIT` → respuesta 413 (Payload Too Large) o 400 según la capa.
-*   **Control de autenticidad:** Aunque el servidor acepta el blob, el receptor descartará silenciosamente cualquier paquete cuyo `authTag` AES-GCM no valide; el atacante solo logra ocupar espacio temporal hasta el siguiente `ack`.
-
-### Escenario 2: Ataque de Inundación (Mailbox Flooding)
-*   **Situación:** Alguien envía 500 mensajes seguidos a un usuario para llenarle el buzón y colapsar el disco del servidor.
-*   **Solución (Cuota Rígida):**
-    *   Antes de aceptar un INSERT en `mailbox`, consultar: `SELECT COUNT(*) FROM mailbox WHERE recipient_hash = ?`.
-    *   **Límite:** Si el destinatario tiene > 50 mensajes pendientes de leer, el servidor responde `429 Too Many Requests` al emisor.
-    *   **Mensaje al Usuario:** "El buzón de HNET-7a... está lleno. Inténtalo más tarde".
-
-### Escenario 3: Mensajes Huérfanos
-*   **Situación:** Un usuario pierde el móvil y nunca descarga sus mensajes. Esos mensajes ocupan espacio en disco eternamente.
-*   **Solución (TTL - Time To Live):**
-    *   Configurar un proceso en segundo plano (Spring Scheduler) que se ejecute cada hora.
-    *   Query: `DELETE FROM mailbox WHERE created_at < NOW() - INTERVAL '48 HOURS'`.
-    *   Esto garantiza que el servidor se "autolimpie" y nunca guarde datos antiguos.
-
-### Escenario 4: Concurrencia en Login
-*   **Situación:** El usuario pulsa "Entrar" muchas veces seguidas, generando múltiples retos.
-*   **Solución:** La tabla `auth_challenges` debe tener una restricción UNIQUE sobre el `nonce`, pero permitir múltiples filas por usuario. El Garbage Collector limpiará las viejas.
-
-## 4. Instrucciones de Despliegue (DevOps)
-*   **Sin Logs de Payload:** Configurar el servidor para que NUNCA escriba en los logs el contenido del `payload` ni su tamaño. Solo "Message received for HNET-X".
-*   **Base de Datos Efímera:** Considerar que la tabla `mailbox` es de alto tráfico de escritura/borrado. Se recomienda ejecutar un `VACUUM` (en PostgreSQL) o `OPTIMIZE TABLE` (en MySQL) periódicamente para recuperar espacio en disco.
-
-</div>
+`SchemaMigrationRunner` contiene migraciones puntuales que Hibernate no puede inferir bien, por ejemplo renombrar `stego_packet` a `payload` tras eliminar la capa antigua de esteganografía.
