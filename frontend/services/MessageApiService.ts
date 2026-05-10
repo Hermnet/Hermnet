@@ -6,6 +6,16 @@ interface SendMessageRequestDto {
   payload: string;
 }
 
+export interface MailboxPacket {
+  payload: Uint8Array;
+  createdAt?: string;
+}
+
+export interface MailboxFetchResult {
+  packets: MailboxPacket[];
+  ackCutoff?: string;
+}
+
 /**
  * API adapter for the secure message transport endpoints. The payload is an opaque
  * encrypted blob (RSA-OAEP wrapped AES-256-GCM ciphertext) — the server never sees
@@ -43,7 +53,7 @@ export class MessageApiService {
   /**
    * Retrieves encrypted payloads addressed to the given user identifier.
    */
-  async getMessages(myId: string): Promise<Uint8Array[]> {
+  async getMessages(myId: string): Promise<MailboxFetchResult> {
     const response = await apiClient.request<unknown>({
       path: `/api/messages?myId=${encodeURIComponent(myId)}`,
       method: 'GET',
@@ -53,7 +63,26 @@ export class MessageApiService {
       throw new Error('Invalid /api/messages response format');
     }
 
-    return response.map((item) => this.decodePayload(item));
+    const packets = response.map((item) => this.decodeMailboxPacket(item));
+    const ackCutoff = packets.reduce<string | undefined>((latest, packet) => {
+      if (!packet.createdAt) return latest;
+      if (!latest || packet.createdAt > latest) return packet.createdAt;
+      return latest;
+    }, undefined);
+
+    return { packets, ackCutoff };
+  }
+
+  private decodeMailboxPacket(item: unknown): MailboxPacket {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const entry = item as { payload?: unknown; createdAt?: unknown };
+      return {
+        payload: this.decodePayload(entry.payload),
+        createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : undefined,
+      };
+    }
+
+    return { payload: this.decodePayload(item) };
   }
 
   private decodePayload(payload: unknown): Uint8Array {

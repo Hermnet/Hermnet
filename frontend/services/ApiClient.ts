@@ -180,23 +180,6 @@ export class ApiClient {
     }).finally(() => clearTimeout(timeoutId));
   }
 
-  private async parseResponse<T>(response: Response): Promise<T> {
-    const responseText = response.status === 204 ? '' : await response.text();
-
-    if (response.status === 429) {
-      throw new Error('RATE_LIMIT_EXCEEDED');
-    }
-
-    if (!response.ok) {
-      throw new Error(responseText || `HTTP ${response.status}`);
-    }
-
-    if (!responseText) {
-      return undefined as T;
-    }
-
-    return JSON.parse(responseText) as T;
-  }
 }
 
 const BACKEND_PORT = 8080;

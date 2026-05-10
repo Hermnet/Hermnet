@@ -68,14 +68,31 @@ export class AuthFlowService {
         const refreshed = await authApiService.refresh();
         await authSessionService.setJwtToken(refreshed.token);
         return { identity, jwtToken: refreshed.token, registeredInThisSession };
-      } catch {
-        // Token expirado o revocado — continuar con el flujo completo
+      } catch (err) {
+        // Token expirado/revocado: continuar con challenge/login. Si el backend
+        // perdió el usuario (BD reseteada), re-registramos la identidad local.
+        if (isUserNotFound(err)) {
+          await this.registerExistingIdentity(identity);
+          registeredInThisSession = true;
+        }
       }
     }
 
-    const challengeResponse = await authApiService.challenge({
-      userId: identity.id,
-    });
+    let challengeResponse;
+    try {
+      challengeResponse = await authApiService.challenge({
+        userId: identity.id,
+      });
+    } catch (err) {
+      if (!isUserNotFound(err)) {
+        throw err;
+      }
+      await this.registerExistingIdentity(identity);
+      registeredInThisSession = true;
+      challengeResponse = await authApiService.challenge({
+        userId: identity.id,
+      });
+    }
     const signedNonce = identityService.signNonce(identity.privateKey, challengeResponse.nonce);
     const loginResponse = await authApiService.login({
       nonce: challengeResponse.nonce,
@@ -88,6 +105,21 @@ export class AuthFlowService {
       jwtToken: loginResponse.token,
       registeredInThisSession,
     };
+  }
+
+  private async registerExistingIdentity(identity: Identity): Promise<void> {
+    try {
+      await authApiService.register({
+        id: identity.id,
+        publicKey: identity.publicKey,
+      });
+    } catch (err) {
+      // Si otra request paralela la registró antes, podemos continuar con el
+      // challenge. Cualquier otro fallo debe propagarse.
+      if (!isDuplicateIdentity(err)) {
+        throw err;
+      }
+    }
   }
 
   /**
@@ -105,3 +137,15 @@ export class AuthFlowService {
 }
 
 export const authFlowService = new AuthFlowService();
+
+function errorMessage(err: unknown): string {
+  return String((err as Error | undefined)?.message ?? err ?? '');
+}
+
+function isUserNotFound(err: unknown): boolean {
+  return /usuario no encontrado/i.test(errorMessage(err));
+}
+
+function isDuplicateIdentity(err: unknown): boolean {
+  return /id ya est[aá] en uso|already exists|duplicate/i.test(errorMessage(err));
+}

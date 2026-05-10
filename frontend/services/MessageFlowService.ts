@@ -1,4 +1,4 @@
-import QuickCrypto from 'react-native-quick-crypto';
+import QuickCrypto from './CryptoService';
 import { databaseService } from './DatabaseService';
 import { messageApiService } from './MessageApiService';
 import { messageCryptoService } from './MessageCryptoService';
@@ -73,6 +73,7 @@ export class MessageFlowService {
    * misma promesa para evitar procesar el buzón dos veces y duplicar mensajes en la BD.
    */
   private inflightSync: Promise<{ senders: string[]; newContacts: string[] }> | null = null;
+  private sendTail: Promise<void> = Promise.resolve();
 
   /**
    * Listeners que se notifican cuando la cola offline drena algún mensaje
@@ -91,6 +92,12 @@ export class MessageFlowService {
   }
 
   async sendMessage(input: SendMessageInput): Promise<void> {
+    const op = this.sendTail.then(() => this.runSendMessage(input));
+    this.sendTail = op.catch(() => {});
+    return op;
+  }
+
+  private async runSendMessage(input: SendMessageInput): Promise<void> {
     const [recipientPublicKey, senderIdentity] = await Promise.all([
       databaseService.getContactPublicKey(input.recipientId),
       authSessionService.getIdentity(),
@@ -116,7 +123,7 @@ export class MessageFlowService {
       // persistente. Cuando vuelva la conectividad, `flushQueue` los envía y
       // promueve su status a SENT. La UI mantiene el icono de reloj hasta entonces.
       console.warn('[sendMessage] envío diferido a cola por:', err);
-      await databaseService.enqueueOutgoing(input.recipientId, input.plaintext, sentAt);
+      await databaseService.enqueueOutgoing(input.recipientId, input.plaintext, sentAt, input.replyTo ?? null);
     }
   }
 
@@ -154,6 +161,7 @@ export class MessageFlowService {
    * para el próximo intento (no avanza al siguiente para preservar el orden).
    */
   async flushQueue(): Promise<void> {
+    await this.sendTail.catch(() => {});
     const senderIdentity = await authSessionService.getIdentity();
     if (!senderIdentity) return;
 
@@ -167,7 +175,7 @@ export class MessageFlowService {
           await databaseService.dequeueOutgoing(task.taskId);
           continue;
         }
-        await this.dispatchToServer(task.recipientId, senderIdentity, recipientPublicKey, task.plaintext, task.sentAt);
+        await this.dispatchToServer(task.recipientId, senderIdentity, recipientPublicKey, task.plaintext, task.sentAt, task.replyTo);
         // Promueve el status del mensaje en BD: el reloj ⏱ pasa a check ✓.
         await databaseService.updateMessageStatus(task.recipientId, task.sentAt, 'SENT');
         await databaseService.dequeueOutgoing(task.taskId);
@@ -197,7 +205,7 @@ export class MessageFlowService {
   }
 
   private async runSyncInbox(myId: string, localPrivateKey: string): Promise<{ senders: string[]; newContacts: string[] }> {
-    const packets = await messageApiService.getMessages(myId);
+    const { packets, ackCutoff } = await messageApiService.getMessages(myId);
     if (packets.length === 0) {
       return { senders: [], newContacts: [] };
     }
@@ -209,8 +217,9 @@ export class MessageFlowService {
     const receivedFrom = new Set<string>();
     const newContacts = new Set<string>();
 
-    for (const packet of packets) {
+    for (const entry of packets) {
       try {
+        const packet = entry.payload;
         if (__DEV__) {
           console.log(`[syncInbox] paquete: ${packet.length} bytes`);
         }
@@ -334,7 +343,7 @@ export class MessageFlowService {
 
         receivedFrom.add(contactHash);
         // Usar el timestamp del emisor para que el orden sea idéntico en ambos dispositivos
-        await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs, undefined, envelope.replyTo ?? null);
+        await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs, undefined, envelope.replyTo ?? null, envelope.seq);
       } catch (err) {
         // Paquete corrupto, formato antiguo o destinatario equivocado: lo descartamos para que
         // el ack lo borre del buzón y no rompa toda la sincronización.
@@ -348,7 +357,7 @@ export class MessageFlowService {
 
     // Confirmar recepción al servidor SIEMPRE para que los paquetes corruptos se vacíen
     try {
-      await messageApiService.ackMessages();
+      await messageApiService.ackMessages(ackCutoff);
       if (__DEV__) {
         console.log('[syncInbox] ack exitoso');
       }
