@@ -1,6 +1,8 @@
 package com.hermnet.api.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class IpHasherTest {
@@ -40,5 +42,15 @@ public class IpHasherTest {
         String hash = IpHasher.hash(null);
 
         assertEquals("unknown", hash, "A null IP must return 'unknown'");
+    }
+
+    @Test
+    public void testSaltRotatesAfterExpiry() {
+        String before = IpHasher.hash("203.0.113.10");
+
+        ReflectionTestUtils.setField(IpHasher.class, "currentSaltExpiresAt", 0L);
+        String after = IpHasher.hash("203.0.113.10");
+
+        assertNotEquals(before, after, "Expired salts must rotate before hashing");
     }
 }

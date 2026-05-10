@@ -103,7 +103,7 @@ public class MessageRepositoryTest {
 
 
 
-        List<Message> found = messageRepository.findByRecipientHashOrderByCreatedAtDesc(RECIPIENT_HASH);
+        List<Message> found = messageRepository.findByRecipientHashOrderByCreatedAtAscMessageIdAsc(RECIPIENT_HASH);
 
 
 
@@ -114,8 +114,8 @@ public class MessageRepositoryTest {
 
 
 
-        assertArrayEquals(newMsg.getPayload(), found.get(0).getPayload(), "Newest message should be first");
-        assertArrayEquals(oldMsg.getPayload(), found.get(1).getPayload(), "Older message should be second");
+        assertArrayEquals(oldMsg.getPayload(), found.get(0).getPayload(), "Older message should be first");
+        assertArrayEquals(newMsg.getPayload(), found.get(1).getPayload(), "Newest message should be second");
     }
 
     @Test

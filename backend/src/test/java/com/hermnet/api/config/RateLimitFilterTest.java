@@ -15,6 +15,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -107,5 +108,24 @@ class RateLimitFilterTest {
         verify(filterChain).doFilter(request, response);
         assertTrue(savedBucket.getRequestCount() == 1);
         assertTrue(savedBucket.getResetTime().isAfter(LocalDateTime.now().plusSeconds(55)));
+    }
+
+    @Test
+    void shouldUseSafeDefaults_WhenConfiguredWithInvalidValues() throws Exception {
+        rateLimitFilter = new RateLimitFilter(rateLimitBucketRepository, 0, 0);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.2");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(rateLimitBucketRepository.findById(any())).thenReturn(Optional.empty());
+        when(rateLimitBucketRepository.save(any(RateLimitBucket.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        rateLimitFilter.doFilter(request, response, filterChain);
+
+        ArgumentCaptor<RateLimitBucket> captor = ArgumentCaptor.forClass(RateLimitBucket.class);
+        verify(rateLimitBucketRepository).save(captor.capture());
+        assertEquals(1, captor.getValue().getRequestCount());
+        verify(filterChain).doFilter(request, response);
     }
 }

@@ -150,12 +150,19 @@ public class MessageControllerTest {
     }
 
     @Test
+    public void ackMessages_ShouldReturn401_WhenPrincipalMissing() throws Exception {
+        mockMvc.perform(post("/api/messages/ack")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     public void getMessages_ShouldReturnList_WhenUserHasMessages() throws Exception {
         String myId = "HNET-VALID";
         Message msg1 = Message.builder().payload(new byte[] { 1 }).createdAt(LocalDateTime.now()).build();
         Message msg2 = Message.builder().payload(new byte[] { 2 }).createdAt(LocalDateTime.now()).build();
 
-        when(messageRepository.findByRecipientHashOrderByCreatedAtDesc(myId))
+        when(messageRepository.findByRecipientHashOrderByCreatedAtAscMessageIdAsc(myId))
                 .thenReturn(List.of(msg1, msg2));
 
         mockMvc.perform(get("/api/messages")

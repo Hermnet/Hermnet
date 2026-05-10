@@ -1,5 +1,7 @@
 package com.hermnet.api.service;
 
+import com.hermnet.api.dto.ChallengeRequest;
+import com.hermnet.api.dto.ChallengeResponse;
 import com.hermnet.api.dto.LoginRequest;
 import com.hermnet.api.dto.LoginResponse;
 import com.hermnet.api.model.AuthChallenge;
@@ -97,6 +99,28 @@ class AuthServiceTest {
     }
 
     @Test
+    void challenge_ShouldCreateNonceAndReplacePreviousChallenge_WhenUserExists() {
+        when(userRepository.findById("USER-HASH-123")).thenReturn(Optional.of(user));
+        when(authChallengeRepository.save(any(AuthChallenge.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChallengeResponse response = authService.challenge(new ChallengeRequest("USER-HASH-123"));
+
+        assertNotNull(response);
+        assertEquals(64, response.nonce().length());
+        verify(authChallengeRepository).deleteByUserHash(user);
+        verify(authChallengeRepository).save(any(AuthChallenge.class));
+    }
+
+    @Test
+    void challenge_ShouldThrow_WhenUserDoesNotExist() {
+        when(userRepository.findById("GHOST")).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.challenge(new ChallengeRequest("GHOST")));
+    }
+
+    @Test
     void login_ShouldThrowException_WhenNonceNotFound() {
         LoginRequest request = new LoginRequest("invalid-nonce", "some-signature");
         when(authChallengeRepository.findByNonce("invalid-nonce")).thenReturn(Optional.empty());
@@ -175,6 +199,13 @@ class AuthServiceTest {
     }
 
     @Test
+    void refresh_ShouldThrow_WhenTokenCannotBeParsed() {
+        when(jwtTokenProvider.parseClaims("bad-token")).thenThrow(new RuntimeException("bad jwt"));
+
+        assertThrows(IllegalArgumentException.class, () -> authService.refresh("bad-token"));
+    }
+
+    @Test
     void refresh_ShouldThrow_WhenUserNotFound() {
         java.util.HashMap<String, Object> map = new java.util.HashMap<>();
         map.put(Claims.ID, "jti-a");
@@ -208,6 +239,8 @@ class AuthServiceTest {
     void logout_ShouldNoop_WhenTokenNullOrInvalid() {
         authService.logout(null);
         authService.logout("");
+        when(jwtTokenProvider.parseClaims("broken")).thenThrow(new RuntimeException("bad jwt"));
+        authService.logout("broken");
         verify(tokenBlacklistService, never()).revoke(any(), anyString());
     }
 

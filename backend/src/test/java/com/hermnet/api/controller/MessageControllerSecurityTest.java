@@ -9,16 +9,13 @@ import com.hermnet.api.security.JwtTokenProvider;
 import com.hermnet.api.repository.MessageRepository;
 import com.hermnet.api.model.Message;
 import com.hermnet.api.config.IpAnonymizationFilter;
+import com.hermnet.api.repository.RateLimitBucketRepository;
 import com.hermnet.api.repository.UserRepository;
 import com.hermnet.api.service.NotificationService;
 import com.hermnet.api.service.TokenBlacklistService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.impl.DefaultClaims;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -28,13 +25,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MessageController.class)
-@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class, IpAnonymizationFilter.class, RateLimitFilter.class })
 public class MessageControllerSecurityTest {
 
     @Autowired
@@ -56,32 +52,10 @@ public class MessageControllerSecurityTest {
     private TokenBlacklistService tokenBlacklistService;
 
     @MockBean
-    private IpAnonymizationFilter ipAnonymizationFilter;
-
-    @MockBean
-    private RateLimitFilter rateLimitFilter;
+    private RateLimitBucketRepository rateLimitBucketRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @BeforeEach
-    public void setup() throws Exception {
-        doAnswer(invocation -> {
-            HttpServletRequest req = invocation.getArgument(0);
-            HttpServletResponse res = invocation.getArgument(1);
-            FilterChain chain = invocation.getArgument(2);
-            chain.doFilter(req, res);
-            return null;
-        }).when(ipAnonymizationFilter).doFilter(any(), any(), any());
-
-        doAnswer(invocation -> {
-            HttpServletRequest req = invocation.getArgument(0);
-            HttpServletResponse res = invocation.getArgument(1);
-            FilterChain chain = invocation.getArgument(2);
-            chain.doFilter(req, res);
-            return null;
-        }).when(rateLimitFilter).doFilter(any(), any(), any());
-    }
 
     @Test
     public void sendMessage_ShouldReturn403_WhenNoTokenProvided() throws Exception {
