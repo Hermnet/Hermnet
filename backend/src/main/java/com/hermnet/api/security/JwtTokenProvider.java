@@ -15,6 +15,12 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 
+/**
+ * Creates, validates and parses Hermnet access tokens.
+ *
+ * Tokens are signed with HS256 and include both the authenticated user id
+ * (subject) and a unique JTI so refresh/logout can revoke individual tokens.
+ */
 @Component
 public class JwtTokenProvider {
 
@@ -38,10 +44,23 @@ public class JwtTokenProvider {
         }
     }
 
+    /**
+     * Generates a token with a random JTI for normal login and refresh flows.
+     *
+     * @param userId authenticated user id to store as the JWT subject
+     * @return signed compact JWT
+     */
     public String generateToken(String userId) {
         return generateToken(userId, UUID.randomUUID().toString());
     }
 
+    /**
+     * Generates a token with an explicit JTI.
+     *
+     * @param userId authenticated user id to store as the JWT subject
+     * @param jti    unique token identifier used for revocation
+     * @return signed compact JWT
+     */
     public String generateToken(String userId, String jti) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
@@ -53,10 +72,22 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /**
+     * Returns the configured access-token lifetime in minutes.
+     *
+     * @return token lifetime in minutes
+     */
     public long getExpirationMinutes() {
         return jwtExpirationMinutes;
     }
 
+    /**
+     * Parses and verifies a JWT, returning its claims when the signature and
+     * expiration are valid.
+     *
+     * @param token compact JWT
+     * @return verified claims
+     */
     public Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
@@ -65,6 +96,12 @@ public class JwtTokenProvider {
                 .getPayload();
     }
 
+    /**
+     * Checks whether a JWT can be parsed and verified.
+     *
+     * @param token compact JWT
+     * @return true when the token is structurally valid, signed and not expired
+     */
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -74,10 +111,22 @@ public class JwtTokenProvider {
         }
     }
 
+    /**
+     * Extracts the authenticated user id from a valid token.
+     *
+     * @param token compact JWT
+     * @return JWT subject
+     */
     public String getUserIdFromToken(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
+    /**
+     * Extracts the token id used by the blacklist service.
+     *
+     * @param token compact JWT
+     * @return JWT ID claim
+     */
     public String getJtiFromToken(String token) {
         return extractClaim(token, Claims::getId);
     }

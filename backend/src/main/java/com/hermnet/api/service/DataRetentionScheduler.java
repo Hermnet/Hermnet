@@ -30,6 +30,10 @@ public class DataRetentionScheduler {
     @Value("${app.privacy.data-retention.mailbox-hours:24}")
     private long mailboxRetentionHours;
 
+    /**
+     * Removes expired privacy-sensitive data according to the configured
+     * retention window.
+     */
     @Scheduled(cron = "${app.privacy.data-retention.cleanup-cron:0 0 * * * *}")
     @Transactional
     public void purgeExpiredData() {

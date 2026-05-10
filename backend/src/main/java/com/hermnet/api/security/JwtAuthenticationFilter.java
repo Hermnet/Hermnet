@@ -17,6 +17,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Authenticates requests that carry a non-revoked Bearer JWT.
+ *
+ * Invalid, expired or blacklisted tokens are intentionally ignored here so the
+ * Spring Security authorization layer can reject protected endpoints in one
+ * consistent place.
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {

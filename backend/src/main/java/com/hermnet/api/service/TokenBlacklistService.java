@@ -23,6 +23,12 @@ public class TokenBlacklistService {
 
     private final BlacklistedTokenRepository repository;
 
+    /**
+     * Stores the JWT ID from a token so it cannot be used again before expiry.
+     *
+     * @param claims parsed token claims
+     * @param reason short audit reason such as LOGOUT or REFRESH
+     */
     public void revoke(Claims claims, String reason) {
         String jti = claims.getId();
         Date expiration = claims.getExpiration();
@@ -42,6 +48,12 @@ public class TokenBlacklistService {
                 .build());
     }
 
+    /**
+     * Checks whether a token id has already been revoked.
+     *
+     * @param jti JWT ID claim
+     * @return true when the token id is present in the blacklist
+     */
     public boolean isBlacklisted(String jti) {
         if (jti == null) {
             return false;

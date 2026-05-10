@@ -1,5 +1,6 @@
 package com.hermnet.api.service;
 
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,10 @@ public class NotificationService {
     public void sendSyncNotification(String recipientToken) {
         if (recipientToken == null || recipientToken.isEmpty()) {
             log.warn("Cannot send notification: Recipient token is null or empty.");
+            return;
+        }
+        if (FirebaseApp.getApps().isEmpty()) {
+            log.debug("Firebase is not initialized; skipping sync notification.");
             return;
         }
 
