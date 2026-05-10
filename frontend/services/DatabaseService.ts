@@ -65,6 +65,18 @@ export class DatabaseService {
         ttl INTEGER NOT NULL,
         received_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS groups_vault (
+        group_id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        admin_id TEXT,
+        only_admin_can_post INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS group_members (
+        group_id TEXT NOT NULL,
+        contact_hash TEXT NOT NULL,
+        PRIMARY KEY (group_id, contact_hash)
+      );
     `);
 
     // Limpieza de tablas obsoletas de versiones anteriores del esquema.
@@ -93,6 +105,10 @@ export class DatabaseService {
       `ALTER TABLE messages_history ADD COLUMN reply_to_json TEXT;`,
       // Secuencia del remitente para dedupe estable de mensajes entrantes.
       `ALTER TABLE messages_history ADD COLUMN transport_seq INTEGER;`,
+      `ALTER TABLE messages_history ADD COLUMN sender_hash TEXT;`,
+      `ALTER TABLE messages_history ADD COLUMN sender_name TEXT;`,
+      `ALTER TABLE groups_vault ADD COLUMN admin_id TEXT;`,
+      `ALTER TABLE groups_vault ADD COLUMN only_admin_can_post INTEGER NOT NULL DEFAULT 0;`,
     ];
     for (const sql of migrations) {
       await (this.db as any).runAsync(sql).catch(() => {});
@@ -193,6 +209,8 @@ export class DatabaseService {
     status?: MessageStatus,
     replyTo?: { id: string; text: string; isMine: boolean } | null,
     transportSeq?: number,
+    senderHash?: string | null,
+    senderName?: string | null,
   ): Promise<void> {
     const ts = createdAt ?? Date.now();
     await this.withDb(async (db) => {
@@ -226,8 +244,8 @@ export class DatabaseService {
       const finalStatus = status ?? (isMine ? 'SENT' : 'DELIVERED');
       const replyJson = replyTo ? JSON.stringify(replyTo) : null;
       await (db as any).runAsync(
-        'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json, transport_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
-        [contactHash, stored, isMine ? 1 : 0, ts, finalStatus, expiresAt, replyJson, transportSeq ?? null]
+        'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json, transport_seq, sender_hash, sender_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+        [contactHash, stored, isMine ? 1 : 0, ts, finalStatus, expiresAt, replyJson, transportSeq ?? null, senderHash ?? null, senderName ?? null]
       );
     });
   }
@@ -258,10 +276,10 @@ export class DatabaseService {
   async getMessagesByContact(
     contactHash: string,
     options: { limit?: number; beforeMsgId?: number; beforeCursor?: { createdAt: number; msgId: number } } = {}
-  ): Promise<Array<{ id: string; text: string; isMine: boolean; createdAt: number; isRead: boolean; status: 'pending' | 'sent' | 'failed'; replyTo?: { id: string; text: string; isMine: boolean } | null }>> {
+  ): Promise<Array<{ id: string; text: string; isMine: boolean; createdAt: number; isRead: boolean; status: 'pending' | 'sent' | 'failed'; replyTo?: { id: string; text: string; isMine: boolean } | null; senderHash?: string | null; senderName?: string | null }>> {
     const limit = options.limit ?? 50;
     return this.withDb(async (db) => {
-      let sql = 'SELECT msg_id, plaintext, is_mine, created_at, is_read, status, reply_to_json FROM messages_history WHERE contact_hash = ?';
+      let sql = 'SELECT msg_id, plaintext, is_mine, created_at, is_read, status, reply_to_json, sender_hash, sender_name FROM messages_history WHERE contact_hash = ?';
       let params: Array<string | number> = [contactHash];
       if (options.beforeCursor) {
         sql += ' AND msg_id < ?';
@@ -291,6 +309,8 @@ export class DatabaseService {
           isRead: r.is_mine === 1 || r.is_read === 1,
           status: uiStatus,
           replyTo,
+          senderHash: r.sender_hash ?? null,
+          senderName: r.sender_name ?? null,
         };
       });
     });
@@ -644,7 +664,122 @@ export class DatabaseService {
         DELETE FROM sync_queue;
         DELETE FROM outgoing_seq;
         DELETE FROM replay_seen;
+        DELETE FROM groups_vault;
+        DELETE FROM group_members;
       `);
+    });
+  }
+
+  async createGroup(name: string, memberIds: string[], adminId?: string): Promise<string> {
+    const groupId = `GROUP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'INSERT INTO groups_vault (group_id, name, admin_id, only_admin_can_post, created_at) VALUES (?, ?, ?, 0, ?);',
+        [groupId, name.trim(), adminId ?? null, Date.now()]
+      );
+      for (const memberId of Array.from(new Set(memberIds))) {
+        await (db as any).runAsync(
+          'INSERT OR IGNORE INTO group_members (group_id, contact_hash) VALUES (?, ?);',
+          [groupId, memberId]
+        );
+      }
+    });
+    return groupId;
+  }
+
+  async upsertGroup(groupId: string, name: string, memberIds: string[] = [], adminId?: string | null, onlyAdminCanPost?: boolean): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        `INSERT INTO groups_vault (group_id, name, admin_id, only_admin_can_post, created_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(group_id) DO UPDATE SET
+           name = excluded.name,
+           admin_id = COALESCE(excluded.admin_id, groups_vault.admin_id),
+           only_admin_can_post = excluded.only_admin_can_post;`,
+        [groupId, name.trim(), adminId ?? null, onlyAdminCanPost ? 1 : 0, Date.now()]
+      );
+      for (const memberId of Array.from(new Set(memberIds))) {
+        await (db as any).runAsync(
+          'INSERT OR IGNORE INTO group_members (group_id, contact_hash) VALUES (?, ?);',
+          [groupId, memberId]
+        );
+      }
+    });
+  }
+
+  async getAllGroups(): Promise<Array<{ groupId: string; name: string; memberCount: number; createdAt: number; adminId: string | null; onlyAdminCanPost: boolean }>> {
+    return this.withDb(async (db) => {
+      const rows = await (db as any).getAllAsync(
+        `SELECT g.group_id, g.name, g.created_at, g.admin_id, g.only_admin_can_post, COUNT(m.contact_hash) AS member_count
+         FROM groups_vault g
+         LEFT JOIN group_members m ON g.group_id = m.group_id
+         GROUP BY g.group_id, g.name, g.created_at
+         ORDER BY g.created_at DESC;`
+      );
+      return (rows ?? []).map((r: any) => ({
+        groupId: r.group_id,
+        name: r.name,
+        memberCount: r.member_count ?? 0,
+        createdAt: r.created_at ?? 0,
+        adminId: r.admin_id ?? null,
+        onlyAdminCanPost: r.only_admin_can_post === 1,
+      }));
+    });
+  }
+
+  async getGroup(groupId: string): Promise<{ groupId: string; name: string; memberIds: string[]; adminId: string | null; onlyAdminCanPost: boolean } | null> {
+    return this.withDb(async (db) => {
+      const group = await (db as any).getFirstAsync(
+        'SELECT group_id, name, admin_id, only_admin_can_post FROM groups_vault WHERE group_id = ? LIMIT 1;',
+        [groupId]
+      );
+      if (!group) return null;
+      const members = await (db as any).getAllAsync(
+        'SELECT contact_hash FROM group_members WHERE group_id = ? ORDER BY contact_hash ASC;',
+        [groupId]
+      );
+      return {
+        groupId: group.group_id,
+        name: group.name,
+        adminId: group.admin_id ?? null,
+        onlyAdminCanPost: group.only_admin_can_post === 1,
+        memberIds: (members ?? []).map((m: any) => String(m.contact_hash)),
+      };
+    });
+  }
+
+  async setGroupOnlyAdminCanPost(groupId: string, enabled: boolean): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'UPDATE groups_vault SET only_admin_can_post = ? WHERE group_id = ?;',
+        [enabled ? 1 : 0, groupId]
+      );
+    });
+  }
+
+  async addGroupMember(groupId: string, contactHash: string): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'INSERT OR IGNORE INTO group_members (group_id, contact_hash) VALUES (?, ?);',
+        [groupId, contactHash]
+      );
+    });
+  }
+
+  async removeGroupMember(groupId: string, contactHash: string): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'DELETE FROM group_members WHERE group_id = ? AND contact_hash = ?;',
+        [groupId, contactHash]
+      );
+    });
+  }
+
+  async deleteGroup(groupId: string): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync('DELETE FROM group_members WHERE group_id = ?;', [groupId]);
+      await (db as any).runAsync('DELETE FROM groups_vault WHERE group_id = ?;', [groupId]);
+      await (db as any).runAsync('DELETE FROM messages_history WHERE contact_hash = ?;', [groupId]);
     });
   }
 }

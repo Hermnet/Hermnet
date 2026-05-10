@@ -9,6 +9,8 @@ import { apiClient, configureUnauthorizedHandler, TOR_NATIVE_AVAILABLE } from '.
 import { prefsService } from '../services/PrefsService';
 import { getHermnetTor } from '../modules/hermnet-tor/src';
 import { messageFlowService } from '../services/MessageFlowService';
+import { deviceNotificationService } from '../services/DeviceNotificationService';
+import { screenPrivacyService } from '../services/ScreenPrivacyService';
 import NetInfo from '@react-native-community/netinfo';
 import { AccessibilityProvider } from '../contexts/AccessibilityContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -51,6 +53,8 @@ export default function RootLayout() {
     });
     // También intentamos al arrancar por si la app se abrió con la cola llena.
     messageFlowService.flushQueue().catch(() => {});
+    deviceNotificationService.configure().catch(() => {});
+    screenPrivacyService.preventCapture().catch(() => {});
 
     // Worker periódico de mensajes temporales: cada 30s borra los expirados.
     const purgeTimer = setInterval(() => {

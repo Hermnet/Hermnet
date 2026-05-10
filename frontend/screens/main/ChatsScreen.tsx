@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image, KeyboardAvoidingView, Platform, StatusBar, Animated, StyleSheet, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, ArchiveRestore, PinOff } from 'lucide-react-native';
+import { Search, Settings, QrCode, ScanLine, Pin, BellOff, Bell, Archive, ArchiveRestore, PinOff, Hash, Users, Trash2 } from 'lucide-react-native';
 import { createStyles } from '../../styles/chatsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSlideAnim } from '../../hooks/useSlideAnim';
@@ -21,10 +21,15 @@ import { useAccessibility } from '../../contexts/AccessibilityContext';
 import ContactAvatar from '../../components/ContactAvatar';
 import AvatarCustomizer from '../../components/AvatarCustomizer';
 import MatrixText from '../../components/MatrixText';
+import AddHashContactModal from '../../components/chats/AddHashContactModal';
+import CreateGroupModal from '../../components/chats/CreateGroupModal';
+import { deviceNotificationService } from '../../services/DeviceNotificationService';
 
 type Chat = {
     id: string;
     name: string;
+    isGroup?: boolean;
+    memberCount?: number;
     unreadCount: number;
     isPinned: boolean;
     isMuted: boolean;
@@ -80,6 +85,12 @@ export default function ChatsScreen() {
     const [showArchived, setShowArchived] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ chat: Chat; y: number } | null>(null);
     const [avatarChat, setAvatarChat] = useState<Chat | null>(null);
+    const [hashModalOpen, setHashModalOpen] = useState(false);
+    const [hashInput, setHashInput] = useState('');
+    const [hashAliasInput, setHashAliasInput] = useState('');
+    const [groupModalOpen, setGroupModalOpen] = useState(false);
+    const [groupNameInput, setGroupNameInput] = useState('');
+    const [selectedGroupMembers, setSelectedGroupMembers] = useState<Set<string>>(new Set());
     // Cola de contactos entrantes a los que se debe pedir alias (alguien nos ha añadido)
     const [incomingContactQueue, setIncomingContactQueue] = useState<string[]>([]);
     const [incomingAliasInput, setIncomingAliasInput] = useState('');
@@ -104,6 +115,8 @@ export default function ChatsScreen() {
     const btnScale = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] });
     const btn1TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
     const btn2TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
+    const btn3TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] });
+    const btn4TranslateY = fabMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] });
 
     const loadChats = useCallback(async () => {
         if (!identity) return;
@@ -123,17 +136,27 @@ export default function ChatsScreen() {
                 return additions.length > 0 ? [...prev, ...additions] : prev;
             });
         }
-        const [contacts, lastMessages] = await Promise.all([
+        const [contacts, groups, lastMessages] = await Promise.all([
             contactsService.getAllContacts(),
+            databaseService.getAllGroups(),
             databaseService.getLastMessagePerContact(),
         ]);
+        for (const sender of result.senders) {
+            const contact = contacts.find(c => c.contactHash === sender);
+            if (!contact?.isMuted && activeChatId !== sender) {
+                deviceNotificationService
+                    .showMessageNotification(contact?.alias ?? sender.slice(5, 17))
+                    .catch(() => {});
+            }
+        }
         const visible = contacts.filter(c => !c.isBlocked);
-        const chatsWithCounts = await Promise.all(visible.map(async c => {
+        const contactChats = await Promise.all(visible.map(async c => {
             const last = lastMessages.get(c.contactHash);
             const unreadCount = await databaseService.getUnreadCount(c.contactHash);
             return {
                 id: c.contactHash,
                 name: c.alias ?? c.contactHash.slice(5, 17),
+                isGroup: false,
                 unreadCount,
                 isPinned: c.isPinned,
                 isMuted: c.isMuted,
@@ -146,8 +169,28 @@ export default function ChatsScreen() {
                 lastMessageTime: last?.createdAt ?? null,
             };
         }));
-        setChats(chatsWithCounts);
-    }, [identity]);
+        const groupChats = await Promise.all(groups.map(async g => {
+            const last = lastMessages.get(g.groupId);
+            const unreadCount = await databaseService.getUnreadCount(g.groupId);
+            return {
+                id: g.groupId,
+                name: g.name,
+                isGroup: true,
+                memberCount: g.memberCount,
+                unreadCount,
+                isPinned: false,
+                isMuted: false,
+                isArchived: false,
+                avatarBg: null,
+                avatarIcon: null,
+                lastMessage: last?.text ?? null,
+                lastMessageIsMine: last?.isMine ?? false,
+                lastMessageIsRead: last?.isRead ?? true,
+                lastMessageTime: last?.createdAt ?? g.createdAt,
+            };
+        }));
+        setChats([...contactChats, ...groupChats]);
+    }, [identity, activeChatId]);
 
     useEffect(() => {
         if (!identity) return;
@@ -245,11 +288,14 @@ export default function ChatsScreen() {
         const visible = contacts.filter(c => !c.isBlocked);
         setChats(prev => {
             const prevByHash = new Map(prev.map(c => [c.id, c]));
-            return visible.map(c => {
+            const groups = prev.filter(c => c.isGroup);
+            return [
+                ...visible.map(c => {
                 const existing = prevByHash.get(c.contactHash);
                 return {
                     id: c.contactHash,
                     name: c.alias ?? c.contactHash.slice(5, 17),
+                    isGroup: false,
                     unreadCount: existing?.unreadCount ?? 0,
                     isPinned: c.isPinned,
                     isMuted: c.isMuted,
@@ -261,7 +307,9 @@ export default function ChatsScreen() {
                     lastMessageIsRead: existing?.lastMessageIsRead ?? true,
                     lastMessageTime: existing?.lastMessageTime ?? null,
                 };
-            });
+            }),
+                ...groups,
+            ];
         });
     }, []);
 
@@ -358,25 +406,122 @@ export default function ChatsScreen() {
         showQRSlide.close(() => setShowShowQR(false));
     }, [showQRSlide]);
 
+    const handleOpenHashAdd = useCallback(() => {
+        closeFabMenu();
+        setHashInput('');
+        setHashAliasInput('');
+        setHashModalOpen(true);
+    }, [closeFabMenu]);
+
+    const handleSaveHashContact = useCallback(async () => {
+        const normalized = hashInput.trim().toUpperCase();
+        if (!normalized) return;
+        if (identity?.id === normalized) {
+            showModal({ type: 'warning', title: 'Hash no válido', message: 'No puedes añadirte a ti mismo como contacto.' });
+            return;
+        }
+        try {
+            const contact = await contactsService.saveContactByHash(normalized, hashAliasInput);
+            await refreshContacts();
+            setHashModalOpen(false);
+            messageFlowService.sendHandshake(contact.contactHash).catch((err) => {
+                console.warn('[handshake] failed:', err);
+            });
+            setActiveChatId(contact.contactHash);
+            chatSlide.open();
+        } catch (err: any) {
+            showModal({ type: 'error', title: 'No se pudo añadir', message: err?.message ?? 'Comprueba el hash y tu conexión.' });
+        }
+    }, [hashInput, hashAliasInput, identity?.id, refreshContacts, showModal, chatSlide]);
+
+    const handleOpenGroup = useCallback(() => {
+        closeFabMenu();
+        setGroupNameInput('');
+        setSelectedGroupMembers(new Set());
+        setGroupModalOpen(true);
+    }, [closeFabMenu]);
+
+    const handleToggleGroupMember = useCallback((contactHash: string) => {
+        setSelectedGroupMembers(prev => {
+            const next = new Set(prev);
+            if (next.has(contactHash)) next.delete(contactHash);
+            else next.add(contactHash);
+            return next;
+        });
+    }, []);
+
+    const handleCreateGroup = useCallback(async () => {
+        const name = groupNameInput.trim();
+        const members = Array.from(selectedGroupMembers);
+        if (!name) {
+            showModal({ type: 'warning', title: 'Nombre obligatorio', message: 'Pon un nombre al grupo.' });
+            return;
+        }
+        if (members.length === 0) {
+            showModal({ type: 'warning', title: 'Sin miembros', message: 'Selecciona al menos un contacto.' });
+            return;
+        }
+        try {
+            const groupId = await databaseService.createGroup(name, members, identity?.id);
+            setGroupModalOpen(false);
+            await loadChats();
+            setActiveChatId(groupId);
+            chatSlide.open();
+        } catch (err: any) {
+            showModal({ type: 'error', title: 'No se pudo crear', message: err?.message ?? 'Inténtalo de nuevo.' });
+        }
+    }, [groupNameInput, selectedGroupMembers, showModal, loadChats, chatSlide]);
+
+    const handleDeleteGroupFromList = useCallback((chat: Chat) => {
+        setContextMenu(null);
+        if (!chat.isGroup) return;
+        showModal({
+            type: 'warning',
+            title: 'Eliminar grupo',
+            message: 'Se borrará el grupo y su historial local.',
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await databaseService.deleteGroup(chat.id);
+                            await loadChats();
+                        } catch {
+                            showModal({ type: 'error', title: 'Error', message: 'No se pudo eliminar el grupo.' });
+                        }
+                    },
+                },
+            ],
+        });
+    }, [loadChats, showModal]);
+
     const handleTogglePin = useCallback(async (chat: Chat) => {
         setContextMenu(null);
+        if (chat.isGroup) return;
         await contactsService.setPinned(chat.id, !chat.isPinned);
     }, []);
 
     const handleToggleMute = useCallback(async (chat: Chat) => {
         setContextMenu(null);
+        if (chat.isGroup) return;
         await contactsService.setMuted(chat.id, !chat.isMuted);
     }, []);
 
     const handleToggleArchive = useCallback(async (chat: Chat) => {
         setContextMenu(null);
+        if (chat.isGroup) return;
         await contactsService.setArchived(chat.id, !chat.isArchived);
     }, []);
 
     const handleSaveAvatar = useCallback(async (bg: string | null, icon: string | null) => {
         if (!avatarChat) return;
+        if (avatarChat.isGroup) return;
         await contactsService.setAvatarColors(avatarChat.id, bg, icon);
     }, [avatarChat]);
+
+    const contactsForGroup = useMemo(() => chats.filter(c => !c.isGroup && !c.isArchived), [chats]);
 
     const archivedCount = useMemo(() => chats.filter(c => c.isArchived).length, [chats]);
 
@@ -394,21 +539,24 @@ export default function ChatsScreen() {
         >
             <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={() => setAvatarChat(item)}
-                accessibilityLabel="Personalizar avatar"
+                onPress={() => !item.isGroup && setAvatarChat(item)}
+                accessibilityLabel={item.isGroup ? 'Grupo' : 'Personalizar avatar'}
             >
-                <ContactAvatar
-                    contactHash={item.id}
-                    alias={item.name}
-                    size={48}
-                    customBg={item.avatarBg}
-                    customIcon={item.avatarIcon}
-                />
+                {item.isGroup
+                    ? <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accentButton, alignItems: 'center', justifyContent: 'center' }}><Users size={24} color="#ffffff" /></View>
+                    : <ContactAvatar
+                        contactHash={item.id}
+                        alias={item.name}
+                        size={48}
+                        customBg={item.avatarBg}
+                        customIcon={item.avatarIcon}
+                    />}
             </TouchableOpacity>
             <View style={{ flex: 1, marginLeft: 14 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                         <Text style={[styles.chatName, { fontSize: Math.round(15 * fontScale), flex: 0, flexShrink: 1 }]} numberOfLines={1}>{item.name}</Text>
+                        {item.isGroup && <Users size={12} color={colors.textHint} />}
                         {item.isPinned && <Pin size={12} color={colors.textHint} />}
                         {item.isMuted && <BellOff size={12} color={colors.textHint} />}
                     </View>
@@ -436,7 +584,7 @@ export default function ChatsScreen() {
                                 style={{ color: colors.textHint, fontSize: Math.round(13 * fontScale), lineHeight: Math.round(17 * fontScale) }}
                                 numberOfLines={1}
                             >
-                                Sin mensajes aún
+                                {item.isGroup ? `${item.memberCount ?? 0} miembros` : 'Sin mensajes aún'}
                             </Text>
                         )}
                     </View>
@@ -554,6 +702,32 @@ export default function ChatsScreen() {
                 )}
 
                 <View style={styles.fabGroup}>
+                    <Animated.View
+                        style={[styles.subFabRow, {
+                            opacity: btnOpacity,
+                            transform: [{ scale: btnScale }, { translateY: btn4TranslateY }],
+                        }]}
+                        pointerEvents={fabOpen ? 'auto' : 'none'}
+                    >
+                        <Text style={styles.subFabLabel}>Nuevo grupo</Text>
+                        <TouchableOpacity style={styles.subFab} activeOpacity={0.8} onPress={handleOpenGroup} accessibilityLabel="Crear grupo">
+                            <Users size={22} color="#ffffff" />
+                        </TouchableOpacity>
+                    </Animated.View>
+
+                    <Animated.View
+                        style={[styles.subFabRow, {
+                            opacity: btnOpacity,
+                            transform: [{ scale: btnScale }, { translateY: btn3TranslateY }],
+                        }]}
+                        pointerEvents={fabOpen ? 'auto' : 'none'}
+                    >
+                        <Text style={styles.subFabLabel}>Añadir hash</Text>
+                        <TouchableOpacity style={styles.subFab} activeOpacity={0.8} onPress={handleOpenHashAdd} accessibilityLabel="Añadir por hash">
+                            <Hash size={22} color="#ffffff" />
+                        </TouchableOpacity>
+                    </Animated.View>
+
                     <Animated.View
                         style={[styles.subFabRow, {
                             opacity: btnOpacity,
@@ -765,6 +939,27 @@ export default function ChatsScreen() {
                 </TouchableOpacity>
             </Modal>
 
+            <AddHashContactModal
+                visible={hashModalOpen}
+                hashInput={hashInput}
+                aliasInput={hashAliasInput}
+                onHashChange={setHashInput}
+                onAliasChange={setHashAliasInput}
+                onClose={() => setHashModalOpen(false)}
+                onSubmit={handleSaveHashContact}
+            />
+
+            <CreateGroupModal
+                visible={groupModalOpen}
+                name={groupNameInput}
+                contacts={contactsForGroup}
+                selectedMembers={selectedGroupMembers}
+                onNameChange={setGroupNameInput}
+                onToggleMember={handleToggleGroupMember}
+                onClose={() => setGroupModalOpen(false)}
+                onSubmit={handleCreateGroup}
+            />
+
             {/* ── Context menu: long press en chat ── */}
             <Modal
                 visible={!!contextMenu}
@@ -786,47 +981,57 @@ export default function ChatsScreen() {
                             </Text>
                         </View>
 
-                        {/* Pin */}
-                        <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
-                            activeOpacity={0.6}
-                            onPress={() => contextMenu && handleTogglePin(contextMenu.chat)}
-                        >
-                            {contextMenu?.chat.isPinned
-                                ? <PinOff size={20} color={colors.textSecondary} />
-                                : <Pin size={20} color={colors.textSecondary} />}
-                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
-                                {contextMenu?.chat.isPinned ? 'Desfijar' : 'Fijar arriba'}
-                            </Text>
-                        </TouchableOpacity>
+                        {contextMenu?.chat.isGroup ? (
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14, marginBottom: 4 }}
+                                activeOpacity={0.6}
+                                onPress={() => contextMenu && handleDeleteGroupFromList(contextMenu.chat)}
+                            >
+                                <Trash2 size={20} color={colors.dangerText} />
+                                <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Eliminar grupo</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
+                                    activeOpacity={0.6}
+                                    onPress={() => contextMenu && handleTogglePin(contextMenu.chat)}
+                                >
+                                    {contextMenu?.chat.isPinned
+                                        ? <PinOff size={20} color={colors.textSecondary} />
+                                        : <Pin size={20} color={colors.textSecondary} />}
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                        {contextMenu?.chat.isPinned ? 'Desfijar' : 'Fijar arriba'}
+                                    </Text>
+                                </TouchableOpacity>
 
-                        {/* Mute */}
-                        <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
-                            activeOpacity={0.6}
-                            onPress={() => contextMenu && handleToggleMute(contextMenu.chat)}
-                        >
-                            {contextMenu?.chat.isMuted
-                                ? <Bell size={20} color={colors.textSecondary} />
-                                : <BellOff size={20} color={colors.textSecondary} />}
-                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
-                                {contextMenu?.chat.isMuted ? 'Activar notificaciones' : 'Silenciar'}
-                            </Text>
-                        </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
+                                    activeOpacity={0.6}
+                                    onPress={() => contextMenu && handleToggleMute(contextMenu.chat)}
+                                >
+                                    {contextMenu?.chat.isMuted
+                                        ? <Bell size={20} color={colors.textSecondary} />
+                                        : <BellOff size={20} color={colors.textSecondary} />}
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                        {contextMenu?.chat.isMuted ? 'Activar notificaciones' : 'Silenciar'}
+                                    </Text>
+                                </TouchableOpacity>
 
-                        {/* Archive */}
-                        <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14, marginBottom: 4 }}
-                            activeOpacity={0.6}
-                            onPress={() => contextMenu && handleToggleArchive(contextMenu.chat)}
-                        >
-                            {contextMenu?.chat.isArchived
-                                ? <ArchiveRestore size={20} color={colors.textSecondary} />
-                                : <Archive size={20} color={colors.textSecondary} />}
-                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
-                                {contextMenu?.chat.isArchived ? 'Desarchivar' : 'Archivar'}
-                            </Text>
-                        </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14, marginBottom: 4 }}
+                                    activeOpacity={0.6}
+                                    onPress={() => contextMenu && handleToggleArchive(contextMenu.chat)}
+                                >
+                                    {contextMenu?.chat.isArchived
+                                        ? <ArchiveRestore size={20} color={colors.textSecondary} />
+                                        : <Archive size={20} color={colors.textSecondary} />}
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+                                        {contextMenu?.chat.isArchived ? 'Desarchivar' : 'Archivar'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>

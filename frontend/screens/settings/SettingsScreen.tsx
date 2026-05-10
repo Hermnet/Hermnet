@@ -26,10 +26,11 @@ import TermsScreen from './TermsScreen';
 import TransferScreen from './TransferScreen';
 import AccessibilityScreen from './AccessibilityScreen';
 import AppearanceScreen from './AppearanceScreen';
+import ProfileScreen from './ProfileScreen';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type ConfirmModal = 'logout' | 'delete' | null;
-type SubScreen = 'security' | 'notifications' | 'privacy' | 'help' | 'terms' | 'transfer' | 'accessibility' | 'appearance' | null;
+type SubScreen = 'profile' | 'security' | 'notifications' | 'privacy' | 'help' | 'terms' | 'transfer' | 'accessibility' | 'appearance' | null;
 
 interface Props {
     onBack: () => void;
@@ -134,6 +135,12 @@ export default function SettingsScreen({ onBack }: Props) {
                     </TouchableOpacity>
 
                     <View style={s.sectionCard}>
+                        <SettingRow
+                            icon={<User size={17} color={colors.accentLight} />}
+                            label="Perfil público"
+                            iconBg={isDark ? '#1e2d4a' : '#dbeafe'}
+                            onPress={() => openSub('profile')}
+                        />
                         <SettingRow
                             icon={<Shield size={17} color={colors.accentLight} />}
                             label="Seguridad"
@@ -318,6 +325,7 @@ export default function SettingsScreen({ onBack }: Props) {
                 ]}
                 pointerEvents={activeSub ? 'auto' : 'none'}
             >
+                {activeSub === 'profile' && <ProfileScreen onBack={closeSub} />}
                 {activeSub === 'security' && <SecurityScreen onBack={closeSub} />}
                 {activeSub === 'notifications' && <NotificationsScreen onBack={closeSub} />}
                 {activeSub === 'privacy' && <PrivacyScreen onBack={closeSub} />}

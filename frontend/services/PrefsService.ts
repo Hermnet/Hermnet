@@ -5,6 +5,7 @@ const KEY_NOTIFICATIONS = 'hermnet.prefs.notifications';
 const KEY_ACCESSIBILITY = 'hermnet.prefs.accessibility';
 const KEY_THEME = 'hermnet.prefs.theme';
 const KEY_CHAT = 'hermnet.prefs.chat';
+const KEY_PROFILE = 'hermnet.prefs.profile';
 
 export type ThemeMode = 'auto' | 'light' | 'dark';
 
@@ -41,6 +42,10 @@ export interface NotificationPrefs {
     preview: boolean;
     sound: boolean;
     vibration: boolean;
+}
+
+export interface ProfilePrefs {
+    displayName: string;
 }
 
 export interface AccessibilityPrefs {
@@ -108,6 +113,9 @@ class PrefsService {
     getChatPrefs = () => load<ChatPrefs>(KEY_CHAT, DEFAULT_CHAT);
     setChatPrefs = (prefs: ChatPrefs) => save(KEY_CHAT, prefs);
 
+    getProfilePrefs = () => load<ProfilePrefs>(KEY_PROFILE, { displayName: '' });
+    setProfilePrefs = (prefs: ProfilePrefs) => save(KEY_PROFILE, prefs);
+
     async clearAll(): Promise<void> {
         await Promise.all([
             SecureStore.deleteItemAsync(KEY_SECURITY),
@@ -115,6 +123,7 @@ class PrefsService {
             SecureStore.deleteItemAsync(KEY_ACCESSIBILITY),
             SecureStore.deleteItemAsync(KEY_THEME),
             SecureStore.deleteItemAsync(KEY_CHAT),
+            SecureStore.deleteItemAsync(KEY_PROFILE),
         ]);
     }
 }

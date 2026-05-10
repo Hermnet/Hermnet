@@ -48,4 +48,18 @@ public class UserService {
                 savedUser.getCreatedAt()
         );
     }
+
+    public UserResponse findPublicIdentity(String id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado."));
+        return new UserResponse(user.getIdHash(), user.getPublicKey(), user.getCreatedAt());
+    }
+
+    public void updatePushToken(String id, String pushToken) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado."));
+        String cleanToken = pushToken == null || pushToken.isBlank() ? null : pushToken.trim();
+        user.setPushToken(cleanToken);
+        userRepository.save(user);
+    }
 }

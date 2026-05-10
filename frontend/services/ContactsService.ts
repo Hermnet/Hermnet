@@ -1,5 +1,6 @@
 import QuickCrypto from './CryptoService';
 import { databaseService } from './DatabaseService';
+import { userApiService } from './UserApiService';
 
 export interface Contact {
     contactHash: string;
@@ -75,6 +76,24 @@ export class ContactsService {
     async saveContact(contactHash: string, publicKey: string, alias?: string): Promise<void> {
         await databaseService.upsertContact(contactHash, publicKey, alias ?? null);
         this.emit();
+    }
+
+    async saveContactByHash(contactHash: string, alias?: string): Promise<Contact> {
+        const normalized = contactHash.trim().toUpperCase();
+        if (!normalized.startsWith('HNET-')) {
+            throw new Error('El hash debe empezar por HNET-');
+        }
+
+        const user = await userApiService.findById(normalized);
+        if (!PEM_PUBLIC_KEY_RE.test(user.publicKey)) {
+            throw new Error('La clave pública recibida no es válida.');
+        }
+        const expectedId = fingerprintFromPublicKey(user.publicKey);
+        if (expectedId !== user.id) {
+            throw new Error('La identidad encontrada no supera la verificación anti-spoofing.');
+        }
+        await this.saveContact(user.id, user.publicKey, alias?.trim() || undefined);
+        return { contactHash: user.id, publicKey: user.publicKey, alias: alias?.trim() || null, isBlocked: false, isPinned: false, isMuted: false, isArchived: false, avatarBg: null, avatarIcon: null };
     }
 
     /** Elimina contacto e historial de mensajes asociado en una sola operación. */

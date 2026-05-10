@@ -2,6 +2,7 @@ import { authApiService } from './AuthApiService';
 import { configureJwtInterceptor, configureUnauthorizedHandler } from './ApiClient';
 import { authSessionService } from './AuthSessionService';
 import { Identity, identityService } from './IdentityService';
+import { deviceNotificationService } from './DeviceNotificationService';
 
 export interface LoginFlowResult {
   identity: Identity;
@@ -67,6 +68,7 @@ export class AuthFlowService {
       try {
         const refreshed = await authApiService.refresh();
         await authSessionService.setJwtToken(refreshed.token);
+        deviceNotificationService.registerDeviceTokenIfEnabled().catch(() => {});
         return { identity, jwtToken: refreshed.token, registeredInThisSession };
       } catch (err) {
         // Token expirado/revocado: continuar con challenge/login. Si el backend
@@ -99,6 +101,7 @@ export class AuthFlowService {
       signedNonce,
     });
     await authSessionService.setJwtToken(loginResponse.token);
+    deviceNotificationService.registerDeviceTokenIfEnabled().catch(() => {});
 
     return {
       identity,

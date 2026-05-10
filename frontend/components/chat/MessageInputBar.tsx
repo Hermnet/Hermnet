@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { CornerUpLeft, Send, X } from 'lucide-react-native';
+import { CornerUpLeft, Send, Smile, X } from 'lucide-react-native';
 import { createStyles } from '../../styles/chatRoomStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { MsgData, MAX_LENGTH, COUNTER_THRESHOLD } from './types';
@@ -43,17 +43,46 @@ interface Props {
 const MessageInputBar = React.memo(({ value, onChangeText, onSend, replyingTo, contactName, onJumpToReply, onCancelReply, isSending, bottomInset, keyboardVisible = false }: Props) => {
     const { colors: c } = useTheme();
     const s = useMemo(() => createStyles(c), [c]);
+    const [emojiOpen, setEmojiOpen] = useState(false);
     const remaining = MAX_LENGTH - value.length;
     const showCounter = value.length >= COUNTER_THRESHOLD;
     const counterColor = remaining <= 20 ? c.dangerText : c.textMuted;
     const bottomPadding = Math.max(bottomInset, 12) + 8;
+    const emojis = ['😀', '😂', '😍', '😎', '🙏', '👍', '🔥', '❤️', '🎉', '😅', '🤔', '😢', '😡', '✅', '👀', '💪'];
+    const appendEmoji = (emoji: string) => {
+        if (value.length + emoji.length > MAX_LENGTH) return;
+        onChangeText(`${value}${emoji}`);
+    };
 
     return (
         <View style={[s.inputContainer, { paddingBottom: bottomPadding }]}>
             {replyingTo && (
                 <ReplyBanner msg={replyingTo} contactName={contactName} onJumpTo={onJumpToReply} onCancel={onCancelReply} />
             )}
+            {emojiOpen && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, backgroundColor: c.inputBg, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.borderFaint }}>
+                    {emojis.map(emoji => (
+                        <TouchableOpacity
+                            key={emoji}
+                            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.inputFieldBg, alignItems: 'center', justifyContent: 'center' }}
+                            activeOpacity={0.7}
+                            onPress={() => appendEmoji(emoji)}
+                            accessibilityLabel={`Añadir emoji ${emoji}`}
+                        >
+                            <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
             <View style={[s.inputBackground, replyingTo && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
+                <TouchableOpacity
+                    style={s.iconInputButton}
+                    onPress={() => setEmojiOpen(prev => !prev)}
+                    activeOpacity={0.7}
+                    accessibilityLabel={emojiOpen ? 'Cerrar emojis' : 'Abrir emojis'}
+                >
+                    <Smile size={21} color={emojiOpen ? c.accentLight : c.textMuted} />
+                </TouchableOpacity>
                 <TextInput
                     style={s.textInput}
                     value={value}

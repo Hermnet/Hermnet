@@ -43,6 +43,7 @@ function isNewerThan(a: MsgData, b: MsgData | undefined): boolean {
 }
 
 export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMessagesOptions) {
+    const isGroupChat = chatId.startsWith('GROUP-');
     const [dbMessages, setDbMessages] = useState<MsgData[]>([]);
     const [pendingSends, setPendingSends] = useState<MsgData[]>([]);
     const [contactName, setContactName] = useState<string>(chatId.slice(5, 17));
@@ -53,6 +54,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isAtBottom, setIsAtBottom] = useState(true);
     const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
+    const [groupInfo, setGroupInfo] = useState<{ adminId: string | null; memberIds: string[]; onlyAdminCanPost: boolean } | null>(null);
 
     const { identity } = useAuthStore();
     const isAppActive = useIsAppActive();
@@ -79,13 +81,22 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
 
     // Carga inicial + alias
     useEffect(() => {
+        if (isGroupChat) {
+            databaseService.getGroup(chatId)
+                .then(group => {
+                    setContactName(group?.name ?? 'Grupo');
+                    setGroupInfo(group ? { adminId: group.adminId, memberIds: group.memberIds, onlyAdminCanPost: group.onlyAdminCanPost } : null);
+                })
+                .catch(() => setContactName('Grupo'));
+            return;
+        }
         contactsService.getAllContacts()
             .then(contacts => {
                 const contact = contacts.find(c => c.contactHash === chatId);
                 setContactName(contact?.alias ?? chatId.slice(5, 17));
             })
             .catch(() => {});
-    }, [chatId]);
+    }, [chatId, isGroupChat]);
 
     // Carga inicial paginada
     useEffect(() => {
@@ -189,7 +200,24 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     const sendInternal = useCallback((text: string, sentAt: number, tempId: string, replyToCtx: MsgData['replyTo']) => {
         activeSendsRef.current += 1;
         setIsSending(true);
-        messageFlowService.sendMessage({ recipientId: chatId, plaintext: text, sentAt, replyTo: replyToCtx ?? null })
+        const sendPromise = isGroupChat
+            ? databaseService.getGroup(chatId).then(group => {
+                if (!group) throw new Error('Este grupo ya no existe.');
+                if (group.memberIds.length === 0) throw new Error('El grupo no tiene miembros.');
+                if (group.onlyAdminCanPost && identity?.id !== group.adminId) {
+                    throw new Error('Solo el administrador puede escribir en este grupo.');
+                }
+                return messageFlowService.sendGroupMessage({
+                    groupId: group.groupId,
+                    groupName: group.name,
+                    memberIds: group.memberIds,
+                    plaintext: text,
+                    sentAt,
+                    replyTo: replyToCtx ?? null,
+                });
+            })
+            : messageFlowService.sendMessage({ recipientId: chatId, plaintext: text, sentAt, replyTo: replyToCtx ?? null });
+        sendPromise
             .then(async () => {
                 if (!isMountedRef.current) return;
                 try {
@@ -212,7 +240,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
                 activeSendsRef.current = Math.max(activeSendsRef.current - 1, 0);
                 if (isMountedRef.current) setIsSending(activeSendsRef.current > 0);
             });
-    }, [chatId, showModal]);
+    }, [chatId, isGroupChat, showModal, identity?.id]);
 
     const handleSend = useCallback((newMessage: string, replyingTo: MsgData | null) => {
         const text = newMessage.trim();
@@ -222,7 +250,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
         const replyToCtx = replyingTo ? { id: replyingTo.id, text: replyingTo.text, isMine: replyingTo.isMine } : null;
         const tempMsg: MsgData = {
             id: `pending-${sentAt}-${seq}`,
-            text, isMine: true, createdAt: sentAt, replyTo: replyToCtx, status: 'pending',
+            text, isMine: true, createdAt: sentAt, replyTo: replyToCtx, status: 'pending', senderHash: identity?.id ?? null,
         };
         setPendingSends(prev => [tempMsg, ...prev]);
         setTimeout(() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }), 50);
@@ -262,17 +290,21 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
 
     const handleClearHistory = useCallback(async () => {
         try {
-            await contactsService.clearChatHistory(chatId);
+            if (isGroupChat) {
+                await databaseService.deleteMessagesByContact(chatId);
+            } else {
+                await contactsService.clearChatHistory(chatId);
+            }
             setDbMessages([]);
             setPendingSends([]);
             setHasMore(false);
         } catch {
             showModal({ type: 'error', title: 'Error', message: 'No se pudo vaciar la conversación.' });
         }
-    }, [chatId, showModal]);
+    }, [chatId, isGroupChat, showModal]);
 
     return {
-        allMessages, dbMessages, contactName, setContactName,
+        allMessages, dbMessages, contactName, setContactName, isGroupChat, groupInfo,
         isSending, isRefreshing, isLoadingMore, isInitialLoaded, hasMore,
         isAtBottom, hasUnreadBelow,
         flatListRef,

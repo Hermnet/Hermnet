@@ -8,7 +8,7 @@ import { useAppModal } from '../../components/AppModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     ArrowLeft, RefreshCw, Pencil, ChevronsDown, MoreVertical,
-    Trash2, Eraser, Lock, Timer, Check,
+    Trash2, Eraser, Lock, Timer, Check, Users, UserPlus, UserMinus, Shield,
 } from 'lucide-react-native';
 import { createStyles, createChatRoomStyles } from '../../styles/chatRoomStyles';
 import { databaseService } from '../../services/DatabaseService';
@@ -21,6 +21,7 @@ import { useAccessibility } from '../../contexts/AccessibilityContext';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { useTheme } from '../../contexts/ThemeContext';
 import ContactAvatar from '../../components/ContactAvatar';
+import { useAuthStore } from '../../store/authStore';
 
 import {
     MessageBubble, MessageActionSheet, FullMessageModal, MessageInputBar, PrivacyBanner,
@@ -47,9 +48,13 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     const { showModal, modalNode } = useAppModal();
     const insets = useSafeAreaInsets();
     const isAppActive = useIsAppActive();
+    const identity = useAuthStore((s) => s.identity);
 
     // ── Core message state (hook) ──
     const chat = useChatMessages({ chatId, matrixEnabled: true, showModal });
+    const isGroupChat = chat.isGroupChat;
+    const isGroupAdmin = !!identity?.id && chat.groupInfo?.adminId === identity.id;
+    const groupCanPost = !isGroupChat || !chat.groupInfo?.onlyAdminCanPost || isGroupAdmin;
 
     // ── UI state ──
     const [newMessage, setNewMessage] = useState('');
@@ -59,6 +64,10 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     const [editingAlias, setEditingAlias] = useState(false);
     const [aliasInput, setAliasInput] = useState('');
     const [showChatMenu, setShowChatMenu] = useState(false);
+    const [showGroupManager, setShowGroupManager] = useState(false);
+    const [groupMembers, setGroupMembers] = useState<string[]>([]);
+    const [groupOnlyAdmin, setGroupOnlyAdmin] = useState(false);
+    const [allContacts, setAllContacts] = useState<Array<{ contactHash: string; alias: string | null }>>([]);
     const [showPrivacyBanner, setShowPrivacyBanner] = useState(false);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const keyboardOffset = useRef(new Animated.Value(0)).current;
@@ -230,17 +239,22 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     }, [replyingTo, chat.allMessages]);
 
     const handleSend = useCallback(() => {
+        if (!groupCanPost) {
+            showModal({ type: 'warning', title: 'Solo administradores', message: 'Este grupo está configurado para que solo escriba el administrador.' });
+            return;
+        }
         const text = newMessage.trim();
         if (!text) return;
         chat.handleSend(newMessage, replyingTo);
         setNewMessage('');
         setReplyingTo(null);
-    }, [newMessage, replyingTo, chat.handleSend]);
+    }, [newMessage, replyingTo, chat.handleSend, groupCanPost, showModal]);
 
     const handleOpenEditAlias = useCallback(() => {
+        if (isGroupChat) return;
         setAliasInput(chat.contactName);
         setEditingAlias(true);
-    }, [chat.contactName]);
+    }, [chat.contactName, isGroupChat]);
 
     const handleSaveAlias = useCallback(async () => {
         const trimmed = aliasInput.trim();
@@ -331,13 +345,18 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     const [showEphemeralPicker, setShowEphemeralPicker] = useState(false);
 
     const refreshEphemeralState = useCallback(async () => {
+        if (isGroupChat) {
+            setEphemeralTtl(null);
+            setPendingProposal(null);
+            return;
+        }
         const [ttl, proposal] = await Promise.all([
             databaseService.getEphemeralTtl(chatId).catch(() => null),
             databaseService.getPendingEphemeralProposal(chatId).catch(() => null),
         ]);
         setEphemeralTtl(ttl);
         setPendingProposal(proposal);
-    }, [chatId]);
+    }, [chatId, isGroupChat]);
     useEffect(() => { refreshEphemeralState(); }, [refreshEphemeralState]);
 
     const handleProposeEphemeral = useCallback(async (ttlSeconds: number | null) => {
@@ -371,6 +390,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
     }, [chatId, refreshEphemeralState]);
 
     const handleToggleBlock = useCallback(async () => {
+        if (isGroupChat) return;
         setShowChatMenu(false);
         try {
             const next = !isBlocked;
@@ -386,7 +406,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
         } catch {
             showModal({ type: 'error', title: 'Error', message: 'No se pudo actualizar el bloqueo.' });
         }
-    }, [chatId, isBlocked, showModal]);
+    }, [chatId, isBlocked, isGroupChat, showModal]);
 
     const handleClearHistory = useCallback(() => {
         setShowChatMenu(false);
@@ -402,6 +422,22 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
 
     const handleDeleteContact = useCallback(() => {
         setShowChatMenu(false);
+        if (isGroupChat) {
+            showModal({
+                type: 'warning', title: 'Eliminar grupo',
+                message: 'Se borrará el grupo y su historial local. Esta acción no se puede deshacer.',
+                buttons: [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                        text: 'Eliminar', style: 'destructive', onPress: async () => {
+                            try { await databaseService.deleteGroup(chatId); onBack(); }
+                            catch { showModal({ type: 'error', title: 'Error', message: 'No se pudo eliminar el grupo.' }); }
+                        }
+                    },
+                ],
+            });
+            return;
+        }
         showModal({
             type: 'warning', title: 'Eliminar contacto',
             message: 'Se borrarán el contacto y todo su historial de mensajes. Esta acción no se puede deshacer.',
@@ -415,7 +451,45 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                 },
             ],
         });
-    }, [chatId, showModal, onBack]);
+    }, [chatId, isGroupChat, showModal, onBack]);
+
+    const openGroupManager = useCallback(async () => {
+        setShowChatMenu(false);
+        if (!isGroupChat) return;
+        const [group, contacts] = await Promise.all([
+            databaseService.getGroup(chatId),
+            contactsService.getAllContacts(),
+        ]);
+        setGroupMembers(group?.memberIds ?? []);
+        setGroupOnlyAdmin(group?.onlyAdminCanPost ?? false);
+        setAllContacts(contacts.filter(c => !c.isBlocked).map(c => ({ contactHash: c.contactHash, alias: c.alias })));
+        setShowGroupManager(true);
+    }, [chatId, isGroupChat]);
+
+    const refreshGroupManager = useCallback(async () => {
+        const group = await databaseService.getGroup(chatId);
+        setGroupMembers(group?.memberIds ?? []);
+        setGroupOnlyAdmin(group?.onlyAdminCanPost ?? false);
+    }, [chatId]);
+
+    const handleToggleOnlyAdmin = useCallback(async () => {
+        if (!isGroupAdmin) return;
+        const next = !groupOnlyAdmin;
+        await databaseService.setGroupOnlyAdminCanPost(chatId, next);
+        setGroupOnlyAdmin(next);
+    }, [chatId, groupOnlyAdmin, isGroupAdmin]);
+
+    const handleAddGroupMember = useCallback(async (contactHash: string) => {
+        if (!isGroupAdmin) return;
+        await databaseService.addGroupMember(chatId, contactHash);
+        await refreshGroupManager();
+    }, [chatId, isGroupAdmin, refreshGroupManager]);
+
+    const handleRemoveGroupMember = useCallback(async (contactHash: string) => {
+        if (!isGroupAdmin) return;
+        await databaseService.removeGroupMember(chatId, contactHash);
+        await refreshGroupManager();
+    }, [chatId, isGroupAdmin, refreshGroupManager]);
 
     // ── Render item ──
     const renderItem = useCallback(({ item, index }: ListRenderItemInfo<MsgData>) => {
@@ -443,6 +517,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                         revealed={!matrixEnabled || revealedIds.has(item.id) || shouldAutoReveal(item)}
                         onReveal={revealMsg}
                         onHide={hideMsg}
+                        showSender={isGroupChat}
                     />
                 </Animated.View>
                 {showDateSep && (
@@ -460,7 +535,7 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                 )}
             </>
         );
-    }, [chat.allMessages, chat.contactName, handleLongPress, handleReadMore, handleScrollToReply, fontScale, highContrast, matrixEnabled, revealedIds, revealMsg, hideMsg, colors, highlightedMsgId, highlightAnim, shouldAutoReveal]);
+    }, [chat.allMessages, chat.contactName, handleLongPress, handleReadMore, handleScrollToReply, fontScale, highContrast, matrixEnabled, revealedIds, revealMsg, hideMsg, colors, highlightedMsgId, highlightAnim, shouldAutoReveal, isGroupChat]);
 
     const headerTopPad = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 15 : Math.max(insets.top, 12) + 4;
     const headerHeight = headerTopPad + 50;
@@ -532,18 +607,26 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                         </TouchableOpacity>
                     )}
 
-                    <MessageInputBar
-                        value={newMessage}
-                        onChangeText={setNewMessage}
-                        onSend={handleSend}
-                        replyingTo={replyingTo}
-                        contactName={chat.contactName}
-                        onJumpToReply={jumpToReply}
-                        onCancelReply={handleCancelReply}
-                        isSending={chat.isSending}
-                        bottomInset={insets.bottom}
-                        keyboardVisible={keyboardVisible}
-                    />
+                    {groupCanPost ? (
+                        <MessageInputBar
+                            value={newMessage}
+                            onChangeText={setNewMessage}
+                            onSend={handleSend}
+                            replyingTo={replyingTo}
+                            contactName={chat.contactName}
+                            onJumpToReply={jumpToReply}
+                            onCancelReply={handleCancelReply}
+                            isSending={chat.isSending}
+                            bottomInset={insets.bottom}
+                            keyboardVisible={keyboardVisible}
+                        />
+                    ) : (
+                        <View style={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 12) + 12, paddingTop: 10 }}>
+                            <View style={{ backgroundColor: colors.bgSurface, borderRadius: 16, borderWidth: 1, borderColor: colors.borderFaint, padding: 14, alignItems: 'center' }}>
+                                <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }}>Solo el administrador puede escribir en este grupo</Text>
+                            </View>
+                        </View>
+                    )}
                 </Animated.View>
 
                 {/* Header fijo */}
@@ -551,10 +634,12 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                     <TouchableOpacity onPress={onBack} style={{ zIndex: 10, marginRight: 15, padding: 5 }} activeOpacity={0.6} accessibilityLabel="Volver atrás">
                         <ArrowLeft size={28} color={colors.textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.headerChatInfo} activeOpacity={0.75} onPress={handleOpenEditAlias} accessibilityLabel="Editar nombre del contacto">
-                        <ContactAvatar contactHash={chatId} alias={chat.contactName} size={32} />
+                    <TouchableOpacity style={styles.headerChatInfo} activeOpacity={0.75} onPress={handleOpenEditAlias} accessibilityLabel={isGroupChat ? 'Información del grupo' : 'Editar nombre del contacto'}>
+                        {isGroupChat
+                            ? <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.accentButton, alignItems: 'center', justifyContent: 'center' }}><Users size={18} color="#ffffff" /></View>
+                            : <ContactAvatar contactHash={chatId} alias={chat.contactName} size={32} />}
                         <Text style={[styles.headerName, { marginLeft: 10 }]} numberOfLines={1}>{chat.contactName}</Text>
-                        <Pencil size={14} color={colors.textMuted} style={{ marginLeft: 8, opacity: 0.7 }} />
+                        {!isGroupChat && <Pencil size={14} color={colors.textMuted} style={{ marginLeft: 8, opacity: 0.7 }} />}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={chat.handleRefresh} style={{ padding: 5, marginRight: 4 }} activeOpacity={0.6} accessibilityLabel="Recibir mensajes nuevos">
                         <RefreshCw size={20} color={chat.isRefreshing ? colors.accentPrimary : colors.textMuted} />
@@ -619,21 +704,32 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                                 <Text style={{ color: colors.accentLight, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>{chat.contactName}</Text>
                                 <Text style={{ color: colors.textHint, fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginBottom: 16 }}>{chatId}</Text>
 
-                                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={() => { setShowChatMenu(false); setShowEphemeralPicker(true); }}>
-                                    <Timer size={20} color={ephemeralTtl ? colors.accentLight : colors.textMuted} />
-                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Mensajes temporales{ephemeralTtl ? ` · ${formatTtl(ephemeralTtl)}` : ''}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={handleToggleBlock}>
-                                    <Lock size={20} color={isBlocked ? colors.accentLight : colors.warningMain} />
-                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>{isBlocked ? 'Desbloquear contacto' : 'Bloquear contacto'}</Text>
-                                </TouchableOpacity>
+                                {isGroupChat && (
+                                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={openGroupManager}>
+                                        <Users size={20} color={colors.accentLight} />
+                                        <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Gestionar grupo</Text>
+                                    </TouchableOpacity>
+                                )}
+
+                                {!isGroupChat && (
+                                    <>
+                                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={() => { setShowChatMenu(false); setShowEphemeralPicker(true); }}>
+                                            <Timer size={20} color={ephemeralTtl ? colors.accentLight : colors.textMuted} />
+                                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Mensajes temporales{ephemeralTtl ? ` · ${formatTtl(ephemeralTtl)}` : ''}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={handleToggleBlock}>
+                                            <Lock size={20} color={isBlocked ? colors.accentLight : colors.warningMain} />
+                                            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>{isBlocked ? 'Desbloquear contacto' : 'Bloquear contacto'}</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
                                 <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={handleClearHistory}>
                                     <Eraser size={20} color={colors.warningMain} />
                                     <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Vaciar conversación</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={handleDeleteContact}>
                                     <Trash2 size={20} color={colors.dangerText} />
-                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>Eliminar contacto</Text>
+                                    <Text style={{ color: colors.textPrimary, fontSize: 15 }}>{isGroupChat ? 'Eliminar grupo' : 'Eliminar contacto'}</Text>
                                 </TouchableOpacity>
                             </View>
                         </TouchableOpacity>
@@ -690,6 +786,70 @@ export default function ChatRoomScreen({ onBack, chatId, swipeProgress }: {
                             </View>
                         </View>
                     </View>
+                </Modal>
+
+                <Modal visible={showGroupManager} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setShowGroupManager(false)}>
+                    <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowGroupManager(false)}>
+                        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+                            <View style={{ maxHeight: '82%', backgroundColor: colors.bgSurface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20 }}>
+                                <View style={{ width: 36, height: 4, backgroundColor: colors.borderSubtle, borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                    <Users size={20} color={colors.accentLight} />
+                                    <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '700', flex: 1 }}>Grupo</Text>
+                                    {isGroupAdmin && <Text style={{ color: colors.accentLight, fontSize: 12, fontWeight: '700' }}>ADMIN</Text>}
+                                </View>
+
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderTopWidth: 1, borderTopColor: colors.borderFaint, opacity: isGroupAdmin ? 1 : 0.5 }}
+                                    activeOpacity={isGroupAdmin ? 0.7 : 1}
+                                    onPress={handleToggleOnlyAdmin}
+                                >
+                                    <Shield size={19} color={groupOnlyAdmin ? colors.accentLight : colors.textMuted} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Solo administradores escriben</Text>
+                                        <Text style={{ color: colors.textHint, fontSize: 12, marginTop: 2 }}>{groupOnlyAdmin ? 'Activado' : 'Desactivado'}</Text>
+                                    </View>
+                                    <Text style={{ color: groupOnlyAdmin ? colors.accentLight : colors.textMuted, fontSize: 13, fontWeight: '700' }}>{groupOnlyAdmin ? 'ON' : 'OFF'}</Text>
+                                </TouchableOpacity>
+
+                                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 14, marginBottom: 6, letterSpacing: 0.6 }}>MIEMBROS</Text>
+                                {groupMembers.map(memberId => {
+                                    const contact = allContacts.find(c => c.contactHash === memberId);
+                                    const label = memberId === chat.groupInfo?.adminId ? `${contact?.alias ?? memberId.slice(5, 17)} · admin` : (contact?.alias ?? memberId.slice(5, 17));
+                                    return (
+                                        <View key={memberId} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.borderFaint }}>
+                                            <ContactAvatar contactHash={memberId} alias={label} size={34} />
+                                            <Text style={{ color: colors.textPrimary, fontSize: 14, flex: 1, marginLeft: 10 }} numberOfLines={1}>{label}</Text>
+                                            {isGroupAdmin && memberId !== chat.groupInfo?.adminId && (
+                                                <TouchableOpacity style={{ padding: 8 }} activeOpacity={0.7} onPress={() => handleRemoveGroupMember(memberId)} accessibilityLabel="Eliminar miembro">
+                                                    <UserMinus size={18} color={colors.dangerText} />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    );
+                                })}
+
+                                {isGroupAdmin && (
+                                    <>
+                                        <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 14, marginBottom: 6, letterSpacing: 0.6 }}>AGREGAR GENTE</Text>
+                                        <FlatList
+                                            data={allContacts.filter(c => !groupMembers.includes(c.contactHash))}
+                                            keyExtractor={(item) => item.contactHash}
+                                            style={{ maxHeight: 170 }}
+                                            ListEmptyComponent={<Text style={{ color: colors.textHint, fontSize: 13, paddingVertical: 10 }}>No hay contactos disponibles para añadir.</Text>}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.borderFaint }} activeOpacity={0.7} onPress={() => handleAddGroupMember(item.contactHash)}>
+                                                    <ContactAvatar contactHash={item.contactHash} alias={item.alias ?? item.contactHash} size={34} />
+                                                    <Text style={{ color: colors.textPrimary, fontSize: 14, flex: 1, marginLeft: 10 }} numberOfLines={1}>{item.alias ?? item.contactHash.slice(5, 17)}</Text>
+                                                    <UserPlus size={18} color={colors.accentLight} />
+                                                </TouchableOpacity>
+                                            )}
+                                        />
+                                    </>
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
                 </Modal>
 
                 {modalNode}

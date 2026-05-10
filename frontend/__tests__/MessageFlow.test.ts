@@ -109,7 +109,7 @@ describe('MessageFlowService', () => {
     const result = await senderService.syncInbox('HNET-ME', 'private-key');
 
     expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith(
-      'HNET-SENDER123', 'hola', false, 5000, undefined, null, undefined
+      'HNET-SENDER123', 'hola', false, 5000, undefined, null, undefined, 'HNET-SENDER123', null
     );
     expect(messageApiService.ackMessages).toHaveBeenCalledWith('2026-05-10T10:00:00');
     expect(result.senders).toContain('HNET-SENDER123');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Animated } from 'react-native';
-import { ArrowLeft, AlertTriangle, User } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { ArrowLeft, AlertTriangle, Copy, User } from 'lucide-react-native';
 
 import QRCode from 'react-native-qrcode-svg';
 import { createStyles } from '../../styles/showQRStyles';
@@ -92,6 +93,7 @@ export default function ShowQRScreen({ onClose, hashId }: Props) {
     const { colors } = useTheme();
     const s = useMemo(() => createStyles(colors), [colors]);
     const [confirmed, setConfirmed] = useState(false);
+    const [copied, setCopied] = useState(false);
     const { identity } = useAuthStore();
 
     const displayId = hashId ?? identity?.id ?? 'HNET-?????';
@@ -121,7 +123,24 @@ export default function ShowQRScreen({ onClose, hashId }: Props) {
                         <User size={16} color={colors.accentLight} />
                     </View>
                     <Text style={s.identityId}>{displayId}</Text>
+                    <TouchableOpacity
+                        style={{ marginLeft: 10, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElevated }}
+                        activeOpacity={0.75}
+                        onPress={async () => {
+                            await Clipboard.setStringAsync(displayId);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 1500);
+                        }}
+                        accessibilityLabel="Copiar hash"
+                    >
+                        <Copy size={16} color={copied ? colors.accentLight : colors.textMuted} />
+                    </TouchableOpacity>
                 </View>
+                {copied && (
+                    <Text style={{ color: colors.accentLight, fontSize: 12, fontWeight: '700', marginTop: -6, marginBottom: 12 }}>
+                        Hash copiado
+                    </Text>
+                )}
 
                 <View style={s.qrWrapper}>
                     <View style={s.qrBox}>

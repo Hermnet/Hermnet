@@ -5,6 +5,7 @@ import { messageCryptoService } from './MessageCryptoService';
 import { authSessionService } from './AuthSessionService';
 import { contactsService } from './ContactsService';
 import { identityService } from './IdentityService';
+import { prefsService } from './PrefsService';
 
 /**
  * Datos canónicos que se firman en cada mensaje. La serialización debe ser
@@ -24,6 +25,12 @@ interface CanonicalEnvelope {
     ttl?: number;
     /** Contexto de reply-to: texto e id del mensaje al que se responde. */
     replyTo?: { id: string; text: string; isMine: boolean } | null;
+    groupId?: string;
+    groupName?: string;
+    groupAdminId?: string;
+    groupMembers?: string[];
+    groupOnlyAdminCanPost?: boolean;
+    senderName?: string;
 }
 
 function canonicalize(envelope: CanonicalEnvelope): string {
@@ -34,6 +41,12 @@ function canonicalize(envelope: CanonicalEnvelope): string {
     if (envelope.seq !== undefined) ordered.seq = envelope.seq;
     if (envelope.ttl !== undefined) ordered.ttl = envelope.ttl;
     if (envelope.replyTo) ordered.replyTo = envelope.replyTo;
+    if (envelope.groupId) ordered.groupId = envelope.groupId;
+    if (envelope.groupName) ordered.groupName = envelope.groupName;
+    if (envelope.groupAdminId) ordered.groupAdminId = envelope.groupAdminId;
+    if (envelope.groupMembers) ordered.groupMembers = envelope.groupMembers;
+    if (envelope.groupOnlyAdminCanPost !== undefined) ordered.groupOnlyAdminCanPost = envelope.groupOnlyAdminCanPost;
+    if (envelope.senderName) ordered.senderName = envelope.senderName;
     return JSON.stringify(ordered);
 }
 
@@ -225,7 +238,7 @@ export class MessageFlowService {
         }
         const decrypted = messageCryptoService.decryptWithPrivateKey(packet, localPrivateKey);
 
-        let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number; replyTo?: { id: string; text: string; isMine: boolean } | null };
+        let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number; replyTo?: { id: string; text: string; isMine: boolean } | null; groupId?: string; groupName?: string; groupAdminId?: string; groupMembers?: string[]; groupOnlyAdminCanPost?: boolean; senderName?: string };
         try {
           envelope = JSON.parse(decrypted);
         } catch {
@@ -274,6 +287,12 @@ export class MessageFlowService {
             seq: envelope.seq,
             ttl: envelope.ttl,
             replyTo: envelope.replyTo,
+            groupId: envelope.groupId,
+            groupName: envelope.groupName,
+            groupAdminId: envelope.groupAdminId,
+            groupMembers: envelope.groupMembers,
+            groupOnlyAdminCanPost: envelope.groupOnlyAdminCanPost,
+            senderName: envelope.senderName,
           });
           const signatureValid = identityService.verifySignature(signingKey, canonicalData, envelope.sig);
           if (!signatureValid) {
@@ -343,7 +362,13 @@ export class MessageFlowService {
 
         receivedFrom.add(contactHash);
         // Usar el timestamp del emisor para que el orden sea idéntico en ambos dispositivos
-        await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs, undefined, envelope.replyTo ?? null, envelope.seq);
+        if (envelope.type === 'group_message' && envelope.groupId && envelope.groupName) {
+          const members = Array.isArray(envelope.groupMembers) ? envelope.groupMembers : [contactHash];
+          await databaseService.upsertGroup(envelope.groupId, envelope.groupName, members, envelope.groupAdminId ?? contactHash, envelope.groupOnlyAdminCanPost);
+          await databaseService.saveDecryptedMessage(envelope.groupId, plaintext, false, senderTs, undefined, envelope.replyTo ?? null, envelope.seq, contactHash, envelope.senderName ?? null);
+        } else {
+          await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs, undefined, envelope.replyTo ?? null, envelope.seq, contactHash, envelope.senderName ?? null);
+        }
       } catch (err) {
         // Paquete corrupto, formato antiguo o destinatario equivocado: lo descartamos para que
         // el ack lo borre del buzón y no rompa toda la sincronización.
@@ -470,6 +495,49 @@ export class MessageFlowService {
     await messageApiService.sendMessage(recipientId, encryptedPayload);
     if (__DEV__) {
       console.log(`[sendHandshake] enviado a ${recipientId.slice(0, 12)}… (${encryptedPayload.length} bytes)`);
+    }
+  }
+
+  async sendGroupMessage(input: { groupId: string; groupName: string; memberIds: string[]; plaintext: string; sentAt?: number; replyTo?: { id: string; text: string; isMine: boolean } | null }): Promise<void> {
+    const senderIdentity = await authSessionService.getIdentity();
+    if (!senderIdentity) throw new Error('No hay identidad local');
+    const profile = await prefsService.getProfilePrefs().catch(() => ({ displayName: '' }));
+    const cleanName = profile.displayName.trim();
+
+    const sentAt = input.sentAt ?? Date.now();
+    const group = await databaseService.getGroup(input.groupId);
+    await databaseService.saveDecryptedMessage(input.groupId, input.plaintext, true, sentAt, 'PENDING', input.replyTo ?? null, undefined, senderIdentity.id, cleanName || null);
+
+    const allGroupMembers = Array.from(new Set([senderIdentity.id, ...input.memberIds.filter(Boolean)]));
+    const uniqueMembers = allGroupMembers.filter(id => id !== senderIdentity.id);
+    try {
+      await Promise.all(uniqueMembers.map(async (memberId) => {
+        const recipientPublicKey = await databaseService.getContactPublicKey(memberId);
+        if (!recipientPublicKey) return;
+        const seq = await databaseService.getNextOutgoingSeq(memberId);
+        const canonical: CanonicalEnvelope = {
+          from: senderIdentity.id,
+          pk: senderIdentity.publicKey,
+          text: input.plaintext,
+          ts: sentAt,
+          type: 'group_message',
+          seq,
+          groupId: input.groupId,
+          groupName: input.groupName,
+          groupAdminId: group?.adminId ?? senderIdentity.id,
+          groupMembers: allGroupMembers,
+          groupOnlyAdminCanPost: group?.onlyAdminCanPost ?? false,
+          ...(cleanName ? { senderName: cleanName } : {}),
+          ...(input.replyTo ? { replyTo: { id: input.replyTo.id, text: input.replyTo.text, isMine: !input.replyTo.isMine } } : {}),
+        };
+        const sig = identityService.signNonce(senderIdentity.privateKey, canonicalize(canonical));
+        const envelope = JSON.stringify({ ...canonical, sig });
+        const encryptedPayload = messageCryptoService.encryptForRecipient(envelope, recipientPublicKey);
+        await messageApiService.sendMessage(memberId, encryptedPayload);
+      }));
+      await databaseService.updateMessageStatus(input.groupId, sentAt, 'SENT');
+    } catch (err) {
+      console.warn('[sendGroupMessage] envío parcial o fallido:', err);
     }
   }
 }

@@ -67,7 +67,7 @@ describe('DatabaseService', () => {
     expect(dataKeyService.isEncrypted(params[1])).toBe(true);
     expect(dataKeyService.decrypt(params[1])).toBe('hello');
     expect(db?.runAsync).toHaveBeenCalledWith(
-      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json, transport_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
+      'INSERT INTO messages_history (contact_hash, plaintext, is_mine, created_at, status, expires_at, reply_to_json, transport_seq, sender_hash, sender_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
       expect.arrayContaining(['HNET-CONTACT', expect.any(String), 1, 'SENT'])
     );
   });

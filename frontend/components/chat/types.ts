@@ -10,6 +10,8 @@ export type MsgData = {
     isRead?: boolean;
     replyTo?: { id: string; text: string; isMine: boolean } | null;
     status?: MsgStatus;
+    senderHash?: string | null;
+    senderName?: string | null;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────

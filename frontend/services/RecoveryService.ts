@@ -28,6 +28,13 @@ interface BackupPayload {
     public_key: string;
     alias_local: string | null;
   }>;
+  groups?: Array<{
+    group_id: string;
+    name: string;
+    member_ids: string[];
+    admin_id?: string | null;
+    only_admin_can_post?: boolean;
+  }>;
   messages: Array<{
     contact_hash: string;
     plaintext: string;
@@ -113,20 +120,25 @@ export class RecoveryService {
     if (!identity) throw new Error('No hay identidad almacenada para exportar.');
 
     const contacts = await databaseService.getAllContactsRaw();
+    const groups = await databaseService.getAllGroups();
 
-    // Obtener TODOS los mensajes de cada contacto
+    // Obtener TODOS los mensajes de cada contacto y grupo.
     const allMessages: BackupPayload['messages'] = [];
-    for (const c of contacts) {
+    const conversationIds = [
+      ...contacts.map(c => c.contact_hash),
+      ...groups.map(g => g.groupId),
+    ];
+    for (const contactHash of conversationIds) {
       let beforeId: number | undefined;
       let batch;
       do {
-        batch = await databaseService.getMessagesByContact(c.contact_hash, {
+        batch = await databaseService.getMessagesByContact(contactHash, {
           limit: 500,
           beforeMsgId: beforeId,
         });
         for (const m of batch) {
           allMessages.push({
-            contact_hash: c.contact_hash,
+            contact_hash: contactHash,
             plaintext: m.text,
             is_mine: m.isMine,
             created_at: m.createdAt,
@@ -142,6 +154,16 @@ export class RecoveryService {
       version: FORMAT_VERSION,
       identity,
       contacts,
+      groups: await Promise.all(groups.map(async g => {
+        const full = await databaseService.getGroup(g.groupId);
+        return {
+          group_id: g.groupId,
+          name: g.name,
+          member_ids: full?.memberIds ?? [],
+          admin_id: full?.adminId ?? null,
+          only_admin_can_post: full?.onlyAdminCanPost ?? false,
+        };
+      })),
       messages: allMessages,
     };
 
@@ -225,7 +247,13 @@ export class RecoveryService {
       await databaseService.upsertContact(c.contact_hash, c.public_key, c.alias_local);
     }
 
-    // 6. Restaurar mensajes
+    // 6. Restaurar grupos
+    for (const g of payload.groups ?? []) {
+      if (!g.group_id || !g.name) continue;
+      await databaseService.upsertGroup(g.group_id, g.name, g.member_ids ?? [], g.admin_id ?? null, !!g.only_admin_can_post);
+    }
+
+    // 7. Restaurar mensajes
     for (const m of payload.messages ?? []) {
       await databaseService.saveDecryptedMessage(
         m.contact_hash,

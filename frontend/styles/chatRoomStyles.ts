@@ -156,6 +156,14 @@ export function createStyles(c: ThemeColors) {
             paddingBottom: 12,
             fontSize: 15,
         },
+        iconInputButton: {
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 6,
+        },
         sendButton: {
             width: 44,
             height: 44,

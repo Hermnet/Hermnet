@@ -27,11 +27,12 @@ export type BubbleProps = {
     revealed: boolean;
     onReveal: (id: string) => void;
     onHide: (id: string) => void;
+    showSender?: boolean;
 };
 
 const MessageBubble = React.memo(({
     msg, contactName, onLongPress, onReadMore, onScrollToReply,
-    fontScale, highContrast, revealed, onReveal, onHide,
+    fontScale, highContrast, revealed, onReveal, onHide, showSender = false,
 }: BubbleProps) => {
     const { colors } = useTheme();
     const { prefs: chatPrefs } = useChatPrefs();
@@ -88,6 +89,11 @@ const MessageBubble = React.memo(({
                     hcBubbleStyle,
                     customBubbleStyle,
                 ]}>
+                    {showSender && !msg.isMine && (
+                        <Text style={{ color: colors.accentLight, fontSize: 11, fontWeight: '700', marginBottom: 4 }} numberOfLines={1}>
+                            {msg.senderName || msg.senderHash?.slice(5, 17) || contactName}
+                        </Text>
+                    )}
                     {msg.replyTo && (
                         <TouchableOpacity
                             activeOpacity={0.7}
@@ -158,7 +164,8 @@ const MessageBubble = React.memo(({
     prev.onReadMore === next.onReadMore &&
     prev.onScrollToReply === next.onScrollToReply &&
     prev.onReveal === next.onReveal &&
-    prev.onHide === next.onHide
+    prev.onHide === next.onHide &&
+    prev.showSender === next.showSender
 );
 
 export default MessageBubble;

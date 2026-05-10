@@ -18,6 +18,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * Controller for secure message exchange.
  *
@@ -27,6 +33,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/messages")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearer-jwt")
+@Tag(name = "Messages", description = "Opaque encrypted mailbox transport")
 public class MessageController {
 
     private final MessageRepository messageRepository;
@@ -44,6 +52,12 @@ public class MessageController {
      * @return 202 Accepted if the message is successfully queued/stored.
      */
     @PostMapping
+    @Operation(summary = "Queue an encrypted message for a recipient")
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "Encrypted payload queued"),
+            @ApiResponse(responseCode = "400", description = "Invalid message payload"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT")
+    })
     public ResponseEntity<Void> sendMessage(@Valid @RequestBody SendMessageRequest request) {
         Message message = Message.builder()
                 .recipientHash(request.recipientId())
@@ -71,6 +85,11 @@ public class MessageController {
      * @return List of encrypted payloads (as byte arrays / Base64 strings).
      */
     @GetMapping
+    @Operation(summary = "Fetch encrypted mailbox messages")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Encrypted payloads returned"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT")
+    })
     @Transactional(readOnly = true)
     public ResponseEntity<List<MailboxMessageResponse>> getMessages(@RequestParam String myId) {
         List<Message> messages = messageRepository.findByRecipientHashOrderByCreatedAtAscMessageIdAsc(myId);
@@ -94,6 +113,11 @@ public class MessageController {
      * @return number of rows removed.
      */
     @PostMapping("/ack")
+    @Operation(summary = "Acknowledge and delete processed mailbox messages")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Processed messages deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT")
+    })
     @Transactional
     public ResponseEntity<AckResponse> ackMessages(
             @AuthenticationPrincipal String principal,

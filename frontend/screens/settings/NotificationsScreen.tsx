@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { createStyles } from '../../styles/settingsStyles';
 import { useTheme } from '../../contexts/ThemeContext';
 import { prefsService, NotificationPrefs } from '../../services/PrefsService';
+import { deviceNotificationService } from '../../services/DeviceNotificationService';
 
 interface Props {
     onBack: () => void;
@@ -28,6 +29,9 @@ export default function NotificationsScreen({ onBack }: Props) {
         const next = { ...prefs, ...patch };
         setPrefs(next);
         await prefsService.setNotificationPrefs(next);
+        if (patch.pushEnabled !== undefined) {
+            await deviceNotificationService.registerDeviceTokenIfEnabled().catch(() => {});
+        }
     };
 
     const ToggleRow = ({

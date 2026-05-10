@@ -32,7 +32,8 @@
       "package": "com.anonymous.HermnetMobile",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "softwareKeyboardLayoutMode": "resize"
     },
@@ -45,7 +46,8 @@
       "expo-secure-store",
       "expo-font",
       "expo-router",
-      "expo-local-authentication"
+      "expo-local-authentication",
+      "expo-notifications"
     ]
   }
 }

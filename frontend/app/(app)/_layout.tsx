@@ -14,13 +14,23 @@ import { TorBootstrapBanner } from '../../components/TorBootstrapBanner';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { TOR_NATIVE_AVAILABLE } from '../../services/ApiClient';
 import { getHermnetTor } from '../../modules/hermnet-tor/src';
+import QuickCrypto from '../../services/CryptoService';
+import { authSessionService } from '../../services/AuthSessionService';
+import { panicService } from '../../services/PanicService';
+import PinScreen from '../../screens/login/PinScreen';
+
+function hashPin(pin: string, salt: string): string {
+    return QuickCrypto.createHash('sha256').update(pin + salt).digest('hex') as string;
+}
 
 export default function AppLayout() {
     const { isLoaded, jwt, identity } = useAuthStore();
     const [isLocked, setIsLocked] = useState(false);
+    const [biometricEnabled, setBiometricEnabled] = useState(false);
     const [paranoidWarning, setParanoidWarning] = useState<'idle' | 'open' | 'risks' | 'dismissed'>('idle');
     const appState = useRef<AppStateStatus>(AppState.currentState);
     const authenticating = useRef(false);
+    const initialLockDone = useRef(false);
 
     // Estado de banners superiores (Tor bootstrapping, sin conexión).
     // Lo gestionamos aquí para poder ajustar el safe-area inset que ven las
@@ -72,16 +82,10 @@ export default function AppLayout() {
         if (authenticating.current) return;
         authenticating.current = true;
         try {
-            // Sin módulo nativo (Expo Go) o sin biometría configurada: desbloquear directo
-            if (!LocalAuthentication) {
-                await dataKeyService.ensureLoaded();
-                setIsLocked(false);
-                return;
-            }
+            if (!LocalAuthentication) return;
             const prefs = await prefsService.getSecurityPrefs();
+            setBiometricEnabled(!!prefs.biometric);
             if (!prefs.biometric) {
-                await dataKeyService.ensureLoaded();
-                setIsLocked(false);
                 return;
             }
             const result = await LocalAuthentication.authenticateAsync({
@@ -97,6 +101,37 @@ export default function AppLayout() {
             authenticating.current = false;
         }
     }, []);
+
+    useEffect(() => {
+        if (!isLoaded || !identity || initialLockDone.current) return;
+        initialLockDone.current = true;
+        prefsService.getSecurityPrefs()
+            .then(prefs => {
+                setBiometricEnabled(!!prefs.biometric);
+                setIsLocked(true);
+                if (prefs.biometric) unlock();
+            })
+            .catch(() => setIsLocked(true));
+    }, [isLoaded, identity?.id, unlock]);
+
+    const handlePinUnlock = useCallback(async (pin: string) => {
+        if (!identity) return;
+        const panicHash = await authSessionService.getPanicPinHash();
+        const candidate = hashPin(pin, identity.id);
+        if (panicHash && candidate === panicHash) {
+            await panicService.wipe();
+            useAuthStore.setState({ identity: null, jwt: null });
+            setIsLocked(false);
+            return;
+        }
+
+        const storedHash = await authSessionService.getPinHash();
+        if (!storedHash || candidate !== storedHash) {
+            return;
+        }
+        await dataKeyService.ensureLoaded();
+        setIsLocked(false);
+    }, [identity]);
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
@@ -116,6 +151,7 @@ export default function AppLayout() {
                 // Solo re-bloquear al volver de 'background' real (home, app switcher).
                 // Ignorar transiciones inactive→active (Face ID dialog, notificaciones).
                 const prefs = await prefsService.getSecurityPrefs();
+                setBiometricEnabled(!!prefs.biometric);
                 setIsLocked(true);
                 // Lanzar biometría automáticamente solo si el usuario la habilitó
                 if (prefs.biometric) {
@@ -144,13 +180,14 @@ export default function AppLayout() {
             </View>
             {isLocked && (
                 <View style={lockStyles.overlay}>
-                    <View style={lockStyles.card}>
-                        <Text style={lockStyles.title}>Hermnet bloqueado</Text>
-                        <Text style={lockStyles.sub}>Autentícate para continuar</Text>
-                        <TouchableOpacity style={lockStyles.btn} activeOpacity={0.8} onPress={unlock}>
-                            <Text style={lockStyles.btnText}>Desbloquear</Text>
-                        </TouchableOpacity>
+                    <View style={{ width: '100%', flex: 1 }}>
+                        <PinScreen mode="login" onComplete={handlePinUnlock} />
                     </View>
+                    {biometricEnabled && (
+                        <TouchableOpacity style={lockStyles.btn} activeOpacity={0.8} onPress={unlock}>
+                            <Text style={lockStyles.btnText}>Usar biometría</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 

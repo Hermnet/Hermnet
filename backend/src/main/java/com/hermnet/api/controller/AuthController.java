@@ -15,6 +15,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * Controller for authentication-related endpoints.
  * 
@@ -24,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Passwordless identity, challenge-response login and JWT lifecycle")
 public class AuthController {
 
     private final UserService userService;
@@ -39,6 +45,11 @@ public class AuthController {
      * @return ResponseEntity with the created UserResponse.
      */
     @PostMapping("/register")
+    @Operation(summary = "Register a cryptographic identity")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User identity registered"),
+            @ApiResponse(responseCode = "400", description = "Invalid identity payload")
+    })
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         UserResponse response = userService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -51,6 +62,11 @@ public class AuthController {
      * @return ResponseEntity with nonce challenge payload.
      */
     @PostMapping("/challenge")
+    @Operation(summary = "Create a one-time login challenge")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Challenge created"),
+            @ApiResponse(responseCode = "400", description = "Unknown or invalid user")
+    })
     public ResponseEntity<ChallengeResponse> challenge(@Valid @RequestBody ChallengeRequest request) {
         ChallengeResponse response = authService.challenge(request);
         return ResponseEntity.ok(response);
@@ -66,6 +82,11 @@ public class AuthController {
      * @return ResponseEntity with the generated JWT token.
      */
     @PostMapping("/login")
+    @Operation(summary = "Complete challenge-response login")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "JWT issued"),
+            @ApiResponse(responseCode = "400", description = "Invalid challenge or signature")
+    })
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(response);
@@ -79,6 +100,11 @@ public class AuthController {
      * @return ResponseEntity with the rotated JWT token.
      */
     @PostMapping("/refresh")
+    @Operation(summary = "Rotate the current JWT")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "New JWT issued"),
+            @ApiResponse(responseCode = "400", description = "Invalid token")
+    })
     public ResponseEntity<LoginResponse> refresh(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
         String token = stripBearer(authorizationHeader);
@@ -93,6 +119,11 @@ public class AuthController {
      * @return 204 No Content.
      */
     @PostMapping("/logout")
+    @Operation(summary = "Revoke the current JWT")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "JWT revoked"),
+            @ApiResponse(responseCode = "400", description = "Invalid token")
+    })
     public ResponseEntity<Void> logout(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
         authService.logout(stripBearer(authorizationHeader));
