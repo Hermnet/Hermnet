@@ -32,6 +32,7 @@ describe('ApiClient', () => {
         Authorization: 'Bearer jwt-token',
       },
       body: undefined,
+      signal: expect.any(AbortSignal),
     });
   });
 

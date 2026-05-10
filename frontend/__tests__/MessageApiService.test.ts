@@ -40,9 +40,9 @@ describe('MessageApiService', () => {
 
       const result = await service.getMessages('HNET-ME');
 
-      expect(result).toHaveLength(2);
-      expect(Array.from(result[0])).toEqual([72, 101, 108, 108, 111]); // "Hello"
-      expect(Array.from(result[1])).toEqual([87, 111, 114, 108, 100]); // "World"
+      expect(result.packets).toHaveLength(2);
+      expect(Array.from(result.packets[0].payload)).toEqual([72, 101, 108, 108, 111]); // "Hello"
+      expect(Array.from(result.packets[1].payload)).toEqual([87, 111, 114, 108, 100]); // "World"
     });
 
     it('should also handle number array payloads (legacy format)', async () => {
@@ -50,7 +50,19 @@ describe('MessageApiService', () => {
 
       const result = await service.getMessages('HNET-ME');
 
-      expect(Array.from(result[0])).toEqual([10, 20, 30]);
+      expect(Array.from(result.packets[0].payload)).toEqual([10, 20, 30]);
+    });
+
+    it('should return ack cutoff for mailbox entries', async () => {
+      (apiClient.request as jest.Mock).mockResolvedValue([
+        { payload: 'SGVsbG8=', createdAt: '2026-05-10T10:00:00' },
+        { payload: 'V29ybGQ=', createdAt: '2026-05-10T10:00:01' },
+      ]);
+
+      const result = await service.getMessages('HNET-ME');
+
+      expect(Array.from(result.packets[0].payload)).toEqual([72, 101, 108, 108, 111]);
+      expect(result.ackCutoff).toBe('2026-05-10T10:00:01');
     });
 
     it('should throw when the response is not an array', async () => {

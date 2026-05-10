@@ -78,4 +78,28 @@ describe('AuthFlowService', () => {
     expect(authApiService.login).toHaveBeenCalled();
     expect(result.registeredInThisSession).toBe(false);
   });
+
+  it('should re-register cached identity when backend no longer has the user', async () => {
+    (authSessionService.getIdentity as jest.Mock).mockResolvedValue(mockIdentity);
+    (authApiService.challenge as jest.Mock)
+      .mockRejectedValueOnce(new Error('Usuario no encontrado'))
+      .mockResolvedValueOnce({ nonce: 'nonce-789' });
+    (authApiService.register as jest.Mock).mockResolvedValue({});
+    (identityService.signNonce as jest.Mock).mockReturnValue('signed-nonce-3');
+    (authApiService.login as jest.Mock).mockResolvedValue({ token: 'jwt-token-3' });
+
+    const service = new AuthFlowService();
+    const result = await service.bootstrapLogin();
+
+    expect(authApiService.register).toHaveBeenCalledWith({
+      id: mockIdentity.id,
+      publicKey: mockIdentity.publicKey,
+    });
+    expect(authApiService.challenge).toHaveBeenCalledTimes(2);
+    expect(authApiService.login).toHaveBeenCalledWith({
+      nonce: 'nonce-789',
+      signedNonce: 'signed-nonce-3',
+    });
+    expect(result.registeredInThisSession).toBe(true);
+  });
 });

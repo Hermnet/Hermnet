@@ -4,12 +4,19 @@ import App from '../App';
 
 describe('<App />', () => {
   it('se renderiza correctamente (Snapshot)', async () => {
-    let tree;
+    jest.useFakeTimers();
+    let component: renderer.ReactTestRenderer;
     
     await act(async () => {
-      tree = renderer.create(<App />).toJSON();
+      component = renderer.create(<App />);
+      jest.runOnlyPendingTimers();
     });
 
-    expect(tree).toMatchSnapshot();
+    expect(component!.toJSON()).toMatchSnapshot();
+
+    await act(async () => {
+      component!.unmount();
+    });
+    jest.useRealTimers();
   });
 });

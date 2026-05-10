@@ -77,7 +77,7 @@ describe('MessageFlowService', () => {
       expect.any(Uint8Array)
     );
     expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith(
-      'HNET-RECIPIENT', 'hello world', true, 1000, 'PENDING'
+      'HNET-RECIPIENT', 'hello world', true, 1000, 'PENDING', null
     );
     expect(databaseService.updateMessageStatus).toHaveBeenCalledWith(
       'HNET-RECIPIENT', 1000, 'SENT'
@@ -102,15 +102,16 @@ describe('MessageFlowService', () => {
     const packet = new Uint8Array(256);
     const envelope = JSON.stringify({ from: 'HNET-SENDER123', text: 'hola', ts: 5000 });
 
-    (messageApiService.getMessages as jest.Mock).mockResolvedValue([packet]);
+    (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: packet, createdAt: '2026-05-10T10:00:00' }], ackCutoff: '2026-05-10T10:00:00' });
     (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
     const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
 
     const result = await senderService.syncInbox('HNET-ME', 'private-key');
 
     expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith(
-      'HNET-SENDER123', 'hola', false, 5000
+      'HNET-SENDER123', 'hola', false, 5000, undefined, null, undefined
     );
+    expect(messageApiService.ackMessages).toHaveBeenCalledWith('2026-05-10T10:00:00');
     expect(result.senders).toContain('HNET-SENDER123');
     expect(result.newContacts).toEqual([]);
 
@@ -118,7 +119,7 @@ describe('MessageFlowService', () => {
   });
 
   it('discards payloads without a recognisable envelope', async () => {
-    (messageApiService.getMessages as jest.Mock).mockResolvedValue([new Uint8Array(64)]);
+    (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: new Uint8Array(64) }] });
     (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
     const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey')
       .mockReturnValue('plain text without JSON envelope');
@@ -147,7 +148,7 @@ describe('MessageFlowService', () => {
     // a la comprobación de replay.
     (databaseService.getContactPublicKey as jest.Mock).mockResolvedValue('sender-public-key-pem');
 
-    (messageApiService.getMessages as jest.Mock).mockResolvedValue([packet]);
+    (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: packet }] });
     (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
     (databaseService.markIncomingSeqIfNew as jest.Mock).mockResolvedValueOnce(false);
     const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
