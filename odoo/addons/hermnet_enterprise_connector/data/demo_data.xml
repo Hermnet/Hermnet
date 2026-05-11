@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="plan_starter" model="hermnet.plan">
+        <field name="name">Hermnet Starter</field>
+        <field name="code">HNET-STARTER</field>
+        <field name="monthly_price">149.0</field>
+        <field name="max_users">25</field>
+        <field name="max_private_nodes">1</field>
+        <field name="includes_support">True</field>
+        <field name="includes_onboarding">False</field>
+        <field name="notes">Plan para pequeños equipos que necesitan mensajería privada con servidor propio.</field>
+    </record>
+
+    <record id="plan_business" model="hermnet.plan">
+        <field name="name">Hermnet Business</field>
+        <field name="code">HNET-BUSINESS</field>
+        <field name="monthly_price">399.0</field>
+        <field name="max_users">100</field>
+        <field name="max_private_nodes">2</field>
+        <field name="includes_support">True</field>
+        <field name="includes_onboarding">True</field>
+        <field name="notes">Plan para empresas con varios departamentos y nodos separados.</field>
+    </record>
+
+    <record id="plan_sovereign" model="hermnet.plan">
+        <field name="name">Hermnet Sovereign</field>
+        <field name="code">HNET-SOVEREIGN</field>
+        <field name="monthly_price">1190.0</field>
+        <field name="max_users">500</field>
+        <field name="max_private_nodes">5</field>
+        <field name="includes_support">True</field>
+        <field name="includes_onboarding">True</field>
+        <field name="notes">Plan para organizaciones con requisitos altos de aislamiento, auditoría e infraestructura privada.</field>
+    </record>
+
+    <record id="partner_clinica_atlas" model="res.partner">
+        <field name="name">Clínica Atlas</field>
+        <field name="company_type">company</field>
+        <field name="email">it@clinica-atlas.example</field>
+        <field name="phone">+34 900 100 101</field>
+    </record>
+
+    <record id="partner_lexnova" model="res.partner">
+        <field name="name">Lexnova Legal</field>
+        <field name="company_type">company</field>
+        <field name="email">sistemas@lexnova.example</field>
+        <field name="phone">+34 900 200 202</field>
+    </record>
+
+    <record id="customer_clinica_atlas" model="hermnet.customer">
+        <field name="name">Clínica Atlas</field>
+        <field name="partner_id" ref="partner_clinica_atlas"/>
+        <field name="tax_id">B76543210</field>
+        <field name="sector">health</field>
+        <field name="plan_id" ref="plan_business"/>
+        <field name="state">active</field>
+        <field name="admin_contact">María Suárez</field>
+        <field name="admin_email">it@clinica-atlas.example</field>
+        <field name="admin_phone">+34 900 100 101</field>
+        <field name="allowed_domains">clinica-atlas.example</field>
+        <field name="seats_purchased">80</field>
+        <field name="onboarding_date">2026-04-15</field>
+        <field name="renewal_date">2027-04-15</field>
+        <field name="internal_notes">Cliente de referencia para entorno sanitario privado.</field>
+    </record>
+
+    <record id="customer_lexnova" model="hermnet.customer">
+        <field name="name">Lexnova Legal</field>
+        <field name="partner_id" ref="partner_lexnova"/>
+        <field name="tax_id">B12345678</field>
+        <field name="sector">legal</field>
+        <field name="plan_id" ref="plan_sovereign"/>
+        <field name="state">pilot</field>
+        <field name="admin_contact">Javier Molina</field>
+        <field name="admin_email">sistemas@lexnova.example</field>
+        <field name="admin_phone">+34 900 200 202</field>
+        <field name="allowed_domains">lexnova.example</field>
+        <field name="seats_purchased">220</field>
+        <field name="onboarding_date">2026-05-01</field>
+        <field name="renewal_date">2027-05-01</field>
+        <field name="internal_notes">Piloto para comunicaciones internas con clientes sensibles.</field>
+    </record>
+
+    <record id="node_atlas_prod" model="hermnet.private.node">
+        <field name="name">Atlas Producción Madrid</field>
+        <field name="customer_id" ref="customer_clinica_atlas"/>
+        <field name="environment">prod</field>
+        <field name="state">online</field>
+        <field name="base_url">https://hermnet.clinica-atlas.example</field>
+        <field name="onion_url">atlashermnetdemo.onion</field>
+        <field name="region">Madrid</field>
+        <field name="server_provider">VPS privado</field>
+        <field name="db_name">hermnet_atlas_prod</field>
+        <field name="max_daily_messages">150000</field>
+        <field name="notes">Nodo dedicado para personal clínico y administración.</field>
+    </record>
+
+    <record id="node_lexnova_pilot" model="hermnet.private.node">
+        <field name="name">Lexnova Piloto</field>
+        <field name="customer_id" ref="customer_lexnova"/>
+        <field name="environment">staging</field>
+        <field name="state">deploying</field>
+        <field name="base_url">https://pilot.hermnet.lexnova.example</field>
+        <field name="region">Frankfurt</field>
+        <field name="server_provider">Cloud privado</field>
+        <field name="db_name">hermnet_lexnova_pilot</field>
+        <field name="max_daily_messages">300000</field>
+        <field name="notes">Piloto aislado para departamento procesal.</field>
+    </record>
+
+    <record id="policy_atlas_standard" model="hermnet.security.policy">
+        <field name="name">Política sanitaria estándar</field>
+        <field name="customer_id" ref="customer_clinica_atlas"/>
+        <field name="require_pin_on_open">True</field>
+        <field name="block_screenshots">True</field>
+        <field name="allow_backups">True</field>
+        <field name="require_backup_password">True</field>
+        <field name="allow_matrix_effect">True</field>
+        <field name="allow_group_creation">True</field>
+        <field name="admins_only_groups_default">False</field>
+        <field name="min_pin_length">6</field>
+        <field name="message_retention_days">0</field>
+        <field name="notes">Configuración orientada a privacidad y disponibilidad local.</field>
+    </record>
+
+    <record id="policy_lexnova_restricted" model="hermnet.security.policy">
+        <field name="name">Política legal restringida</field>
+        <field name="customer_id" ref="customer_lexnova"/>
+        <field name="require_pin_on_open">True</field>
+        <field name="block_screenshots">True</field>
+        <field name="allow_backups">False</field>
+        <field name="require_backup_password">True</field>
+        <field name="allow_matrix_effect">False</field>
+        <field name="allow_group_creation">True</field>
+        <field name="admins_only_groups_default">True</field>
+        <field name="min_pin_length">8</field>
+        <field name="message_retention_days">30</field>
+        <field name="notes">Configuración restrictiva para comunicaciones con datos jurídicos sensibles.</field>
+    </record>
+
+    <record id="device_atlas_001" model="hermnet.device">
+        <field name="display_name">Dirección Médica</field>
+        <field name="customer_id" ref="customer_clinica_atlas"/>
+        <field name="node_id" ref="node_atlas_prod"/>
+        <field name="assigned_user_hash">HNET-ATLAS-2F9A-001</field>
+        <field name="platform">ios</field>
+        <field name="app_version">1.0.0</field>
+        <field name="state">active</field>
+        <field name="push_enabled">True</field>
+        <field name="screenshot_block_required">True</field>
+        <field name="notes">Dispositivo principal de dirección médica.</field>
+    </record>
+
+    <record id="device_atlas_002" model="hermnet.device">
+        <field name="display_name">Coordinación Enfermería</field>
+        <field name="customer_id" ref="customer_clinica_atlas"/>
+        <field name="node_id" ref="node_atlas_prod"/>
+        <field name="assigned_user_hash">HNET-ATLAS-7C12-002</field>
+        <field name="platform">android</field>
+        <field name="app_version">1.0.0</field>
+        <field name="state">active</field>
+        <field name="push_enabled">True</field>
+        <field name="screenshot_block_required">True</field>
+        <field name="notes">Equipo Android de coordinación interna.</field>
+    </record>
+
+    <record id="device_lexnova_001" model="hermnet.device">
+        <field name="display_name">Socio Director</field>
+        <field name="customer_id" ref="customer_lexnova"/>
+        <field name="node_id" ref="node_lexnova_pilot"/>
+        <field name="assigned_user_hash">HNET-LEX-9B21-001</field>
+        <field name="platform">ios</field>
+        <field name="app_version">1.0.0</field>
+        <field name="state">pending</field>
+        <field name="push_enabled">False</field>
+        <field name="screenshot_block_required">True</field>
+        <field name="notes">Pendiente de validación durante el piloto.</field>
+    </record>
+
+    <record id="deploy_atlas_training" model="hermnet.deployment.request">
+        <field name="name">Formación inicial Clínica Atlas</field>
+        <field name="customer_id" ref="customer_clinica_atlas"/>
+        <field name="node_id" ref="node_atlas_prod"/>
+        <field name="request_type">training</field>
+        <field name="priority">1</field>
+        <field name="state">done</field>
+        <field name="requested_date">2026-04-10</field>
+        <field name="planned_date">2026-04-16</field>
+        <field name="done_date">2026-04-16</field>
+        <field name="requirements">Formación de administradores, creación de grupos y uso de backups.</field>
+        <field name="result_notes">Formación completada con responsables técnicos.</field>
+    </record>
+
+    <record id="deploy_lexnova_node" model="hermnet.deployment.request">
+        <field name="name">Despliegue piloto Lexnova</field>
+        <field name="customer_id" ref="customer_lexnova"/>
+        <field name="node_id" ref="node_lexnova_pilot"/>
+        <field name="request_type">new_node</field>
+        <field name="priority">2</field>
+        <field name="state">in_progress</field>
+        <field name="requested_date">2026-05-03</field>
+        <field name="planned_date">2026-05-12</field>
+        <field name="requirements">Nodo aislado, grupos solo administradores y backups deshabilitados.</field>
+        <field name="result_notes">Pendiente de validación final de conectividad.</field>
+    </record>
+</odoo>

@@ -9,12 +9,24 @@ export class DatabaseService {
 
   async initDB(): Promise<void> {
     if (this.initPromise) return this.initPromise;
-    this.initPromise = this.openAndPrepare();
+    this.initPromise = this.openAndPrepareWithRetry();
     try {
       await this.initPromise;
     } catch (err) {
       this.initPromise = null;
       throw err;
+    }
+  }
+
+  private async openAndPrepareWithRetry(): Promise<void> {
+    try {
+      await this.openAndPrepare();
+    } catch (err) {
+      if (!this.isStaleHandleError(err)) throw err;
+      console.warn('[DatabaseService] apertura SQLite falló por handle nativo, reintentando…');
+      await this.closeCurrentHandle();
+      await new Promise(resolve => setTimeout(resolve, 80));
+      await this.openAndPrepare();
     }
   }
 
@@ -68,6 +80,7 @@ export class DatabaseService {
       CREATE TABLE IF NOT EXISTS groups_vault (
         group_id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
+        description TEXT,
         admin_id TEXT,
         only_admin_can_post INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
@@ -107,6 +120,7 @@ export class DatabaseService {
       `ALTER TABLE messages_history ADD COLUMN transport_seq INTEGER;`,
       `ALTER TABLE messages_history ADD COLUMN sender_hash TEXT;`,
       `ALTER TABLE messages_history ADD COLUMN sender_name TEXT;`,
+      `ALTER TABLE groups_vault ADD COLUMN description TEXT;`,
       `ALTER TABLE groups_vault ADD COLUMN admin_id TEXT;`,
       `ALTER TABLE groups_vault ADD COLUMN only_admin_can_post INTEGER NOT NULL DEFAULT 0;`,
     ];
@@ -169,6 +183,17 @@ export class DatabaseService {
     return /NullPointerException|prepareAsync|database is closed|NativeDatabase/i.test(msg);
   }
 
+  private async closeCurrentHandle(): Promise<void> {
+    const current = this.db as any;
+    this.db = null;
+    this.initPromise = null;
+    try {
+      await current?.closeAsync?.();
+    } catch {
+      // El handle ya está roto; basta con soltar la referencia JS.
+    }
+  }
+
   /**
    * Garantiza un handle vivo y reintenta una vez si detecta que el nativo se ha colgado.
    */
@@ -179,8 +204,7 @@ export class DatabaseService {
     } catch (err) {
       if (!this.isStaleHandleError(err)) throw err;
       console.warn('[DatabaseService] handle nativo caído, reabriendo BD…');
-      this.db = null;
-      this.initPromise = null;
+      await this.closeCurrentHandle();
       await this.initDB();
       return await op(this.db!);
     }
@@ -670,14 +694,15 @@ export class DatabaseService {
     });
   }
 
-  async createGroup(name: string, memberIds: string[], adminId?: string): Promise<string> {
+  async createGroup(name: string, memberIds: string[], adminId?: string, description: string | null = null): Promise<string> {
     const groupId = `GROUP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     await this.withDb(async (db) => {
       await (db as any).runAsync(
-        'INSERT INTO groups_vault (group_id, name, admin_id, only_admin_can_post, created_at) VALUES (?, ?, ?, 0, ?);',
-        [groupId, name.trim(), adminId ?? null, Date.now()]
+        'INSERT INTO groups_vault (group_id, name, description, admin_id, only_admin_can_post, created_at) VALUES (?, ?, ?, ?, 0, ?);',
+        [groupId, name.trim(), description?.trim() || null, adminId ?? null, Date.now()]
       );
-      for (const memberId of Array.from(new Set(memberIds))) {
+      const members = Array.from(new Set([adminId, ...memberIds].filter(Boolean) as string[]));
+      for (const memberId of members) {
         await (db as any).runAsync(
           'INSERT OR IGNORE INTO group_members (group_id, contact_hash) VALUES (?, ?);',
           [groupId, memberId]
@@ -687,18 +712,20 @@ export class DatabaseService {
     return groupId;
   }
 
-  async upsertGroup(groupId: string, name: string, memberIds: string[] = [], adminId?: string | null, onlyAdminCanPost?: boolean): Promise<void> {
+  async upsertGroup(groupId: string, name: string, memberIds: string[] = [], adminId?: string | null, onlyAdminCanPost?: boolean, description?: string | null): Promise<void> {
     await this.withDb(async (db) => {
       await (db as any).runAsync(
-        `INSERT INTO groups_vault (group_id, name, admin_id, only_admin_can_post, created_at)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO groups_vault (group_id, name, description, admin_id, only_admin_can_post, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(group_id) DO UPDATE SET
            name = excluded.name,
+           description = COALESCE(excluded.description, groups_vault.description),
            admin_id = COALESCE(excluded.admin_id, groups_vault.admin_id),
            only_admin_can_post = excluded.only_admin_can_post;`,
-        [groupId, name.trim(), adminId ?? null, onlyAdminCanPost ? 1 : 0, Date.now()]
+        [groupId, name.trim(), description?.trim() || null, adminId ?? null, onlyAdminCanPost ? 1 : 0, Date.now()]
       );
-      for (const memberId of Array.from(new Set(memberIds))) {
+      const members = Array.from(new Set([adminId ?? undefined, ...memberIds].filter(Boolean) as string[]));
+      for (const memberId of members) {
         await (db as any).runAsync(
           'INSERT OR IGNORE INTO group_members (group_id, contact_hash) VALUES (?, ?);',
           [groupId, memberId]
@@ -707,18 +734,19 @@ export class DatabaseService {
     });
   }
 
-  async getAllGroups(): Promise<Array<{ groupId: string; name: string; memberCount: number; createdAt: number; adminId: string | null; onlyAdminCanPost: boolean }>> {
+  async getAllGroups(): Promise<Array<{ groupId: string; name: string; description: string | null; memberCount: number; createdAt: number; adminId: string | null; onlyAdminCanPost: boolean }>> {
     return this.withDb(async (db) => {
       const rows = await (db as any).getAllAsync(
-        `SELECT g.group_id, g.name, g.created_at, g.admin_id, g.only_admin_can_post, COUNT(m.contact_hash) AS member_count
+        `SELECT g.group_id, g.name, g.description, g.created_at, g.admin_id, g.only_admin_can_post, COUNT(m.contact_hash) AS member_count
          FROM groups_vault g
          LEFT JOIN group_members m ON g.group_id = m.group_id
-         GROUP BY g.group_id, g.name, g.created_at
+         GROUP BY g.group_id, g.name, g.description, g.created_at, g.admin_id, g.only_admin_can_post
          ORDER BY g.created_at DESC;`
       );
       return (rows ?? []).map((r: any) => ({
         groupId: r.group_id,
         name: r.name,
+        description: r.description ?? null,
         memberCount: r.member_count ?? 0,
         createdAt: r.created_at ?? 0,
         adminId: r.admin_id ?? null,
@@ -727,10 +755,10 @@ export class DatabaseService {
     });
   }
 
-  async getGroup(groupId: string): Promise<{ groupId: string; name: string; memberIds: string[]; adminId: string | null; onlyAdminCanPost: boolean } | null> {
+  async getGroup(groupId: string): Promise<{ groupId: string; name: string; description: string | null; memberIds: string[]; adminId: string | null; onlyAdminCanPost: boolean } | null> {
     return this.withDb(async (db) => {
       const group = await (db as any).getFirstAsync(
-        'SELECT group_id, name, admin_id, only_admin_can_post FROM groups_vault WHERE group_id = ? LIMIT 1;',
+        'SELECT group_id, name, description, admin_id, only_admin_can_post FROM groups_vault WHERE group_id = ? LIMIT 1;',
         [groupId]
       );
       if (!group) return null;
@@ -738,12 +766,17 @@ export class DatabaseService {
         'SELECT contact_hash FROM group_members WHERE group_id = ? ORDER BY contact_hash ASC;',
         [groupId]
       );
+      const memberIds = Array.from(new Set([
+        group.admin_id ? String(group.admin_id) : null,
+        ...(members ?? []).map((m: any) => String(m.contact_hash)),
+      ].filter(Boolean) as string[]));
       return {
         groupId: group.group_id,
         name: group.name,
+        description: group.description ?? null,
         adminId: group.admin_id ?? null,
         onlyAdminCanPost: group.only_admin_can_post === 1,
-        memberIds: (members ?? []).map((m: any) => String(m.contact_hash)),
+        memberIds,
       };
     });
   }
@@ -753,6 +786,15 @@ export class DatabaseService {
       await (db as any).runAsync(
         'UPDATE groups_vault SET only_admin_can_post = ? WHERE group_id = ?;',
         [enabled ? 1 : 0, groupId]
+      );
+    });
+  }
+
+  async setGroupDescription(groupId: string, description: string | null): Promise<void> {
+    await this.withDb(async (db) => {
+      await (db as any).runAsync(
+        'UPDATE groups_vault SET description = ? WHERE group_id = ?;',
+        [description?.trim() || null, groupId]
       );
     });
   }

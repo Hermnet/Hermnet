@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" />
   <img src="https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=spring&logoColor=white" />
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Odoo-714B67?style=for-the-badge&logo=odoo&logoColor=white" />
   <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" />
   <img src="https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" />
 </p>
@@ -30,6 +31,7 @@ La identidad no depende de teléfono ni correo. Cada usuario genera en su dispos
 - **Camuflaje visual de mensajes**: los mensajes antiguos se ocultan al reabrir el chat, manteniendo visibles los nuevos/no leídos.
 - **Blind push opcional**: Firebase puede despertar la app sin enviar texto ni preview del mensaje.
 - **Tor-ready en Android**: módulo nativo local para enrutar por hidden service cuando está disponible, con fallback clearnet.
+- **Gestión empresarial con Odoo**: módulo propio para gestionar empresas, planes, nodos privados, dispositivos, políticas y solicitudes de despliegue.
 - **Calidad verificada**: backend con JaCoCo y umbral obligatorio de cobertura; frontend con TypeScript estricto y tests Jest.
 
 ## Stack
@@ -41,6 +43,7 @@ La identidad no depende de teléfono ni correo. Cada usuario genera en su dispos
 | Estado/local | Zustand, Expo SecureStore, Expo SQLite |
 | Backend | Java 17, Spring Boot, Spring Security, Maven |
 | Base de datos servidor | PostgreSQL |
+| Gestión empresarial | Odoo 17 + PostgreSQL |
 | Tests | JUnit + JaCoCo, Jest + jest-expo, TypeScript strict |
 
 ## Arranque Rápido
@@ -78,6 +81,12 @@ Compilar app nativa:
 bash dev.sh android
 # o
 bash dev.sh ios
+```
+
+Arrancar Odoo empresarial:
+
+```bash
+bash dev.sh odoo
 ```
 
 > Hermnet no está pensada para Expo Go porque usa módulos nativos. La primera vez hay que crear un development build con Android/iOS.
@@ -140,6 +149,7 @@ Estado verificado en la última limpieza:
 | [Base de datos](./docs/technical/esquema_base_datos.md) | Tablas del backend y SQLite local |
 | [Intercambio de claves](./docs/technical/intercambio_claves_p2p.md) | QR, fingerprint y validación anti-spoofing |
 | [Casos de uso](./docs/technical/casos-uso.md) | Funcionalidades principales del sistema |
+| [Gestión empresarial con Odoo](./docs/odoo/gestion_empresarial_odoo.md) | Entorno Odoo, módulo empresarial, datos demo y uso para empresas |
 
 ## Autoría
 

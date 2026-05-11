@@ -24,6 +24,7 @@ import MatrixText from '../../components/MatrixText';
 import AddHashContactModal from '../../components/chats/AddHashContactModal';
 import CreateGroupModal from '../../components/chats/CreateGroupModal';
 import { deviceNotificationService } from '../../services/DeviceNotificationService';
+import { prefsService } from '../../services/PrefsService';
 
 type Chat = {
     id: string;
@@ -91,6 +92,9 @@ export default function ChatsScreen() {
     const [groupModalOpen, setGroupModalOpen] = useState(false);
     const [groupNameInput, setGroupNameInput] = useState('');
     const [selectedGroupMembers, setSelectedGroupMembers] = useState<Set<string>>(new Set());
+    const [profileNameRequired, setProfileNameRequired] = useState(false);
+    const [profileNameInput, setProfileNameInput] = useState('');
+    const [matrixPreviewEnabled, setMatrixPreviewEnabled] = useState(true);
     // Cola de contactos entrantes a los que se debe pedir alias (alguien nos ha añadido)
     const [incomingContactQueue, setIncomingContactQueue] = useState<string[]>([]);
     const [incomingAliasInput, setIncomingAliasInput] = useState('');
@@ -199,6 +203,23 @@ export default function ChatsScreen() {
             .catch(() => setServerError(true))
             .finally(() => setIsLoading(false));
     }, [identity?.id]);
+
+    useEffect(() => {
+        if (!identity) return;
+        prefsService.getProfilePrefs()
+            .then(profile => {
+                const displayName = profile.displayName?.trim() ?? '';
+                setProfileNameInput(displayName);
+                setProfileNameRequired(!displayName);
+            })
+            .catch(() => setProfileNameRequired(true));
+    }, [identity?.id]);
+
+    useEffect(() => {
+        prefsService.getSecurityPrefs()
+            .then(prefs => setMatrixPreviewEnabled(prefs.matrixReveal !== false))
+            .catch(() => setMatrixPreviewEnabled(true));
+    }, [isAppActive]);
 
     useEffect(() => {
         if (!identity || !isAppActive) return;
@@ -435,11 +456,23 @@ export default function ChatsScreen() {
     }, [hashInput, hashAliasInput, identity?.id, refreshContacts, showModal, chatSlide]);
 
     const handleOpenGroup = useCallback(() => {
+        if (profileNameRequired) return;
         closeFabMenu();
         setGroupNameInput('');
         setSelectedGroupMembers(new Set());
         setGroupModalOpen(true);
-    }, [closeFabMenu]);
+    }, [closeFabMenu, profileNameRequired]);
+
+    const handleSaveRequiredProfileName = useCallback(async () => {
+        const cleanName = profileNameInput.trim();
+        if (!cleanName) {
+            showModal({ type: 'warning', title: 'Nombre obligatorio', message: 'Pon un nombre para que los demás usuarios puedan identificarte en grupos.' });
+            return;
+        }
+        await prefsService.setProfilePrefs({ displayName: cleanName });
+        setProfileNameInput(cleanName);
+        setProfileNameRequired(false);
+    }, [profileNameInput, showModal]);
 
     const handleToggleGroupMember = useCallback((contactHash: string) => {
         setSelectedGroupMembers(prev => {
@@ -569,16 +602,29 @@ export default function ChatsScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                         {item.lastMessage ? (
-                            <MatrixText
-                                text={(item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage}
-                                revealed={item.unreadCount > 0 || !item.lastMessageIsRead}
-                                style={{
-                                    color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint,
-                                    fontSize: Math.round(13 * fontScale),
-                                    lineHeight: Math.round(17 * fontScale),
-                                }}
-                                numberOfLines={1}
-                            />
+                            matrixPreviewEnabled ? (
+                                <MatrixText
+                                    text={(item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage}
+                                    revealed={item.unreadCount > 0 || !item.lastMessageIsRead}
+                                    style={{
+                                        color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint,
+                                        fontSize: Math.round(13 * fontScale),
+                                        lineHeight: Math.round(17 * fontScale),
+                                    }}
+                                    numberOfLines={1}
+                                />
+                            ) : (
+                                <Text
+                                    style={{
+                                        color: item.unreadCount > 0 ? colors.textSecondary : colors.textHint,
+                                        fontSize: Math.round(13 * fontScale),
+                                        lineHeight: Math.round(17 * fontScale),
+                                    }}
+                                    numberOfLines={1}
+                                >
+                                    {(item.lastMessageIsMine ? 'Tú: ' : '') + item.lastMessage}
+                                </Text>
+                            )
                         ) : (
                             <Text
                                 style={{ color: colors.textHint, fontSize: Math.round(13 * fontScale), lineHeight: Math.round(17 * fontScale) }}
@@ -835,6 +881,51 @@ export default function ChatsScreen() {
             >
                 {showShowQR && <ShowQRScreen onClose={handleCloseShowQR} />}
             </Animated.View>
+
+            {/* ── Modal obligatorio: nombre público ── */}
+            <Modal
+                visible={profileNameRequired && !activeChatId && !pendingQRData}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={handleSaveRequiredProfileName}
+            >
+                <KeyboardAvoidingView
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.76)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <View style={{ width: '100%', backgroundColor: colors.bgSurface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: colors.borderFaint }}>
+                        <Text style={{ color: colors.accentLight, fontSize: 12, fontWeight: '800', marginBottom: 8, letterSpacing: 0.6 }}>
+                            PERFIL PÚBLICO
+                        </Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 8 }}>
+                            ¿Cómo quieres que te vean?
+                        </Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 14, lineHeight: 20, marginBottom: 18 }}>
+                            Este nombre aparecerá junto a tus mensajes en grupos. Es obligatorio para evitar que los demás solo vean tu hash.
+                        </Text>
+                        <TextInput
+                            style={{ backgroundColor: colors.bgElevated, color: colors.textPrimary, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, fontSize: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.borderFaint }}
+                            placeholder="Ej: Fran"
+                            placeholderTextColor={colors.textFaint}
+                            value={profileNameInput}
+                            onChangeText={setProfileNameInput}
+                            autoFocus
+                            maxLength={40}
+                            returnKeyType="done"
+                            onSubmitEditing={handleSaveRequiredProfileName}
+                        />
+                        <TouchableOpacity
+                            style={{ backgroundColor: colors.accentButton, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+                            activeOpacity={0.85}
+                            onPress={handleSaveRequiredProfileName}
+                        >
+                            <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 15 }}>Guardar y continuar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
             {/* ── Modal: Alias de contacto ── */}
             <Modal
                 visible={!!pendingQRData}

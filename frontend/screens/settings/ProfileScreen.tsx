@@ -14,13 +14,21 @@ export default function ProfileScreen({ onBack }: Props) {
     const s = useMemo(() => createStyles(colors), [colors]);
     const [displayName, setDisplayName] = useState('');
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         prefsService.getProfilePrefs().then(p => setDisplayName(p.displayName ?? '')).catch(() => {});
     }, []);
 
     const save = async () => {
-        await prefsService.setProfilePrefs({ displayName: displayName.trim() });
+        const cleanName = displayName.trim();
+        if (!cleanName) {
+            setError('El nombre público es obligatorio para participar en grupos.');
+            return;
+        }
+        await prefsService.setProfilePrefs({ displayName: cleanName });
+        setDisplayName(cleanName);
+        setError('');
         setSaved(true);
         setTimeout(() => setSaved(false), 1400);
     };
@@ -49,11 +57,16 @@ export default function ProfileScreen({ onBack }: Props) {
                             placeholder="Ej: Fran"
                             placeholderTextColor={colors.textFaint}
                             value={displayName}
-                            onChangeText={setDisplayName}
+                            onChangeText={(text) => { setDisplayName(text); if (error) setError(''); }}
                             maxLength={40}
                             returnKeyType="done"
                             onSubmitEditing={save}
                         />
+                        {!!error && (
+                            <Text style={{ color: colors.dangerText, fontSize: 12, marginBottom: 14 }}>
+                                {error}
+                            </Text>
+                        )}
                         <TouchableOpacity style={{ backgroundColor: colors.accentButton, borderRadius: 12, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }} activeOpacity={0.8} onPress={save}>
                             <Save size={16} color="#ffffff" />
                             <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 15 }}>{saved ? 'Guardado' : 'Guardar'}</Text>

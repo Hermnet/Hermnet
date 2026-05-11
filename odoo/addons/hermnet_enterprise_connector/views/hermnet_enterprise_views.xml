@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hermnet_plan_tree" model="ir.ui.view">
+        <field name="name">hermnet.plan.tree</field>
+        <field name="model">hermnet.plan</field>
+        <field name="arch" type="xml">
+            <tree string="Planes Hermnet">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="monthly_price"/>
+                <field name="max_users"/>
+                <field name="max_private_nodes"/>
+                <field name="includes_support"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_hermnet_plan_form" model="ir.ui.view">
+        <field name="name">hermnet.plan.form</field>
+        <field name="model">hermnet.plan</field>
+        <field name="arch" type="xml">
+            <form string="Plan Hermnet">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="monthly_price"/>
+                            <field name="max_users"/>
+                            <field name="max_private_nodes"/>
+                        </group>
+                    </group>
+                    <group string="Incluye">
+                        <field name="includes_support"/>
+                        <field name="includes_onboarding"/>
+                    </group>
+                    <field name="notes"/>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hermnet_customer_tree" model="ir.ui.view">
+        <field name="name">hermnet.customer.tree</field>
+        <field name="model">hermnet.customer</field>
+        <field name="arch" type="xml">
+            <tree string="Empresas Hermnet" decoration-success="state == 'active'" decoration-warning="state == 'pilot'" decoration-danger="state == 'suspended'">
+                <field name="name"/>
+                <field name="state"/>
+                <field name="sector"/>
+                <field name="plan_id"/>
+                <field name="seats_purchased"/>
+                <field name="seats_used"/>
+                <field name="node_count"/>
+                <field name="device_count"/>
+                <field name="renewal_date"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_hermnet_customer_form" model="ir.ui.view">
+        <field name="name">hermnet.customer.form</field>
+        <field name="model">hermnet.customer</field>
+        <field name="arch" type="xml">
+            <form string="Empresa Hermnet">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object" name="action_view_nodes" icon="fa-server">
+                            <field name="node_count" string="Nodos" widget="statinfo"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_view_devices" icon="fa-mobile">
+                            <field name="device_count" string="Dispositivos" widget="statinfo"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_view_policies" icon="fa-shield">
+                            <field name="policy_count" string="Políticas" widget="statinfo"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Activo" bg_color="text-bg-success" invisible="state != 'active'"/>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="partner_id"/>
+                            <field name="tax_id"/>
+                            <field name="sector"/>
+                            <field name="state"/>
+                        </group>
+                        <group>
+                            <field name="plan_id"/>
+                            <field name="seats_purchased"/>
+                            <field name="seats_used"/>
+                            <field name="onboarding_date"/>
+                            <field name="renewal_date"/>
+                        </group>
+                    </group>
+                    <group string="Responsable técnico">
+                        <field name="admin_contact"/>
+                        <field name="admin_email"/>
+                        <field name="admin_phone"/>
+                        <field name="allowed_domains"/>
+                    </group>
+                    <notebook>
+                        <page string="Nodos privados">
+                            <field name="node_ids">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="environment"/>
+                                    <field name="state"/>
+                                    <field name="base_url"/>
+                                    <field name="onion_url"/>
+                                    <field name="region"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Dispositivos">
+                            <field name="device_ids">
+                                <tree editable="bottom">
+                                    <field name="display_name"/>
+                                    <field name="assigned_user_hash"/>
+                                    <field name="platform"/>
+                                    <field name="state"/>
+                                    <field name="node_id"/>
+                                    <field name="last_seen"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Políticas">
+                            <field name="policy_ids">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="require_pin_on_open"/>
+                                    <field name="block_screenshots"/>
+                                    <field name="allow_backups"/>
+                                    <field name="allow_group_creation"/>
+                                    <field name="min_pin_length"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Solicitudes">
+                            <field name="deployment_ids">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="request_type"/>
+                                    <field name="priority"/>
+                                    <field name="state"/>
+                                    <field name="requested_date"/>
+                                    <field name="planned_date"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Notas">
+                            <field name="internal_notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hermnet_private_node_tree" model="ir.ui.view">
+        <field name="name">hermnet.private.node.tree</field>
+        <field name="model">hermnet.private.node</field>
+        <field name="arch" type="xml">
+            <tree string="Nodos privados" decoration-success="state == 'online'" decoration-warning="state == 'maintenance'" decoration-danger="state == 'offline'">
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="environment"/>
+                <field name="state"/>
+                <field name="base_url"/>
+                <field name="region"/>
+                <field name="last_healthcheck"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_hermnet_private_node_form" model="ir.ui.view">
+        <field name="name">hermnet.private.node.form</field>
+        <field name="model">hermnet.private.node</field>
+        <field name="arch" type="xml">
+            <form string="Nodo privado">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="customer_id"/>
+                            <field name="environment"/>
+                            <field name="state"/>
+                        </group>
+                        <group>
+                            <field name="region"/>
+                            <field name="server_provider"/>
+                            <field name="db_name"/>
+                            <field name="max_daily_messages"/>
+                        </group>
+                    </group>
+                    <group string="Conectividad">
+                        <field name="base_url"/>
+                        <field name="onion_url"/>
+                        <field name="last_healthcheck"/>
+                    </group>
+                    <field name="notes"/>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hermnet_device_tree" model="ir.ui.view">
+        <field name="name">hermnet.device.tree</field>
+        <field name="model">hermnet.device</field>
+        <field name="arch" type="xml">
+            <tree string="Dispositivos" decoration-success="state == 'active'" decoration-danger="state in ('blocked', 'lost')">
+                <field name="display_name"/>
+                <field name="customer_id"/>
+                <field name="assigned_user_hash"/>
+                <field name="platform"/>
+                <field name="state"/>
+                <field name="push_enabled"/>
+                <field name="last_seen"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_hermnet_device_form" model="ir.ui.view">
+        <field name="name">hermnet.device.form</field>
+        <field name="model">hermnet.device</field>
+        <field name="arch" type="xml">
+            <form string="Dispositivo Hermnet">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="display_name"/>
+                            <field name="customer_id"/>
+                            <field name="node_id"/>
+                            <field name="assigned_user_hash"/>
+                        </group>
+                        <group>
+                            <field name="platform"/>
+                            <field name="app_version"/>
+                            <field name="state"/>
+                            <field name="last_seen"/>
+                        </group>
+                    </group>
+                    <group string="Seguridad">
+                        <field name="push_enabled"/>
+                        <field name="screenshot_block_required"/>
+                    </group>
+                    <field name="notes"/>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hermnet_security_policy_tree" model="ir.ui.view">
+        <field name="name">hermnet.security.policy.tree</field>
+        <field name="model">hermnet.security.policy</field>
+        <field name="arch" type="xml">
+            <tree string="Políticas de seguridad">
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="require_pin_on_open"/>
+                <field name="block_screenshots"/>
+                <field name="allow_backups"/>
+                <field name="allow_group_creation"/>
+                <field name="min_pin_length"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_hermnet_security_policy_form" model="ir.ui.view">
+        <field name="name">hermnet.security.policy.form</field>
+        <field name="model">hermnet.security.policy</field>
+        <field name="arch" type="xml">
+            <form string="Política de seguridad">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="customer_id"/>
+                        <field name="min_pin_length"/>
+                        <field name="message_retention_days"/>
+                    </group>
+                    <group string="Controles">
+                        <field name="require_pin_on_open"/>
+                        <field name="block_screenshots"/>
+                        <field name="allow_backups"/>
+                        <field name="require_backup_password"/>
+                        <field name="allow_matrix_effect"/>
+                        <field name="allow_group_creation"/>
+                        <field name="admins_only_groups_default"/>
+                    </group>
+                    <field name="notes"/>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hermnet_deployment_request_tree" model="ir.ui.view">
+        <field name="name">hermnet.deployment.request.tree</field>
+        <field name="model">hermnet.deployment.request</field>
+        <field name="arch" type="xml">
+            <tree string="Solicitudes de despliegue" decoration-success="state == 'done'" decoration-warning="state == 'in_progress'" decoration-danger="priority == '3'">
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="request_type"/>
+                <field name="priority"/>
+                <field name="state"/>
+                <field name="requested_date"/>
+                <field name="planned_date"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_hermnet_deployment_request_form" model="ir.ui.view">
+        <field name="name">hermnet.deployment.request.form</field>
+        <field name="model">hermnet.deployment.request</field>
+        <field name="arch" type="xml">
+            <form string="Solicitud de despliegue">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="customer_id"/>
+                            <field name="node_id"/>
+                            <field name="request_type"/>
+                        </group>
+                        <group>
+                            <field name="priority"/>
+                            <field name="state"/>
+                            <field name="requested_date"/>
+                            <field name="planned_date"/>
+                            <field name="done_date"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="requirements"/>
+                        <field name="result_notes"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hermnet_customers" model="ir.actions.act_window">
+        <field name="name">Empresas</field>
+        <field name="res_model">hermnet.customer</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="action_hermnet_plans" model="ir.actions.act_window">
+        <field name="name">Planes</field>
+        <field name="res_model">hermnet.plan</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="action_hermnet_nodes" model="ir.actions.act_window">
+        <field name="name">Nodos privados</field>
+        <field name="res_model">hermnet.private.node</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="action_hermnet_devices" model="ir.actions.act_window">
+        <field name="name">Dispositivos</field>
+        <field name="res_model">hermnet.device</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="action_hermnet_policies" model="ir.actions.act_window">
+        <field name="name">Políticas</field>
+        <field name="res_model">hermnet.security.policy</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="action_hermnet_deployments" model="ir.actions.act_window">
+        <field name="name">Solicitudes</field>
+        <field name="res_model">hermnet.deployment.request</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_hermnet_root" name="Hermnet Empresas" sequence="10"/>
+    <menuitem id="menu_hermnet_operations" name="Operación" parent="menu_hermnet_root" sequence="10"/>
+    <menuitem id="menu_hermnet_configuration" name="Configuración" parent="menu_hermnet_root" sequence="90"/>
+
+    <menuitem id="menu_hermnet_customers" name="Empresas" parent="menu_hermnet_operations" action="action_hermnet_customers" sequence="10"/>
+    <menuitem id="menu_hermnet_nodes" name="Nodos privados" parent="menu_hermnet_operations" action="action_hermnet_nodes" sequence="20"/>
+    <menuitem id="menu_hermnet_devices" name="Dispositivos" parent="menu_hermnet_operations" action="action_hermnet_devices" sequence="30"/>
+    <menuitem id="menu_hermnet_deployments" name="Solicitudes" parent="menu_hermnet_operations" action="action_hermnet_deployments" sequence="40"/>
+    <menuitem id="menu_hermnet_policies" name="Políticas" parent="menu_hermnet_configuration" action="action_hermnet_policies" sequence="10"/>
+    <menuitem id="menu_hermnet_plans" name="Planes" parent="menu_hermnet_configuration" action="action_hermnet_plans" sequence="20"/>
+</odoo>

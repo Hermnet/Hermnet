@@ -1,0 +1,49 @@
+services:
+  odoo-db:
+    image: postgres:15-alpine
+    container_name: hermnet_odoo_postgres
+    environment:
+      POSTGRES_DB: ${ODOO_DB_NAME:-hermnet_odoo}
+      POSTGRES_USER: ${ODOO_DB_USER:-odoo}
+      POSTGRES_PASSWORD: ${ODOO_DB_PASSWORD:-odoo}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "55432:5432"
+    volumes:
+      - hermnet_odoo_db:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ODOO_DB_USER:-odoo} -d ${ODOO_DB_NAME:-hermnet_odoo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  odoo:
+    image: odoo:17.0
+    container_name: hermnet_odoo
+    depends_on:
+      odoo-db:
+        condition: service_healthy
+    ports:
+      - "${ODOO_HTTP_PORT:-8069}:8069"
+      - "${ODOO_LONGPOLLING_PORT:-8072}:8072"
+    environment:
+      HOST: ${ODOO_DB_HOST:-odoo-db}
+      PORT: ${ODOO_DB_PORT:-5432}
+      USER: ${ODOO_DB_USER:-odoo}
+      PASSWORD: ${ODOO_DB_PASSWORD:-odoo}
+    volumes:
+      - hermnet_odoo_data:/var/lib/odoo
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./addons:/mnt/extra-addons
+    command:
+      - odoo
+      - -c
+      - /etc/odoo/odoo.conf
+      - -d
+      - ${ODOO_DB_NAME:-hermnet_odoo}
+      - -i
+      - base
+
+volumes:
+  hermnet_odoo_db:
+  hermnet_odoo_data:

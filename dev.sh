@@ -8,6 +8,7 @@
 #   bash dev.sh metro    → solo Metro (dev client)
 #   bash dev.sh ios      → prebuild + run en iPhone físico
 #   bash dev.sh android  → prebuild + run en Android emulador
+#   bash dev.sh odoo     → Odoo + PostgreSQL para gestión empresarial
 # ─────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -49,10 +50,25 @@ start_backend() {
         exit 1
     fi
     docker compose up -d
+
+    EXISTING_BACKEND_PID=$(lsof -tiTCP:8080 -sTCP:LISTEN 2>/dev/null || true)
+    if [ -n "$EXISTING_BACKEND_PID" ]; then
+        echo -e "${YELLOW}⚠️  El puerto 8080 ya está ocupado por PID ${EXISTING_BACKEND_PID}.${NC}"
+        echo -e "${GREEN}✅ Backend ya disponible en http://${LOCAL_IP}:8080${NC}"
+        cd ..
+        return 0
+    fi
+
     echo -e "${YELLOW}☕ Arrancando Spring Boot...${NC}"
     set -a; . ./.env; set +a
     mvn spring-boot:run &
     BACKEND_PID=$!
+    sleep 5
+    if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+        echo -e "${RED}❌ Spring Boot no pudo arrancar. Revisa el error de Maven arriba.${NC}"
+        cd ..
+        return 1
+    fi
     cd ..
     echo -e "${GREEN}✅ Backend corriendo (PID ${BACKEND_PID}) en http://${LOCAL_IP}:8080${NC}"
 }
@@ -75,6 +91,19 @@ run_android() {
     npx expo run:android
 }
 
+start_odoo() {
+    echo -e "${YELLOW}🏢 Arrancando Odoo empresarial (Docker)...${NC}"
+    cd odoo
+    if [ ! -f .env ]; then
+        cp .env.example .env
+        echo -e "${YELLOW}⚠️  Creado odoo/.env desde .env.example. Revisa credenciales antes de producción.${NC}"
+    fi
+    docker compose up -d
+    cd ..
+    echo -e "${GREEN}✅ Odoo disponible en http://localhost:8069${NC}"
+    echo -e "${GREEN}   Master password: hermnet-admin-master${NC}"
+}
+
 # ── Main ──
 case "${1:-all}" in
     backend)
@@ -90,6 +119,9 @@ case "${1:-all}" in
     android)
         run_android
         ;;
+    odoo)
+        start_odoo
+        ;;
     all)
         echo -e "${GREEN}═══════════════════════════════════════${NC}"
         echo -e "${GREEN}  Hermnet Dev Environment${NC}"
@@ -102,7 +134,7 @@ case "${1:-all}" in
         start_metro
         ;;
     *)
-        echo "Uso: bash dev.sh [backend|metro|ios|android|all]"
+        echo "Uso: bash dev.sh [backend|metro|ios|android|odoo|all]"
         exit 1
         ;;
 esac

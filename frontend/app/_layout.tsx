@@ -189,6 +189,7 @@ export default function RootLayout() {
 
 function ThemedApp() {
   const { colors } = useTheme();
+
   return (
     <>
       <Slot />

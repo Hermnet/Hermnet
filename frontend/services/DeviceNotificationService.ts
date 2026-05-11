@@ -17,6 +17,10 @@ type DeviceModule = { isDevice: boolean };
 let notificationsModule: NotificationsModule | null | undefined;
 let deviceModule: DeviceModule | null | undefined;
 
+function isJestRuntime(): boolean {
+  return typeof process !== 'undefined' && !!process.env.JEST_WORKER_ID;
+}
+
 function isExpoGo(): boolean {
   try {
     const Constants = require('expo-constants');
@@ -28,6 +32,10 @@ function isExpoGo(): boolean {
 
 function getNotifications(): NotificationsModule | null {
   if (notificationsModule !== undefined) return notificationsModule;
+  if (isJestRuntime()) {
+    notificationsModule = null;
+    return notificationsModule;
+  }
   if (isExpoGo()) {
     notificationsModule = null;
     if (__DEV__) console.warn('[notifications] Expo Go no soporta push Android en SDK 53+; usa development build para notificaciones.');

@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hermnet_plan_user,hermnet.plan.user,model_hermnet_plan,base.group_user,1,1,1,1
+access_hermnet_customer_user,hermnet.customer.user,model_hermnet_customer,base.group_user,1,1,1,1
+access_hermnet_private_node_user,hermnet.private.node.user,model_hermnet_private_node,base.group_user,1,1,1,1
+access_hermnet_device_user,hermnet.device.user,model_hermnet_device,base.group_user,1,1,1,1
+access_hermnet_security_policy_user,hermnet.security.policy.user,model_hermnet_security_policy,base.group_user,1,1,1,1
+access_hermnet_deployment_request_user,hermnet.deployment.request.user,model_hermnet_deployment_request,base.group_user,1,1,1,1

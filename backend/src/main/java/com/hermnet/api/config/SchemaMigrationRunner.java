@@ -1,5 +1,10 @@
 package com.hermnet.api.config;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -41,22 +46,11 @@ public class SchemaMigrationRunner {
      */
     private void renameStegoPacketToPayload() {
         try {
-            Boolean hasOldColumn = jdbcTemplate.queryForObject(
-                    "SELECT EXISTS (SELECT 1 FROM information_schema.columns " +
-                            "WHERE table_name = 'mailbox' AND column_name = 'stego_packet')",
-                    Boolean.class
-            );
-            if (Boolean.FALSE.equals(hasOldColumn)) {
+            if (!columnExists("mailbox", "stego_packet")) {
                 return; // already migrated or fresh DB
             }
 
-            Boolean hasNewColumn = jdbcTemplate.queryForObject(
-                    "SELECT EXISTS (SELECT 1 FROM information_schema.columns " +
-                            "WHERE table_name = 'mailbox' AND column_name = 'payload')",
-                    Boolean.class
-            );
-
-            if (Boolean.TRUE.equals(hasNewColumn)) {
+            if (columnExists("mailbox", "payload")) {
                 int copied = jdbcTemplate.update(
                         "UPDATE mailbox SET payload = stego_packet WHERE payload IS NULL"
                 );
@@ -68,6 +62,24 @@ public class SchemaMigrationRunner {
             }
         } catch (Exception e) {
             log.warn("Schema migration (stego_packet -> payload) skipped: {}", e.getMessage());
+        }
+    }
+
+    private boolean columnExists(String tableName, String columnName) throws SQLException {
+        if (jdbcTemplate.getDataSource() == null) {
+            return false;
+        }
+
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            return columnExists(metaData, tableName, columnName)
+                    || columnExists(metaData, tableName.toUpperCase(), columnName.toUpperCase());
+        }
+    }
+
+    private boolean columnExists(DatabaseMetaData metaData, String tableName, String columnName) throws SQLException {
+        try (ResultSet columns = metaData.getColumns(null, null, tableName, columnName)) {
+            return columns.next();
         }
     }
 }

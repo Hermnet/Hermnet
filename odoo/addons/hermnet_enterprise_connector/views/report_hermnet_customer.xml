@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_hermnet_customer" model="ir.actions.report">
+        <field name="name">Ficha empresarial Hermnet</field>
+        <field name="model">hermnet.customer</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">hermnet_enterprise_connector.report_hermnet_customer</field>
+        <field name="report_file">hermnet_enterprise_connector.report_hermnet_customer</field>
+        <field name="binding_model_id" ref="model_hermnet_customer"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_hermnet_customer">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Ficha empresarial Hermnet</h2>
+                        <p><strong>Empresa:</strong> <span t-field="doc.name"/></p>
+                        <p>
+                            <strong>Estado:</strong> <span t-field="doc.state"/>
+                            <strong style="margin-left: 24px;">Plan:</strong> <span t-field="doc.plan_id"/>
+                        </p>
+
+                        <h3>Resumen de licencias</h3>
+                        <table class="table table-sm o_main_table">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Licencias contratadas</strong></td>
+                                    <td><span t-field="doc.seats_purchased"/></td>
+                                    <td><strong>Licencias en uso</strong></td>
+                                    <td><span t-field="doc.seats_used"/></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Nodos privados</strong></td>
+                                    <td><span t-field="doc.node_count"/></td>
+                                    <td><strong>Dispositivos</strong></td>
+                                    <td><span t-field="doc.device_count"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h3>Responsable técnico</h3>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td><strong>Nombre</strong></td><td><span t-field="doc.admin_contact"/></td></tr>
+                                <tr><td><strong>Email</strong></td><td><span t-field="doc.admin_email"/></td></tr>
+                                <tr><td><strong>Teléfono</strong></td><td><span t-field="doc.admin_phone"/></td></tr>
+                                <tr><td><strong>Dominios permitidos</strong></td><td><span t-field="doc.allowed_domains"/></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h3>Nodos privados</h3>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Entorno</th>
+                                    <th>Estado</th>
+                                    <th>URL</th>
+                                    <th>Región</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="doc.node_ids" t-as="node">
+                                    <td><span t-field="node.name"/></td>
+                                    <td><span t-field="node.environment"/></td>
+                                    <td><span t-field="node.state"/></td>
+                                    <td><span t-field="node.base_url"/></td>
+                                    <td><span t-field="node.region"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h3>Políticas de seguridad</h3>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Política</th>
+                                    <th>PIN</th>
+                                    <th>Capturas</th>
+                                    <th>Backups</th>
+                                    <th>Grupos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="doc.policy_ids" t-as="policy">
+                                    <td><span t-field="policy.name"/></td>
+                                    <td><span t-field="policy.require_pin_on_open"/></td>
+                                    <td><span t-field="policy.block_screenshots"/></td>
+                                    <td><span t-field="policy.allow_backups"/></td>
+                                    <td><span t-field="policy.allow_group_creation"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h3>Solicitudes de despliegue</h3>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Solicitud</th>
+                                    <th>Tipo</th>
+                                    <th>Prioridad</th>
+                                    <th>Estado</th>
+                                    <th>Planificada</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="doc.deployment_ids" t-as="request">
+                                    <td><span t-field="request.name"/></td>
+                                    <td><span t-field="request.request_type"/></td>
+                                    <td><span t-field="request.priority"/></td>
+                                    <td><span t-field="request.state"/></td>
+                                    <td><span t-field="request.planned_date"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

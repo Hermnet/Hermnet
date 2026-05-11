@@ -1,4 +1,5 @@
 import QuickCrypto from './CryptoService';
+import { Buffer } from 'buffer';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { authSessionService } from './AuthSessionService';
@@ -31,6 +32,7 @@ interface BackupPayload {
   groups?: Array<{
     group_id: string;
     name: string;
+    description?: string | null;
     member_ids: string[];
     admin_id?: string | null;
     only_admin_can_post?: boolean;
@@ -40,6 +42,10 @@ interface BackupPayload {
     plaintext: string;
     is_mine: boolean;
     created_at: number;
+    status?: 'pending' | 'sent' | 'failed';
+    reply_to?: { id: string; text: string; isMine: boolean } | null;
+    sender_hash?: string | null;
+    sender_name?: string | null;
   }>;
 }
 
@@ -142,6 +148,10 @@ export class RecoveryService {
             plaintext: m.text,
             is_mine: m.isMine,
             created_at: m.createdAt,
+            status: m.status,
+            reply_to: m.replyTo ?? null,
+            sender_hash: m.senderHash ?? null,
+            sender_name: m.senderName ?? null,
           });
         }
         if (batch.length > 0) {
@@ -159,6 +169,7 @@ export class RecoveryService {
         return {
           group_id: g.groupId,
           name: g.name,
+          description: full?.description ?? null,
           member_ids: full?.memberIds ?? [],
           admin_id: full?.adminId ?? null,
           only_admin_can_post: full?.onlyAdminCanPost ?? false,
@@ -250,7 +261,7 @@ export class RecoveryService {
     // 6. Restaurar grupos
     for (const g of payload.groups ?? []) {
       if (!g.group_id || !g.name) continue;
-      await databaseService.upsertGroup(g.group_id, g.name, g.member_ids ?? [], g.admin_id ?? null, !!g.only_admin_can_post);
+      await databaseService.upsertGroup(g.group_id, g.name, g.member_ids ?? [], g.admin_id ?? null, !!g.only_admin_can_post, g.description ?? null);
     }
 
     // 7. Restaurar mensajes
@@ -260,6 +271,11 @@ export class RecoveryService {
         m.plaintext,
         m.is_mine,
         m.created_at,
+        m.status === 'pending' ? 'PENDING' : (m.is_mine ? 'SENT' : 'DELIVERED'),
+        m.reply_to ?? null,
+        undefined,
+        m.sender_hash ?? null,
+        m.sender_name ?? null,
       );
     }
 

@@ -11,6 +11,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -79,6 +82,66 @@ public class UserServiceTest {
 
         assertEquals("El ID ya está en uso.", exception.getMessage());
         verify(userRepository, times(1)).existsById(validRequest.id());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    public void findPublicIdentity_ShouldReturnPublicUser_WhenUserExists() {
+        User user = User.builder()
+                .idHash("HNET-FOUND")
+                .publicKey("public-key")
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(userRepository.findById("HNET-FOUND")).thenReturn(Optional.of(user));
+
+        UserResponse response = userService.findPublicIdentity("HNET-FOUND");
+
+        assertEquals("HNET-FOUND", response.id());
+        assertEquals("public-key", response.publicKey());
+    }
+
+    @Test
+    public void findPublicIdentity_ShouldThrow_WhenUserMissing() {
+        when(userRepository.findById("HNET-MISSING")).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.findPublicIdentity("HNET-MISSING"));
+
+        assertEquals("Usuario no encontrado.", exception.getMessage());
+    }
+
+    @Test
+    public void updatePushToken_ShouldTrimAndSave_WhenTokenPresent() {
+        User user = User.builder().idHash("HNET-USER").publicKey("public-key").build();
+        when(userRepository.findById("HNET-USER")).thenReturn(Optional.of(user));
+
+        userService.updatePushToken("HNET-USER", "  token-123  ");
+
+        assertEquals("token-123", user.getPushToken());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    public void updatePushToken_ShouldClearToken_WhenBlank() {
+        User user = User.builder().idHash("HNET-USER").publicKey("public-key").pushToken("old").build();
+        when(userRepository.findById("HNET-USER")).thenReturn(Optional.of(user));
+
+        userService.updatePushToken("HNET-USER", "   ");
+
+        assertNull(user.getPushToken());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    public void updatePushToken_ShouldThrow_WhenUserMissing() {
+        when(userRepository.findById("HNET-MISSING")).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.updatePushToken("HNET-MISSING", "token"));
+
+        assertEquals("Usuario no encontrado.", exception.getMessage());
         verify(userRepository, never()).save(any(User.class));
     }
 }

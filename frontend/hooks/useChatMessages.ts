@@ -54,7 +54,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isAtBottom, setIsAtBottom] = useState(true);
     const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
-    const [groupInfo, setGroupInfo] = useState<{ adminId: string | null; memberIds: string[]; onlyAdminCanPost: boolean } | null>(null);
+    const [groupInfo, setGroupInfo] = useState<{ adminId: string | null; memberIds: string[]; onlyAdminCanPost: boolean; description: string | null } | null>(null);
 
     const { identity } = useAuthStore();
     const isAppActive = useIsAppActive();
@@ -85,7 +85,7 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
             databaseService.getGroup(chatId)
                 .then(group => {
                     setContactName(group?.name ?? 'Grupo');
-                    setGroupInfo(group ? { adminId: group.adminId, memberIds: group.memberIds, onlyAdminCanPost: group.onlyAdminCanPost } : null);
+                    setGroupInfo(group ? { adminId: group.adminId, memberIds: group.memberIds, onlyAdminCanPost: group.onlyAdminCanPost, description: group.description } : null);
                 })
                 .catch(() => setContactName('Grupo'));
             return;

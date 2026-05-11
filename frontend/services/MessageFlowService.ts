@@ -27,6 +27,7 @@ interface CanonicalEnvelope {
     replyTo?: { id: string; text: string; isMine: boolean } | null;
     groupId?: string;
     groupName?: string;
+    groupDescription?: string;
     groupAdminId?: string;
     groupMembers?: string[];
     groupOnlyAdminCanPost?: boolean;
@@ -43,6 +44,7 @@ function canonicalize(envelope: CanonicalEnvelope): string {
     if (envelope.replyTo) ordered.replyTo = envelope.replyTo;
     if (envelope.groupId) ordered.groupId = envelope.groupId;
     if (envelope.groupName) ordered.groupName = envelope.groupName;
+    if (envelope.groupDescription) ordered.groupDescription = envelope.groupDescription;
     if (envelope.groupAdminId) ordered.groupAdminId = envelope.groupAdminId;
     if (envelope.groupMembers) ordered.groupMembers = envelope.groupMembers;
     if (envelope.groupOnlyAdminCanPost !== undefined) ordered.groupOnlyAdminCanPost = envelope.groupOnlyAdminCanPost;
@@ -238,7 +240,7 @@ export class MessageFlowService {
         }
         const decrypted = messageCryptoService.decryptWithPrivateKey(packet, localPrivateKey);
 
-        let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number; replyTo?: { id: string; text: string; isMine: boolean } | null; groupId?: string; groupName?: string; groupAdminId?: string; groupMembers?: string[]; groupOnlyAdminCanPost?: boolean; senderName?: string };
+        let envelope: { from: string; pk?: string; text: string; type?: string; ts?: number; sig?: string; seq?: number; ttl?: number; replyTo?: { id: string; text: string; isMine: boolean } | null; groupId?: string; groupName?: string; groupDescription?: string; groupAdminId?: string; groupMembers?: string[]; groupOnlyAdminCanPost?: boolean; senderName?: string };
         try {
           envelope = JSON.parse(decrypted);
         } catch {
@@ -289,6 +291,7 @@ export class MessageFlowService {
             replyTo: envelope.replyTo,
             groupId: envelope.groupId,
             groupName: envelope.groupName,
+            groupDescription: envelope.groupDescription,
             groupAdminId: envelope.groupAdminId,
             groupMembers: envelope.groupMembers,
             groupOnlyAdminCanPost: envelope.groupOnlyAdminCanPost,
@@ -364,7 +367,7 @@ export class MessageFlowService {
         // Usar el timestamp del emisor para que el orden sea idéntico en ambos dispositivos
         if (envelope.type === 'group_message' && envelope.groupId && envelope.groupName) {
           const members = Array.isArray(envelope.groupMembers) ? envelope.groupMembers : [contactHash];
-          await databaseService.upsertGroup(envelope.groupId, envelope.groupName, members, envelope.groupAdminId ?? contactHash, envelope.groupOnlyAdminCanPost);
+          await databaseService.upsertGroup(envelope.groupId, envelope.groupName, members, envelope.groupAdminId ?? contactHash, envelope.groupOnlyAdminCanPost, envelope.groupDescription ?? null);
           await databaseService.saveDecryptedMessage(envelope.groupId, plaintext, false, senderTs, undefined, envelope.replyTo ?? null, envelope.seq, contactHash, envelope.senderName ?? null);
         } else {
           await databaseService.saveDecryptedMessage(contactHash, plaintext, false, senderTs, undefined, envelope.replyTo ?? null, envelope.seq, contactHash, envelope.senderName ?? null);
@@ -524,6 +527,7 @@ export class MessageFlowService {
           seq,
           groupId: input.groupId,
           groupName: input.groupName,
+          ...(group?.description ? { groupDescription: group.description } : {}),
           groupAdminId: group?.adminId ?? senderIdentity.id,
           groupMembers: allGroupMembers,
           groupOnlyAdminCanPost: group?.onlyAdminCanPost ?? false,
