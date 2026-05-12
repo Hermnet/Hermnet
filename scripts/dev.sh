@@ -11,7 +11,9 @@
 #   bash dev.sh odoo     → Odoo + PostgreSQL para gestión empresarial
 # ─────────────────────────────────────────────────────────────────
 set -euo pipefail
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 # ── Colores ──
 GREEN='\033[0;32m'
