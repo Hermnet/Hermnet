@@ -73,6 +73,7 @@ public class AuthService {
      * @throws IllegalArgumentException if the nonce is invalid, expired or the
      *                                  signature does not match.
      */
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         AuthChallenge challenge = authChallengeRepository.findByNonce(request.nonce())
                 .orElseThrow(() -> new IllegalArgumentException("Nonce inválido o inexistente"));
@@ -181,4 +182,3 @@ public class AuthService {
     }
 
 }
-

@@ -10,9 +10,11 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 interface PinScreenProps {
     mode?: 'setup' | 'login' | 'restore';
     onComplete: (pin: string) => void;
+    statusMessage?: string | null;
+    errorMessage?: string | null;
 }
 
-export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps) {
+export default function PinScreen({ mode = 'setup', onComplete, statusMessage, errorMessage }: PinScreenProps) {
     const { colors } = useTheme();
     const s = useMemo(() => createStyles(colors), [colors]);
     const [pin, setPin] = useState<string>('');
@@ -207,6 +209,13 @@ export default function PinScreen({ mode = 'setup', onComplete }: PinScreenProps
                 <Animated.View style={[s.dotsContainer, { transform: [{ translateX: shakeAnimation }] }]}>
                     {renderDots()}
                 </Animated.View>
+
+                {!!statusMessage && (
+                    <Text style={s.statusMessage}>{statusMessage}</Text>
+                )}
+                {!!errorMessage && (
+                    <Text style={s.errorMessage}>{errorMessage}</Text>
+                )}
 
                 <View style={s.padBox}>
                     <View style={s.padContainer}>

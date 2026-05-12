@@ -27,6 +27,8 @@ export default function AppLayout() {
     const { isLoaded, jwt, identity } = useAuthStore();
     const [isLocked, setIsLocked] = useState(false);
     const [biometricEnabled, setBiometricEnabled] = useState(false);
+    const [pinUnlockBusy, setPinUnlockBusy] = useState(false);
+    const [pinUnlockError, setPinUnlockError] = useState<string | null>(null);
     const [paranoidWarning, setParanoidWarning] = useState<'idle' | 'open' | 'risks' | 'dismissed'>('idle');
     const appState = useRef<AppStateStatus>(AppState.currentState);
     const authenticating = useRef(false);
@@ -116,22 +118,60 @@ export default function AppLayout() {
 
     const handlePinUnlock = useCallback(async (pin: string) => {
         if (!identity) return;
-        const panicHash = await authSessionService.getPanicPinHash();
-        const candidate = hashPin(pin, identity.id);
-        if (panicHash && candidate === panicHash) {
-            await panicService.wipe();
-            useAuthStore.setState({ identity: null, jwt: null });
-            setIsLocked(false);
-            return;
-        }
+        if (pinUnlockBusy) return;
+        setPinUnlockBusy(true);
+        setPinUnlockError(null);
 
-        const storedHash = await authSessionService.getPinHash();
-        if (!storedHash || candidate !== storedHash) {
+        try {
+            const panicHash = await authSessionService.getPanicPinHash();
+            const candidate = hashPin(pin, identity.id);
+            if (panicHash && candidate === panicHash) {
+                await panicService.wipe();
+                useAuthStore.setState({ identity: null, jwt: null });
+                setIsLocked(false);
+                return;
+            }
+
+            const storedHash = await authSessionService.getPinHash();
+            if (!storedHash) {
+                setPinUnlockError('No hay PIN local guardado. Cierra sesión y restaura tu identidad desde el respaldo .hnet.');
+                return;
+            }
+
+            if (candidate !== storedHash) {
+                setPinUnlockError('PIN incorrecto.');
+                return;
+            }
+
+            await dataKeyService.ensureLoaded();
+            setIsLocked(false);
+        } catch (error) {
+            console.warn('[AppLock] no se pudo desbloquear la bóveda:', error);
+            setPinUnlockError('No se pudo desbloquear la bóveda local. Inténtalo de nuevo.');
+        } finally {
+            setPinUnlockBusy(false);
+        }
+    }, [identity, pinUnlockBusy]);
+
+    useEffect(() => {
+        if (!pinUnlockError) return;
+        const timer = setTimeout(() => setPinUnlockError(null), 4000);
+        return () => clearTimeout(timer);
+    }, [pinUnlockError]);
+
+    useEffect(() => {
+        if (!isLocked) {
+            setPinUnlockBusy(false);
+            setPinUnlockError(null);
+        }
+    }, [isLocked]);
+
+    const handlePinInput = useCallback((pin: string) => {
+        if (pinUnlockBusy) {
             return;
         }
-        await dataKeyService.ensureLoaded();
-        setIsLocked(false);
-    }, [identity]);
+        handlePinUnlock(pin);
+    }, [handlePinUnlock, pinUnlockBusy]);
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
@@ -173,15 +213,22 @@ export default function AppLayout() {
         <View style={{ flex: 1 }}>
             {showTorBanner && <TorBootstrapBanner />}
             {showOffline && <OfflineBanner />}
-            <View style={{ flex: 1 }}>
-                <SafeAreaInsetsContext.Provider value={slotInsets}>
-                    <Slot />
-                </SafeAreaInsetsContext.Provider>
-            </View>
+            {!isLocked && (
+                <View style={{ flex: 1 }}>
+                    <SafeAreaInsetsContext.Provider value={slotInsets}>
+                        <Slot />
+                    </SafeAreaInsetsContext.Provider>
+                </View>
+            )}
             {isLocked && (
                 <View style={lockStyles.overlay}>
                     <View style={{ width: '100%', flex: 1 }}>
-                        <PinScreen mode="login" onComplete={handlePinUnlock} />
+                        <PinScreen
+                            mode="login"
+                            onComplete={handlePinInput}
+                            statusMessage={pinUnlockBusy ? 'Verificando PIN...' : null}
+                            errorMessage={pinUnlockError}
+                        />
                     </View>
                     {biometricEnabled && (
                         <TouchableOpacity style={lockStyles.btn} activeOpacity={0.8} onPress={unlock}>
