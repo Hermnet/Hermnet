@@ -14,6 +14,33 @@
 
 <h3 align="center"><em>Mensajería privada con servidor ciego y cifrado de extremo a extremo</em></h3>
 
+<div align="center">
+  <h2>Web Oficial del Proyecto</h2>
+  <p>
+    <strong>Presentación visual, propuesta de valor y acceso público de Hermnet</strong>
+  </p>
+  <p>
+    <a href="https://hermnet.github.io/Hermnet-Web/">
+      <img src="https://img.shields.io/badge/Visitar%20Hermnet%20Web-00E5A8?style=for-the-badge&logo=githubpages&logoColor=0B1020" alt="Visitar Hermnet Web" />
+    </a>
+  </p>
+</div>
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [Guía de arranque](./docs/guia_arranque.md) | Instalación, Firebase, comandos y problemas comunes |
+| [Descripción técnica](./docs/technical/descripcion_detallada.md) | Visión técnica completa del sistema |
+| [Cifrado híbrido E2EE](./docs/technical/cifrado_hibrido_e2ee.md) | Formato del paquete cifrado y flujo crypto |
+| [Autenticación](./docs/technical/protocolo_autenticacion.md) | Challenge-response, JWT y PIN local |
+| [Arquitectura backend](./docs/technical/arquitectura_backend_api.md) | API REST, seguridad y servidor ciego |
+| [Base de datos](./docs/technical/esquema_base_datos.md) | Tablas del backend y SQLite local |
+| [Intercambio de claves](./docs/technical/intercambio_claves_p2p.md) | QR, fingerprint y validación anti-spoofing |
+| [Casos de uso](./docs/technical/casos-uso.md) | Funcionalidades principales del sistema |
+| [Gestión empresarial con Odoo](./docs/odoo/gestion_empresarial_odoo.md) | Entorno Odoo, módulo empresarial, datos demo y uso para empresas |
+| [Plan de empresa](./docs/empresa/plan_empresa_Hermnet.md) | Modelo de negocio, clientes objetivo, marketing, sostenibilidad y previsión económica |
+
 ## Qué Es Hermnet
 
 Hermnet es una app móvil de mensajería privada desarrollada como proyecto final de DAM. Su idea principal es sencilla: el servidor transporta mensajes, pero no puede leerlos.
@@ -136,20 +163,6 @@ Estado verificado en la última limpieza:
 - Cobertura backend: `99.28%`.
 - Frontend TypeScript: correcto.
 - Frontend tests: `9` suites, `33` tests.
-
-## Documentación
-
-| Documento | Contenido |
-|---|---|
-| [Guía de arranque](./docs/guia_arranque.md) | Instalación, Firebase, comandos y problemas comunes |
-| [Descripción técnica](./docs/technical/descripcion_detallada.md) | Visión técnica completa del sistema |
-| [Cifrado híbrido E2EE](./docs/technical/cifrado_hibrido_e2ee.md) | Formato del paquete cifrado y flujo crypto |
-| [Autenticación](./docs/technical/protocolo_autenticacion.md) | Challenge-response, JWT y PIN local |
-| [Arquitectura backend](./docs/technical/arquitectura_backend_api.md) | API REST, seguridad y servidor ciego |
-| [Base de datos](./docs/technical/esquema_base_datos.md) | Tablas del backend y SQLite local |
-| [Intercambio de claves](./docs/technical/intercambio_claves_p2p.md) | QR, fingerprint y validación anti-spoofing |
-| [Casos de uso](./docs/technical/casos-uso.md) | Funcionalidades principales del sistema |
-| [Gestión empresarial con Odoo](./docs/odoo/gestion_empresarial_odoo.md) | Entorno Odoo, módulo empresarial, datos demo y uso para empresas |
 
 ## Autoría
 
