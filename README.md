@@ -21,7 +21,7 @@
   </p>
   <p>
     <a href="https://hermnet.github.io/Hermnet-Web/">
-      <img src="https://img.shields.io/badge/Visitar%20Hermnet%20Web-00E5A8?style=for-the-badge&logo=githubpages&logoColor=0B1020" alt="Visitar Hermnet Web" />
+      <img src="https://img.shields.io/badge/Visitar%20Hermnet%20Web-0B1F3A?style=for-the-badge" alt="Visitar Hermnet Web" />
     </a>
   </p>
 </div>
