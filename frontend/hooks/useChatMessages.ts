@@ -5,7 +5,6 @@ import { databaseService } from '../services/DatabaseService';
 import { contactsService } from '../services/ContactsService';
 import { prefsService } from '../services/PrefsService';
 import { useAuthStore } from '../store/authStore';
-import { useIsAppActive } from './useIsAppActive';
 import { MsgData, MsgStatus, PAGE_SIZE } from '../components/chat/types';
 
 interface UseChatMessagesOptions {
@@ -57,7 +56,6 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
     const [groupInfo, setGroupInfo] = useState<{ adminId: string | null; memberIds: string[]; onlyAdminCanPost: boolean; description: string | null } | null>(null);
 
     const { identity } = useAuthStore();
-    const isAppActive = useIsAppActive();
     const isMountedRef = useRef(true);
     const activeSendsRef = useRef(0);
     const pendingSeqRef = useRef(0);
@@ -161,10 +159,12 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
         if (stillPending.length !== pendingSends.length) setPendingSends(stillPending);
     }, [dbMessages, pendingSends]);
 
-    // Auto-refresh cada 2s
+    // Refresco por evento: en vez de sondear la BD local cada 2s (descifrando
+    // hasta PAGE_SIZE mensajes en cada tick aunque no llegue nada), reaccionamos
+    // solo cuando `syncInbox` avisa de que guardó mensajes entrantes nuevos. Con
+    // el chat abierto y sin actividad, no se descifra nada.
     useEffect(() => {
-        if (!isAppActive) return;
-        const interval = setInterval(async () => {
+        const refreshFromDb = async () => {
             try {
                 const recent = await databaseService.getMessagesByContact(chatId, { limit: PAGE_SIZE });
                 let receivedNew = false;
@@ -192,9 +192,10 @@ export function useChatMessages({ chatId, matrixEnabled, showModal }: UseChatMes
                 }
                 databaseService.markAsRead(chatId).catch(() => {});
             } catch {}
-        }, 2000);
-        return () => clearInterval(interval);
-    }, [chatId, isAppActive]);
+        };
+        const unsubscribe = messageFlowService.onInboxSynced(refreshFromDb);
+        return unsubscribe;
+    }, [chatId]);
 
     // Envío interno
     const sendInternal = useCallback((text: string, sentAt: number, tempId: string, replyToCtx: MsgData['replyTo']) => {

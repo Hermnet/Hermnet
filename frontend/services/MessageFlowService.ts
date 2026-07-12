@@ -106,6 +106,23 @@ export class MessageFlowService {
     }
   }
 
+  /**
+   * Listeners notificados cuando un `syncInbox` guarda al menos un mensaje
+   * entrante nuevo. Permite que un chat abierto se refresque por evento en vez
+   * de sondear la BD local con un reloj: sin mensajes nuevos, no se descifra
+   * nada (ahorro de CPU/batería con el chat en primer plano).
+   */
+  private inboxListeners = new Set<() => void>();
+  onInboxSynced(listener: () => void): () => void {
+    this.inboxListeners.add(listener);
+    return () => this.inboxListeners.delete(listener);
+  }
+  private emitInboxSynced(): void {
+    for (const l of this.inboxListeners) {
+      try { l(); } catch { /* aislar listeners */ }
+    }
+  }
+
   async sendMessage(input: SendMessageInput): Promise<void> {
     const op = this.sendTail.then(() => this.runSendMessage(input));
     this.sendTail = op.catch(() => {});
@@ -267,56 +284,62 @@ export class MessageFlowService {
           continue;
         }
 
-        // Verificación de firma RSA-SHA256: confirma que el mensaje proviene
-        // del titular de la SK correspondiente a la pk declarada. Para
-        // mantener compatibilidad con clientes anteriores que no firmaban,
-        // aceptamos por ahora sobres sin `sig` con un warning. Cuando todos
-        // los clientes hayan rotado, este `if (envelope.sig)` se debería
-        // convertir en `if (!envelope.sig) continue;`.
-        if (envelope.sig) {
-          const signingKey = envelope.pk
-            ?? (await databaseService.getContactPublicKey(contactHash));
-          if (!signingKey) {
-            console.warn('[syncInbox] no se puede verificar la firma sin pk conocida, descartado');
-            continue;
-          }
-          const canonicalData = canonicalize({
-            from: contactHash,
-            pk: signingKey,
-            text: plaintext,
-            ts: senderTs,
-            type: envelope.type,
-            seq: envelope.seq,
-            ttl: envelope.ttl,
-            replyTo: envelope.replyTo,
-            groupId: envelope.groupId,
-            groupName: envelope.groupName,
-            groupDescription: envelope.groupDescription,
-            groupAdminId: envelope.groupAdminId,
-            groupMembers: envelope.groupMembers,
-            groupOnlyAdminCanPost: envelope.groupOnlyAdminCanPost,
-            senderName: envelope.senderName,
-          });
-          const signatureValid = identityService.verifySignature(signingKey, canonicalData, envelope.sig);
-          if (!signatureValid) {
-            console.warn('[syncInbox] firma inválida, sobre descartado');
-            continue;
-          }
-        } else {
-          console.warn('[syncInbox] sobre legado sin firma — aceptado por compat, retirar tras rollout');
+        // Verificación de firma RSA-SHA256 OBLIGATORIA: confirma que el mensaje
+        // proviene del titular de la SK correspondiente a la pk del remitente.
+        // Un sobre sin firma se descarta sin más — como el payload se cifra con
+        // la pk pública del receptor (conocida por cualquiera), sin esta firma
+        // cualquiera podría inyectar mensajes falsos en el historial.
+        if (!envelope.sig) {
+          console.warn('[syncInbox] sobre sin firma descartado');
+          continue;
+        }
+        // TOFU pinning: si el contacto YA existe, la firma se valida SIEMPRE
+        // contra la pk fijada localmente, nunca contra la `pk` que venga en el
+        // sobre (un atacante podría sustituirla por la suya y firmar con su
+        // propia SK para hacerse pasar por el contacto). Solo los contactos
+        // nuevos usan la pk del sobre, y aún así deben pasar el check de
+        // fingerprint de más abajo antes de guardarse.
+        const pinnedKey = await databaseService.getContactPublicKey(contactHash);
+        const signingKey = pinnedKey ?? envelope.pk;
+        if (!signingKey) {
+          console.warn('[syncInbox] no se puede verificar la firma sin pk conocida, descartado');
+          continue;
+        }
+        const canonicalData = canonicalize({
+          from: contactHash,
+          pk: signingKey,
+          text: plaintext,
+          ts: senderTs,
+          type: envelope.type,
+          seq: envelope.seq,
+          ttl: envelope.ttl,
+          replyTo: envelope.replyTo,
+          groupId: envelope.groupId,
+          groupName: envelope.groupName,
+          groupDescription: envelope.groupDescription,
+          groupAdminId: envelope.groupAdminId,
+          groupMembers: envelope.groupMembers,
+          groupOnlyAdminCanPost: envelope.groupOnlyAdminCanPost,
+          senderName: envelope.senderName,
+        });
+        const signatureValid = identityService.verifySignature(signingKey, canonicalData, envelope.sig);
+        if (!signatureValid) {
+          console.warn('[syncInbox] firma inválida, sobre descartado');
+          continue;
         }
 
-        // Anti-replay: si el sobre lleva seq, exigimos que sea nuevo para este
-        // remitente. Si ya lo hemos visto, alguien está reinyectando un paquete
-        // antiguo para reordenar/duplicar el historial — descartamos.
-        if (typeof envelope.seq === 'number') {
-          const seqIsNew = await databaseService.markIncomingSeqIfNew(contactHash, envelope.seq);
-          if (!seqIsNew) {
-            console.warn('[syncInbox] replay detectado (seq ya visto), descartado');
-            continue;
-          }
-        } else {
-          console.warn('[syncInbox] sobre legado sin seq — aceptado por compat, retirar tras rollout');
+        // Anti-replay OBLIGATORIO: cada sobre debe traer un seq monotónico nuevo
+        // para este remitente. Sin seq, o con un seq ya visto, se descarta —
+        // alguien estaría reinyectando un paquete antiguo para reordenar o
+        // duplicar el historial.
+        if (typeof envelope.seq !== 'number') {
+          console.warn('[syncInbox] sobre sin seq descartado');
+          continue;
+        }
+        const seqIsNew = await databaseService.markIncomingSeqIfNew(contactHash, envelope.seq);
+        if (!seqIsNew) {
+          console.warn('[syncInbox] replay detectado (seq ya visto), descartado');
+          continue;
         }
 
         // Bloqueo: si el contacto está marcado como bloqueado, descartamos el
@@ -326,19 +349,17 @@ export class MessageFlowService {
           continue;
         }
 
-        if (envelope.pk) {
-          const existing = await databaseService.getContactPublicKey(contactHash);
-          if (!existing) {
-            // Anti-spoofing: igual que en saveContactFromQR, verificamos que la pk
-            // declarada genere realmente el HNET-id del remitente. Si no cuadra,
-            // alguien intenta hacerse pasar por otro identificador.
-            if (fingerprintFromPublicKey(envelope.pk) !== contactHash) {
-              console.warn('[syncInbox] handshake/mensaje con pk no coincidente con el id, descartado');
-              continue;
-            }
-            await contactsService.saveContact(contactHash, envelope.pk);
-            newContacts.add(contactHash);
+        if (envelope.pk && !pinnedKey) {
+          // Contacto nuevo (no había pk fijada). Anti-spoofing: igual que en
+          // saveContactFromQR, verificamos que la pk declarada genere realmente
+          // el HNET-id del remitente. Si no cuadra, alguien intenta hacerse pasar
+          // por otro identificador.
+          if (fingerprintFromPublicKey(envelope.pk) !== contactHash) {
+            console.warn('[syncInbox] handshake/mensaje con pk no coincidente con el id, descartado');
+            continue;
           }
+          await contactsService.saveContact(contactHash, envelope.pk);
+          newContacts.add(contactHash);
         }
 
         // Los handshakes sólo sirven para intercambiar identidad; no se guardan en el historial
@@ -391,6 +412,12 @@ export class MessageFlowService {
       }
     } catch (err) {
       console.warn('[syncInbox] ack falló:', err);
+    }
+
+    // Si se guardó algún mensaje real (no solo handshakes/control), avisar a los
+    // chats abiertos para que refresquen su vista sin necesidad de sondear.
+    if (receivedFrom.size > 0) {
+      this.emitInboxSynced();
     }
 
     return { senders: Array.from(receivedFrom), newContacts: Array.from(newContacts) };

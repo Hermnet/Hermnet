@@ -1,7 +1,5 @@
 package com.hermnet.api.config;
 
-import com.hermnet.api.model.RateLimitBucket;
-import com.hermnet.api.repository.RateLimitBucketRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,40 +7,64 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Security filter that actively defends against brute-force and abuse by
- * enforcing a per-client request rate limit.
+ * Security filter that defends against brute-force and abuse by enforcing a
+ * per-client, fixed-window request rate limit.
+ *
+ * <p>Counters live entirely in memory. This removes the per-request database
+ * round-trip that a persistent counter would require (the hot path is every
+ * single API call) and, crucially, makes the increment atomic: the previous
+ * database-backed implementation did a read-modify-write that could lose
+ * updates under concurrency and let a client exceed the limit. Here the window
+ * is created atomically via {@link ConcurrentHashMap#compute} and the counter
+ * is an {@link AtomicInteger}, so concurrent requests from the same client are
+ * counted exactly.</p>
+ *
+ * <p>Rate-limit state is inherently ephemeral, so keeping it out of PostgreSQL
+ * is also the correct data model. A scheduled sweep evicts stale windows to
+ * keep memory bounded.</p>
  */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final RateLimitBucketRepository rateLimitBucketRepository;
     private final int maxRequestsPerWindow;
-    private final Duration windowDuration;
+    private final long windowMillis;
+    private final ConcurrentHashMap<String, Window> buckets = new ConcurrentHashMap<>();
 
     /**
-     * Builds the filter with repository-backed counters and safe defaults when
-     * configuration values are invalid.
+     * A single fixed window for one client: a monotonic hit counter plus the
+     * wall-clock instant at which the window expires and must be recreated.
+     */
+    private static final class Window {
+        final AtomicInteger count = new AtomicInteger(0);
+        final long resetAtMillis;
+
+        Window(long resetAtMillis) {
+            this.resetAtMillis = resetAtMillis;
+        }
+    }
+
+    /**
+     * Builds the filter with in-memory counters and safe defaults when the
+     * configured values are invalid.
      *
-     * @param rateLimitBucketRepository persistence for per-client buckets
-     * @param maxRequestsPerWindow      maximum requests allowed in one window
-     * @param windowSeconds             rate-limit window length in seconds
+     * @param maxRequestsPerWindow maximum requests allowed in one window
+     * @param windowSeconds        rate-limit window length in seconds
      */
     public RateLimitFilter(
-            RateLimitBucketRepository rateLimitBucketRepository,
             @Value("${app.security.rate-limit.max-requests-per-window:60}") int maxRequestsPerWindow,
             @Value("${app.security.rate-limit.window-seconds:60}") long windowSeconds) {
-        this.rateLimitBucketRepository = rateLimitBucketRepository;
         this.maxRequestsPerWindow = maxRequestsPerWindow > 0 ? maxRequestsPerWindow : 60;
         long safeWindowSeconds = windowSeconds > 0 ? windowSeconds : 60;
-        this.windowDuration = Duration.ofSeconds(safeWindowSeconds);
+        this.windowMillis = safeWindowSeconds * 1000L;
     }
 
     /**
@@ -52,24 +74,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String clientId = resolveClientId(request);
-        LocalDateTime now = LocalDateTime.now();
+        long now = System.currentTimeMillis();
 
-        RateLimitBucket bucket = rateLimitBucketRepository.findById(clientId)
-                .orElseGet(() -> RateLimitBucket.builder()
-                        .ipHash(clientId)
-                        .requestCount(0)
-                        .resetTime(now.plus(windowDuration))
-                        .build());
+        // Atomically fetch the live window or start a fresh one if it is missing
+        // or expired. compute() runs its remapping under the map's per-key lock,
+        // so exactly one thread creates the replacement window; the rest observe
+        // the new one. No lost updates, no read-modify-write race.
+        Window window = buckets.compute(clientId, (key, existing) ->
+                (existing == null || now >= existing.resetAtMillis)
+                        ? new Window(now + windowMillis)
+                        : existing);
 
-        if (bucket.getResetTime() == null || !now.isBefore(bucket.getResetTime())) {
-            bucket.setRequestCount(0);
-            bucket.setResetTime(now.plus(windowDuration));
-        }
+        int count = window.count.incrementAndGet();
 
-        bucket.setRequestCount(bucket.getRequestCount() + 1);
-        rateLimitBucketRepository.save(bucket);
-
-        if (bucket.getRequestCount() > maxRequestsPerWindow) {
+        if (count > maxRequestsPerWindow) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("{\"message\":\"Too Many Requests\"}");
@@ -77,6 +95,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Periodically drops windows whose reset instant has already passed so the
+     * map does not grow without bound as clients come and go. Only expired
+     * windows are removed; a window is expired precisely when it would be
+     * recreated on the next request, so eviction never discards live counters.
+     */
+    @Scheduled(fixedDelayString = "${app.security.rate-limit.eviction-ms:300000}")
+    void evictStaleWindows() {
+        long now = System.currentTimeMillis();
+        buckets.values().removeIf(window -> now >= window.resetAtMillis);
     }
 
     private String resolveClientId(HttpServletRequest request) {

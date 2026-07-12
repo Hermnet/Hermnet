@@ -9,7 +9,6 @@ import com.hermnet.api.security.JwtTokenProvider;
 import com.hermnet.api.repository.MessageRepository;
 import com.hermnet.api.model.Message;
 import com.hermnet.api.config.IpAnonymizationFilter;
-import com.hermnet.api.repository.RateLimitBucketRepository;
 import com.hermnet.api.repository.UserRepository;
 import com.hermnet.api.service.NotificationService;
 import com.hermnet.api.service.TokenBlacklistService;
@@ -50,9 +49,6 @@ public class MessageControllerSecurityTest {
 
     @MockBean
     private TokenBlacklistService tokenBlacklistService;
-
-    @MockBean
-    private RateLimitBucketRepository rateLimitBucketRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
