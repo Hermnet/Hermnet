@@ -1,32 +1,21 @@
 package com.hermnet.api.config;
 
-import com.hermnet.api.model.RateLimitBucket;
-import com.hermnet.api.repository.RateLimitBucketRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RateLimitFilterTest {
-
-    @Mock
-    private RateLimitBucketRepository rateLimitBucketRepository;
 
     @Mock
     private FilterChain filterChain;
@@ -35,97 +24,91 @@ class RateLimitFilterTest {
 
     @BeforeEach
     void setUp() {
-        rateLimitFilter = new RateLimitFilter(rateLimitBucketRepository, 60, 60);
+        // 5 requests per 60s window keeps the tests fast and explicit.
+        rateLimitFilter = new RateLimitFilter(5, 60);
     }
 
-    @Test
-    void shouldAllowRequestWhenLimitNotExceeded() throws Exception {
-        String clientId = "client-hash";
-        RateLimitBucket existingBucket = RateLimitBucket.builder()
-                .ipHash(clientId)
-                .requestCount(5)
-                .resetTime(LocalDateTime.now().plusSeconds(30))
-                .build();
-
-        when(rateLimitBucketRepository.findById(clientId)).thenReturn(Optional.of(existingBucket));
-        when(rateLimitBucketRepository.save(any(RateLimitBucket.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
+    private MockHttpServletRequest requestFor(String clientId) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("CLIENT_ID", clientId);
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        return request;
+    }
 
-        rateLimitFilter.doFilter(request, response, filterChain);
-
-        verify(filterChain).doFilter(request, response);
-        verify(rateLimitBucketRepository).save(existingBucket);
+    private void hit(String clientId, MockHttpServletResponse response) throws Exception {
+        rateLimitFilter.doFilter(requestFor(clientId), response, filterChain);
     }
 
     @Test
-    void shouldBlockRequestWhenLimitExceeded() throws Exception {
-        String clientId = "client-hash";
-        RateLimitBucket existingBucket = RateLimitBucket.builder()
-                .ipHash(clientId)
-                .requestCount(60)
-                .resetTime(LocalDateTime.now().plusSeconds(30))
-                .build();
-
-        when(rateLimitBucketRepository.findById(clientId)).thenReturn(Optional.of(existingBucket));
-        when(rateLimitBucketRepository.save(any(RateLimitBucket.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setAttribute("CLIENT_ID", clientId);
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        rateLimitFilter.doFilter(request, response, filterChain);
-
-        verify(filterChain, never()).doFilter(request, response);
-        verify(rateLimitBucketRepository).save(existingBucket);
-        assertTrue(response.getStatus() == 429);
+    void shouldAllowRequestsUpToTheLimit() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            hit("client-a", new MockHttpServletResponse());
+        }
+        verify(filterChain, times(5)).doFilter(any(), any());
     }
 
     @Test
-    void shouldResetExpiredBucketWindow() throws Exception {
-        String clientId = "client-hash";
-        RateLimitBucket expiredBucket = RateLimitBucket.builder()
-                .ipHash(clientId)
-                .requestCount(120)
-                .resetTime(LocalDateTime.now().minusSeconds(5))
-                .build();
+    void shouldBlockRequestOnceLimitExceeded() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            hit("client-b", new MockHttpServletResponse());
+        }
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
 
-        when(rateLimitBucketRepository.findById(clientId)).thenReturn(Optional.of(expiredBucket));
-        when(rateLimitBucketRepository.save(any(RateLimitBucket.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        hit("client-b", blocked);
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setAttribute("CLIENT_ID", clientId);
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        rateLimitFilter.doFilter(request, response, filterChain);
-
-        ArgumentCaptor<RateLimitBucket> captor = ArgumentCaptor.forClass(RateLimitBucket.class);
-        verify(rateLimitBucketRepository).save(captor.capture());
-        RateLimitBucket savedBucket = captor.getValue();
-
-        verify(filterChain).doFilter(request, response);
-        assertTrue(savedBucket.getRequestCount() == 1);
-        assertTrue(savedBucket.getResetTime().isAfter(LocalDateTime.now().plusSeconds(55)));
+        assertEquals(429, blocked.getStatus());
+        // The 6th request must not reach the chain.
+        verify(filterChain, times(5)).doFilter(any(), any());
     }
 
     @Test
-    void shouldUseSafeDefaults_WhenConfiguredWithInvalidValues() throws Exception {
-        rateLimitFilter = new RateLimitFilter(rateLimitBucketRepository, 0, 0);
+    void shouldCountClientsIndependently() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            hit("client-c", new MockHttpServletResponse());
+        }
+        MockHttpServletResponse otherClient = new MockHttpServletResponse();
 
+        hit("client-d", otherClient);
+
+        // A different client has its own fresh window and is allowed through.
+        assertEquals(200, otherClient.getStatus());
+        verify(filterChain, times(6)).doFilter(any(), any());
+    }
+
+    @Test
+    void evictionRemovesExpiredWindowsButKeepsLiveOnes() throws Exception {
+        // Exhaust client-e so its window is at the limit and still live.
+        for (int i = 0; i < 5; i++) {
+            hit("client-e", new MockHttpServletResponse());
+        }
+
+        // A live window (reset in the future) must survive eviction, so the
+        // client stays blocked immediately afterwards.
+        rateLimitFilter.evictStaleWindows();
+
+        MockHttpServletResponse afterEviction = new MockHttpServletResponse();
+        hit("client-e", afterEviction);
+        assertEquals(429, afterEviction.getStatus());
+    }
+
+    @Test
+    void shouldFallBackToHashedIpWhenNoClientIdAttribute() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("10.0.0.2");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        when(rateLimitBucketRepository.findById(any())).thenReturn(Optional.empty());
-        when(rateLimitBucketRepository.save(any(RateLimitBucket.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
         rateLimitFilter.doFilter(request, response, filterChain);
 
-        ArgumentCaptor<RateLimitBucket> captor = ArgumentCaptor.forClass(RateLimitBucket.class);
-        verify(rateLimitBucketRepository).save(captor.capture());
-        assertEquals(1, captor.getValue().getRequestCount());
-        verify(filterChain).doFilter(request, response);
+        assertEquals(200, response.getStatus());
+        verify(filterChain, times(1)).doFilter(any(), any());
+    }
+
+    @Test
+    void shouldUseSafeDefaultsWhenConfiguredWithInvalidValues() throws Exception {
+        // maxRequests=0 must fall back to 60, so a handful of requests all pass.
+        rateLimitFilter = new RateLimitFilter(0, 0);
+        for (int i = 0; i < 10; i++) {
+            hit("client-f", new MockHttpServletResponse());
+        }
+        verify(filterChain, times(10)).doFilter(any(), any());
     }
 }

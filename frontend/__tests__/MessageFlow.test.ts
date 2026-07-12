@@ -98,10 +98,19 @@ describe('MessageFlowService', () => {
     ).rejects.toThrow('Recipient public key not found');
   });
 
-  it('extracts sender id from envelope and saves message under correct contactHash', async () => {
+  it('extracts sender id from a signed envelope and saves message under correct contactHash', async () => {
     const packet = new Uint8Array(256);
-    const envelope = JSON.stringify({ from: 'HNET-SENDER123', text: 'hola', ts: 5000 });
+    const envelope = JSON.stringify({
+      from: 'HNET-SENDER123',
+      pk: 'sender-public-key-pem',
+      text: 'hola',
+      ts: 5000,
+      seq: 3,
+      sig: 'mock-signature-base64',
+    });
 
+    // Contacto ya conocido: la firma se valida contra la pk fijada localmente.
+    (databaseService.getContactPublicKey as jest.Mock).mockResolvedValue('sender-public-key-pem');
     (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: packet, createdAt: '2026-05-10T10:00:00' }], ackCutoff: '2026-05-10T10:00:00' });
     (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
     const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
@@ -109,11 +118,68 @@ describe('MessageFlowService', () => {
     const result = await senderService.syncInbox('HNET-ME', 'private-key');
 
     expect(databaseService.saveDecryptedMessage).toHaveBeenCalledWith(
-      'HNET-SENDER123', 'hola', false, 5000, undefined, null, undefined, 'HNET-SENDER123', null
+      'HNET-SENDER123', 'hola', false, 5000, undefined, null, 3, 'HNET-SENDER123', null
     );
     expect(messageApiService.ackMessages).toHaveBeenCalledWith('2026-05-10T10:00:00');
     expect(result.senders).toContain('HNET-SENDER123');
     expect(result.newContacts).toEqual([]);
+
+    decryptSpy.mockRestore();
+  });
+
+  it('discards envelopes without a signature', async () => {
+    const packet = new Uint8Array(256);
+    // Sobre sin `sig`: cualquiera que conozca la pk pública del receptor podría
+    // fabricarlo, así que debe descartarse.
+    const envelope = JSON.stringify({ from: 'HNET-SENDER123', pk: 'sender-public-key-pem', text: 'falso', ts: 5000, seq: 1 });
+
+    (databaseService.getContactPublicKey as jest.Mock).mockResolvedValue('sender-public-key-pem');
+    (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: packet }] });
+    (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
+    const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
+
+    const result = await senderService.syncInbox('HNET-ME', 'private-key');
+
+    expect(databaseService.saveDecryptedMessage).not.toHaveBeenCalled();
+    expect(result.senders).toEqual([]);
+
+    decryptSpy.mockRestore();
+  });
+
+  it('discards signed envelopes that carry no seq (anti-replay is mandatory)', async () => {
+    const packet = new Uint8Array(256);
+    const envelope = JSON.stringify({ from: 'HNET-SENDER123', pk: 'sender-public-key-pem', text: 'hola', ts: 5000, sig: 'mock-signature-base64' });
+
+    (databaseService.getContactPublicKey as jest.Mock).mockResolvedValue('sender-public-key-pem');
+    (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: packet }] });
+    (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
+    const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
+
+    const result = await senderService.syncInbox('HNET-ME', 'private-key');
+
+    expect(databaseService.saveDecryptedMessage).not.toHaveBeenCalled();
+    expect(result.senders).toEqual([]);
+
+    decryptSpy.mockRestore();
+  });
+
+  it('validates an existing contact signature against the pinned key, not the envelope pk', async () => {
+    const packet = new Uint8Array(256);
+    // Un atacante mete su propia pk en el sobre y firma con su propia SK,
+    // suplantando a un contacto ya conocido. La firma debe validarse contra la
+    // pk FIJADA localmente ('pinned-key'), no contra 'attacker-pk'.
+    const envelope = JSON.stringify({ from: 'HNET-SENDER123', pk: 'attacker-pk', text: 'suplantado', ts: 5000, seq: 9, sig: 'mock-signature-base64' });
+
+    (databaseService.getContactPublicKey as jest.Mock).mockResolvedValue('pinned-key');
+    (messageApiService.getMessages as jest.Mock).mockResolvedValue({ packets: [{ payload: packet }] });
+    (messageApiService.ackMessages as jest.Mock).mockResolvedValue(undefined);
+    const verifySpy = require('../services/IdentityService').identityService.verifySignature as jest.Mock;
+    const decryptSpy = jest.spyOn(messageCryptoService, 'decryptWithPrivateKey').mockReturnValue(envelope);
+
+    await senderService.syncInbox('HNET-ME', 'private-key');
+
+    // La verificación de firma se hace con la pk fijada, nunca con la del sobre.
+    expect(verifySpy).toHaveBeenCalledWith('pinned-key', expect.any(String), 'mock-signature-base64');
 
     decryptSpy.mockRestore();
   });
